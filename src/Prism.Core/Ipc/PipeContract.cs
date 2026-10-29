@@ -97,12 +97,17 @@ public sealed record SystemState(
     double? BoardTemp,
     IReadOnlyList<DiskState> Disks,
     double? NetDownMbps, double? NetUpMbps, double? GpuMemoryJunction = null,
-    double? UptimeSeconds = null, IReadOnlyList<ProcessLoad>? TopProcesses = null, bool? ThermalThrottling = null);
+    double? UptimeSeconds = null, IReadOnlyList<ProcessLoad>? TopProcesses = null, bool? ThermalThrottling = null,
+    string? CpuName = null, string? GpuName = null, string? BoardName = null,
+    int? ThrottlingEvents = null, DateTimeOffset? ThrottlingObservedSince = null);
 
 public sealed record ProcessLoad(int Id, string Name, double CpuPercent);
 
 public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent, double? ActivityPercent = null);
-public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve);
+public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve,
+    FanControlState? Configuration = null);
+public sealed record FanControlState(IReadOnlyList<FanPoint> Points, TemperatureSource Source, double Minimum,
+    double Hysteresis, double SpinUpPerSecond, double SpinDownPerSecond);
 public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices,
     EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null, IReadOnlyList<ZoneIdentification>? IdentifyingZones = null);
 public sealed record ZoneIdentification(string Device, int Zone, int Size, int LedIndex);

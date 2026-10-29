@@ -33,6 +33,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private readonly Queue<TelemetrySample> sampleHistory = new();
     private readonly ProcessTelemetry processTelemetry = new();
     private IReadOnlyList<ProcessLoad>? processLoads;
+    private bool? lastThermalThrottle;
+    private int thermalEpisodes;
+    private DateTimeOffset? thermalObservedSince;
     private ServiceSettings settings = new();
     private IRgbBackend rgb;
     private ILampClient? lamp;
@@ -161,7 +164,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             var health = new ServiceHealth(mock, elevated, warnings.Values.Order().ToArray(), failsafe);
             var lamps = value.ConfiguredLamps.Select(c => (lampStates.TryGetValue(c.Id, out var liveLamp) ? liveLamp with { On = c.On, Brightness = c.Brightness, Follow = c.Follow, Color = c.Color, Name = c.Name } : null) ?? new LampState("yeelink.light.color5", false, c.On, c.Brightness, c.Color, c.Follow, "not configured", c.Id, c.Name, c.DeviceId, c.LastHost ?? c.Host)).ToArray();
             var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lamps.FirstOrDefault(), routerState, health) with { Lamps = lamps, History = sampleHistory.ToArray() };
-            state = state with { System = state.System with { TopProcesses = processLoads, UptimeSeconds = mock ? null : Environment.TickCount64 / 1000d } };
+            state = state with { System = state.System with { TopProcesses = processLoads, UptimeSeconds = mock ? null : Environment.TickCount64 / 1000d,
+                ThrottlingEvents = thermalObservedSince is null ? null : thermalEpisodes, ThrottlingObservedSince = thermalObservedSince } };
             var frame = FrameInputs();
             static string Hex(RgbColor? color) { var c = color ?? RgbColor.Black; return $"#{c.R:X2}{c.G:X2}{c.B:X2}"; }
             return DeviceNames.Apply(state with { Appliances = appliances.States, Lighting = state.Lighting with { IdentifyingZones = identification.Where(p => clock.Elapsed < p.Value.Until).Select(p => new ZoneIdentification(p.Key, p.Value.Zone, p.Value.Size, p.Value.Size == 0 ? 0 : (int)(clock.Elapsed.TotalSeconds * 6) % p.Value.Size + 1)).ToArray(), BindingReadings = sensorLighting.Readings(value.Bindings), Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
@@ -235,6 +239,12 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 failsafe = nextFailsafe;
                 inputs.Temperature = next.Temperature(SensorCategory.Cpu) ?? double.NaN;
                 var system = StateAssembler.Assemble(next, value, controls.Headers, [], null, null, new(mock, false, [], failsafe)).System;
+                if (next.Success && system.ThermalThrottling is { } throttled)
+                {
+                    thermalObservedSince ??= next.Timestamp;
+                    if (throttled && lastThermalThrottle != true) thermalEpisodes++;
+                    lastThermalThrottle = throttled;
+                }
                 if (next.Success && (sampleHistory.Count == 0 || sampleHistory.Last().Timestamp < next.Timestamp))
                 {
                     sampleHistory.Enqueue(new(next.Timestamp, system.CpuLoad, system.CpuTemp, system.GpuLoad,

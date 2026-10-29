@@ -79,3 +79,5 @@ PNG files and `bindings.log` live in those ignored `obj` directories. The pre-ex
 - Scenes: rendered and compared at 1440 x 1000; restored six card slots, radial treatments, tags, five empty automation rows and the three-part editor. No unsupported scene or automation sends a command.
 
 - Internet: rendered and compared at 1440 x 1180. Radio generations are switched with the reference tabs; RSSI stays empty. Ping uses service history and real average/jitter calculations; speed-test download/upload are read from the existing response rather than fabricated.
+
+- Shared telemetry follow-up: service projects actual hardware identities, the engine's per-header curve/source/minimum/smoothing configuration and explicitly observed thermal-throttling episodes. Episode counts are scoped to service observation, never presented as a reconstructed boot history. Added IPC round-trip and sensor-presence tests; all 477 tests pass.
