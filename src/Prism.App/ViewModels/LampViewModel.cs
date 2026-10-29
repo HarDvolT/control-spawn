@@ -59,9 +59,7 @@ public sealed class LampViewModel : PageViewModel
         }
     }
 
-    private string _miHomeToken = string.Empty;
-    public string MiHomeToken { get => _miHomeToken; set => Set(ref _miHomeToken, value); }
-    public string TokenNote => "Token stays in memory. This service protocol supports Yeelight LAN control; token provisioning is not available.";
+    public string TokenNote => "Saved tokens are encrypted by the service under its Windows identity.";
 
     public string BrightnessText => Format.Percent(Brightness);
     public string ColorHex { get => _colorHex; private set => Set(ref _colorHex, value); }

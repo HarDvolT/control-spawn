@@ -34,5 +34,5 @@ public readonly record struct RgbColor(byte R, byte G, byte B)
         return new((byte)Math.Round(a.R + (b.R - a.R) * t), (byte)Math.Round(a.G + (b.G - a.G) * t), (byte)Math.Round(a.B + (b.B - a.B) * t));
     }
 }
-public enum LightingEffect { Static, Breathing, Strobing, ColorCycle, RainbowWave, StarryNight, Smart, Music, Adaptive, Off }
+public enum LightingEffect { Static, Breathing, Strobing, ColorCycle, RainbowWave, StarryNight, Smart, Music, Adaptive, Off, Custom }
 public sealed record Scene(string Name, LightingEffect Effect, RgbColor Color, double Speed = 1, double Brightness = 1);

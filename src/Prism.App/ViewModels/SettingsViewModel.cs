@@ -27,11 +27,16 @@ public sealed class SettingsViewModel : PageViewModel
         _changed = changed;
         Motion.ReduceAnimations = settings.ReduceAnimations;
         OpenDataFolderCommand = new RelayCommand(OpenDataFolder);
+        SaveServiceOptionsCommand = new AsyncRelayCommand(() => RunAsync(() => Client.SendAsync(Commands.SetServiceOptions,
+            new { openRgbPath = OpenRgbPath, launchOpenRgb = LaunchOpenRgb, routerEnabled = RouterEnabled, routerHost = RouterHost })));
         ResetCommand = new RelayCommand(Reset);
         Refresh();
     }
 
     public RelayCommand OpenDataFolderCommand { get; }
+    public AsyncRelayCommand SaveServiceOptionsCommand { get; }
+    public bool LaunchOpenRgb { get => _settings.LaunchOpenRgb; set { _settings.LaunchOpenRgb = value; Save(nameof(LaunchOpenRgb)); } }
+    public string RouterHost { get => _settings.RouterHost; set { _settings.RouterHost = value; Save(nameof(RouterHost)); } }
     public RelayCommand ResetCommand { get; }
 
     public AppSettings Settings => _settings;
@@ -148,7 +153,7 @@ public sealed class SettingsViewModel : PageViewModel
         get => _settings.RouterEnabled;
         set { _settings.RouterEnabled = value; Save(nameof(RouterEnabled)); }
     }
-    public string IntegrationNote => "These preferences are saved locally. Service configuration is not exposed by this pipe protocol.";
+    public string IntegrationNote => "Save service options to apply these integration settings.";
 
     public string LastSavedText { get => _lastSavedText; private set => Set(ref _lastSavedText, value); }
     public string AppVersion => typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
@@ -212,6 +217,8 @@ public sealed class SettingsViewModel : PageViewModel
         Motion.ReduceAnimations = defaults.ReduceAnimations;
         _settings.OpenRgbPath = defaults.OpenRgbPath;
         _settings.RouterEnabled = defaults.RouterEnabled;
+        _settings.LaunchOpenRgb = defaults.LaunchOpenRgb;
+        _settings.RouterHost = defaults.RouterHost;
         Save("reset");
     }
 

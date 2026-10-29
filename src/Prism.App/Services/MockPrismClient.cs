@@ -17,6 +17,8 @@ public sealed class MockPrismClient : PrismClientBase
     private Timer? _timer;
     private StateMessage? _last;
     private int _tick;
+    private int _stripSize;
+    private readonly Dictionary<string, string[]> _custom = new(), _overlay = new();
     private bool _disposed;
 
     private double _cpu = 22;
@@ -142,13 +144,19 @@ public sealed class MockPrismClient : PrismClientBase
             new(5, "Fan #5", 0, 0, true, false, "None")
         };
 
+        RgbDeviceState Device(string id, string name, string kind, int count, params RgbZoneState[] zones) =>
+            new(id, name, kind, true, !_unsyncedDevices.Contains(id), count, zones,
+                _custom.GetValueOrDefault(id), _overlay.GetValueOrDefault(id));
+        static RgbZoneState Zone(string name, int first, int count, int max = 0) =>
+            new(name, "Linear", first, count, max == 0 ? count : 0, max == 0 ? count : max,
+                Enumerable.Range(1, count).Select(i => $"LED {i}").ToArray());
         var devices = new List<RgbDeviceState>
         {
-            new("board", "Motherboard", "Motherboard", true, !_unsyncedDevices.Contains("board"), 64),
-            new("strip", "LED strip", "Strip", true, !_unsyncedDevices.Contains("strip"), 30),
-            new("ram", "RAM", "Memory", true, !_unsyncedDevices.Contains("ram"), 20),
-            new("gpu", "Graphics card", "GPU", true, !_unsyncedDevices.Contains("gpu"), 24),
-            new("lamp", "Lamp", "Yeelight", _lampOn, !_unsyncedDevices.Contains("lamp"), 1)
+            Device("ram", "RAM 1", "RAM", 10, Zone("Vengeance RGB DDR5", 0, 10)),
+            Device("ram2", "RAM 2", "RAM", 10, Zone("Vengeance RGB DDR5", 0, 10)),
+            Device("gpu", "RX 9070 XT Taichi", "GPU", 4, Zone("GPU", 0, 4)),
+            Device("board", "ROG STRIX B850-F", "Motherboard", 2 + _stripSize,
+                Zone("Board", 0, 2), Zone("LED strip / ARGB header", 2, _stripSize, 120))
         };
 
         var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices);
@@ -219,6 +227,45 @@ public sealed class MockPrismClient : PrismClientBase
                     response = new Response(0, true, null,
                         JsonSerializer.SerializeToElement(_last ?? BuildState(), PipeContract.Json));
                     break;
+                case Commands.SetLedColors:
+                {
+                    if (!TryString(element, "device", out var id) || !TryString(element, "layer", out var layer) || layer is not ("custom" or "overlay") ||
+                        element is not { } a || !a.TryGetProperty("colors", out var colors) || colors.ValueKind != JsonValueKind.Array)
+                    { response = new(0, false, "Invalid LED arguments"); break; }
+                    var d = (_last ?? BuildState()).Lighting.Devices.FirstOrDefault(d => d.Id == id);
+                    var values = colors.EnumerateArray().Select(c => c.ValueKind == JsonValueKind.String ? c.GetString() ?? "" : "").ToArray();
+                    if (d is null || values.Length != d.LedCount || values.Any(c => c.Length != (layer == "custom" ? 7 : 9) || c[0] != '#' || !c.Skip(1).All(Uri.IsHexDigit)))
+                    { response = new(0, false, "Provide one valid colour per LED"); break; }
+                    (layer == "custom" ? _custom : _overlay)[id] = values;
+                    publish = BuildState(); response = new(0, true); break;
+                }
+                case Commands.ClearLedColors:
+                {
+                    if (!TryString(element, "device", out var id) || !(_last ?? BuildState()).Lighting.Devices.Any(d => d.Id == id))
+                    { response = new(0, false, "Unknown device"); break; }
+                    _custom.Remove(id); _overlay.Remove(id); publish = BuildState(); response = new(0, true); break;
+                }
+                case Commands.ResizeZone:
+                {
+                    if (!TryString(element, "device", out var id) || id != "board" || !TryNumber(element, "zone", out var zone) || zone != 1 ||
+                        !TryNumber(element, "size", out var size) || !double.IsFinite(size) || size != Math.Truncate(size) || size < 0 || size > 120)
+                    { response = new(0, false, "Invalid zone size"); break; }
+                    _stripSize = (int)size;
+                    if (_custom.TryGetValue(id, out var c)) _custom[id] = ViewModels.LedEditorViewModel.Resize(c, 2 + _stripSize, "custom");
+                    if (_overlay.TryGetValue(id, out var o)) _overlay[id] = ViewModels.LedEditorViewModel.Resize(o, 2 + _stripSize, "overlay");
+                    publish = BuildState(); response = new(0, true); break;
+                }
+                case Commands.SetLampToken:
+                    response = TryString(element, "host", out var host) && Uri.CheckHostName(host) != UriHostNameType.Unknown &&
+                        TryString(element, "token", out var token) && token.Length == 32 && token.All(Uri.IsHexDigit)
+                        ? new(0, true) : new(0, false, "Invalid lamp credential"); break;
+                case Commands.SetRouterPassword:
+                    response = TryString(element, "password", out var password) && !string.IsNullOrWhiteSpace(password) && password.Length <= 1024
+                        ? new(0, true) : new(0, false, "Invalid router credential"); break;
+                case Commands.SetServiceOptions:
+                    response = TryString(element, "openRgbPath", out _) && TryBool(element, "launchOpenRgb", out _) &&
+                        TryBool(element, "routerEnabled", out _) && TryString(element, "routerHost", out var routerHost) && Uri.CheckHostName(routerHost) != UriHostNameType.Unknown
+                        ? new(0, true) : new(0, false, "Invalid service options"); break;
                 case Commands.SetFanMode:
                     if (TryString(element, "mode", out var modeText) && Enum.TryParse<FanMode>(modeText, true, out var mode))
                     {

@@ -232,6 +232,7 @@
   </DataTemplate>
   <DataTemplate DataType="{x:Type vm:LightingViewModel}">
     <StackPanel>
+      <c:GlassCard Margin="0,0,0,18"><v:LedEditor DataContext="{Binding Editor}"/></c:GlassCard>
       <c:GlassCard Margin="0,0,0,18" StaggerIndex="0">
         <StackPanel>
           <TextBlock Text="{Binding EffectName}" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
@@ -426,6 +427,13 @@
   </DataTemplate>
   <DataTemplate DataType="{x:Type vm:ScenesViewModel}">
     <StackPanel>
+      <c:GlassCard Margin="0,0,0,18"><StackPanel>
+        <TextBlock Text="Scene LED layout" Style="{StaticResource H2}"/>
+        <ComboBox ItemsSource="{Binding PresetScenes}" SelectedItem="{Binding PresetScene}" Margin="0,8"/>
+        <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/>
+        <Button Content="Save layout reference" Command="{Binding SavePresetReferenceCommand}" HorizontalAlignment="Left"/>
+        <TextBlock Text="Saved for future scene automation. Enter a layout name from Edit LEDs." Style="{StaticResource Muted}" Margin="0,8"/>
+      </StackPanel></c:GlassCard>
       <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
       <ItemsControl ItemsSource="{Binding Scenes}">
         <ItemsControl.ItemsPanel>
@@ -462,6 +470,7 @@
   </DataTemplate>
   <DataTemplate DataType="{x:Type vm:ModemViewModel}">
     <StackPanel>
+      <c:GlassCard Margin="0,0,0,18"><StackPanel><TextBlock Text="Router password" Style="{StaticResource H2}"/><v:TokenEntry/></StackPanel></c:GlassCard>
       <c:SegmentedControl Margin="0,10" ItemsSource="{Binding Views}" SelectedItem="{Binding SelectedView, Mode=TwoWay}"/>
       <c:GlassCard Margin="0,0,0,18" StaggerIndex="5">
         <StackPanel>
@@ -696,6 +705,10 @@
             <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding RouterEnabled, Mode=TwoWay}" AutomationProperties.Name="Enable router integration"/>
             <TextBlock Text="Enable router integration" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
           </DockPanel>
+          <CheckBox Content="Launch OpenRGB with the service" IsChecked="{Binding LaunchOpenRgb}" Margin="0,8"/>
+          <TextBlock Text="Router host" Style="{StaticResource Muted}"/>
+          <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding RouterHost, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/>
+          <Button Content="Save service options" Command="{Binding SaveServiceOptionsCommand}" HorizontalAlignment="Left" Margin="0,8"/>
           <TextBlock Text="{Binding IntegrationNote}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
         </StackPanel>
       </c:GlassCard>

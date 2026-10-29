@@ -76,6 +76,26 @@ internal static class Program
             var view = (FrameworkElement)template.LoadContent(); view.DataContext = model;
             Render(view, Path.Combine(output, name + ".png"), 1020);
         }
+        foreach (var device in client.CurrentState.Lighting.Devices.ToArray())
+        {
+            var colors = Enumerable.Range(0, device.LedCount).Select(i => i % 3 == 0 ? "#FF4D1A" : i % 3 == 1 ? "#5AA7FF" : "#B26BFF").ToArray();
+            client.SendAsync(Prism.Core.Ipc.Commands.SetLedColors, new { device = device.Id, layer = "custom", colors }).GetAwaiter().GetResult();
+            vm.Lighting.Editor.Device = vm.Lighting.Editor.Devices.First(d => d.Id == device.Id);
+            RenderPage("Lighting-LED-" + device.Id, vm.Lighting);
+        }
+        client.SendAsync(Prism.Core.Ipc.Commands.ResizeZone, new { device = "board", zone = 1, size = 30 }).GetAwaiter().GetResult();
+        vm.Lighting.Editor.Device = vm.Lighting.Editor.Devices.First(d => d.Id == "board");
+        RenderPage("Lighting-LED-strip30", vm.Lighting);
+        client.SendAsync(Prism.Core.Ipc.Commands.SetLedColors, new { device = "board", layer = "overlay",
+            colors = Enumerable.Range(0, 32).Select(i => i % 3 == 0 ? "#5AA7FF80" : "#00000000").ToArray() }).GetAwaiter().GetResult();
+        vm.Lighting.Editor.Layer = "overlay";
+        RenderPage("Lighting-LED-overlay", vm.Lighting);
+        var fixtureState = client.CurrentState;
+        var matrixFixture = new Prism.Core.Ipc.RgbDeviceState("matrix-fixture", "Matrix fixture", "Keyboard", true, true, 5,
+            [new("Grid with an empty cell", "Matrix", 0, 5, 5, 5, ["A", "B", "C", "D", "E"], 3, 2, [0, 1, -1, 2, 3, 4])],
+            ["#FF4D1A", "#5AA7FF", "#B26BFF", "#3DDC84", "#F4F4F5"]);
+        vm.Lighting.Apply(fixtureState with { Lighting = fixtureState.Lighting with { Devices = [matrixFixture] } });
+        RenderPage("Lighting-LED-matrix", vm.Lighting);
         window.Close();
         client.DisposeAsync().AsTask().GetAwaiter().GetResult();
         app.Shutdown();

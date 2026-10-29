@@ -8,7 +8,7 @@ public sealed class EffectTests
     [Theory]
     [InlineData(LightingEffect.Static)] [InlineData(LightingEffect.Breathing)] [InlineData(LightingEffect.Strobing)]
     [InlineData(LightingEffect.ColorCycle)] [InlineData(LightingEffect.RainbowWave)] [InlineData(LightingEffect.StarryNight)]
-    [InlineData(LightingEffect.Smart)] [InlineData(LightingEffect.Music)] [InlineData(LightingEffect.Adaptive)] [InlineData(LightingEffect.Off)]
+    [InlineData(LightingEffect.Smart)] [InlineData(LightingEffect.Music)] [InlineData(LightingEffect.Adaptive)] [InlineData(LightingEffect.Off)] [InlineData(LightingEffect.Custom)]
     public void AllEffectsAreDeterministicWithInjectedTime(LightingEffect effect)
     {
         var clock = new ManualClock { Elapsed = TimeSpan.FromSeconds(1.234) }; var input = new FakeInputs { Level = 0.5 };

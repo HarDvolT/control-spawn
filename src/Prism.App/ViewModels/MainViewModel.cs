@@ -74,7 +74,7 @@ public sealed class MainViewModel : ObservableObject
         Lighting = new LightingViewModel(client);
         Fans = new FansViewModel(client);
         Lamp = new LampViewModel(client);
-        Scenes = new ScenesViewModel(client);
+        Scenes = new ScenesViewModel(client, settings, settingsStore);
         Modem = new ModemViewModel(client);
         Settings = new SettingsViewModel(client, settingsStore, startup, settings);
         Widgets = new WidgetsViewModel(client, widgetStore, host, Settings);

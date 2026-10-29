@@ -37,6 +37,39 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private readonly CancellationTokenSource stop = new();
     private Task? running;
     private bool disposed;
+    private readonly SemaphoreSlim rgbGate = new(1, 1);
+    private int lampCredentials, routerCredentials;
+    public void CredentialsChanged(bool lamp) { if (lamp) Interlocked.Increment(ref lampCredentials); else Interlocked.Increment(ref routerCredentials); }
+
+    public async Task<RgbDeviceState> ResizeZoneAsync(string device, int zone, int size, CancellationToken cancellationToken)
+    {
+        if (Observe) throw new InvalidOperationException("Observe mode cannot resize zones.");
+        await rgbGate.WaitAsync(cancellationToken);
+        try
+        {
+            RgbDeviceState current;
+            lock (stateGate) current = devices.First(d => d.Id == device);
+            if (!rgbConnected) throw new InvalidOperationException("OpenRGB is disconnected.");
+            if (mock)
+            {
+                var zones = current.Zones!.ToArray(); int first = 0;
+                zones[zone] = zones[zone] with { LedCount = size };
+                for (int i = 0; i < zones.Length; i++) { zones[i] = zones[i] with { FirstLed = first }; first += zones[i].LedCount; }
+                current = current with { LedCount = first, Zones = zones };
+            }
+            else
+            {
+                var client = (OpenRgbClient)rgb; var index = rgbIndices[device];
+                await client.ResizeZoneAsync(index, zone, size, cancellationToken);
+                await client.RefreshAsync(cancellationToken);
+                await client.SetDirectModeAsync(index, cancellationToken);
+                current = LedLayers.Project(device, client.Controllers[(int)index]);
+            }
+            lock (stateGate) devices = devices.Select(d => d.Id == device ? current : d).ToArray();
+            return current;
+        }
+        finally { rgbGate.Release(); }
+    }
 
     /// <summary>Observe mode: real sensors, but no fan, RGB or lamp writes (fans stay on the BIOS curves).</summary>
     public bool Observe { get; init; }
@@ -71,7 +104,9 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     {
         lock (stateGate)
         {
-            var synced = devices.Select(d => d with { Synced = value.SyncedDevices.GetValueOrDefault(d.Id, true) }).ToArray();
+            var synced = devices.Select(d => d with { Synced = value.SyncedDevices.GetValueOrDefault(d.Id, true),
+                CustomColors = value.LedLayers.TryGetValue(d.Id, out var layer) && layer.Custom is not null ? LedLayers.Resize(layer.Custom, d.LedCount, false) : null,
+                OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null }).ToArray();
             var health = new ServiceHealth(mock, elevated, warnings.Values.Order().ToArray(), failsafe);
             return StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lampState, routerState, health);
         }
@@ -150,6 +185,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         do
         {
             var value = Volatile.Read(ref settings);
+            await rgbGate.WaitAsync(token);
             try
             {
                 if (!mock && !rgbConnected && clock.Elapsed >= reconnect)
@@ -167,8 +203,22 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         int occurrence = identities.GetValueOrDefault(digest); identities[digest] = occurrence + 1;
                         string identity = $"rgb:{digest}:{occurrence}";
                         indices[identity] = (uint)i;
-                        return new RgbDeviceState(identity, d.Name, OpenRgbClient.KindName(d.Type), true, true, d.Colors.Count);
+                        return LedLayers.Project(identity, d);
                     }).ToArray();
+                    foreach (var d in discovered)
+                    {
+                        if (!value.ZoneSizes.TryGetValue(d.Id, out var sizes)) continue;
+                        foreach (var size in sizes)
+                        {
+                            if (d.Zones is null || size.Key >= d.Zones.Count) continue;
+                            var z = d.Zones[size.Key];
+                            if (size.Value < z.MinLeds || size.Value > z.MaxLeds) continue;
+                            await client.ResizeZoneAsync(indices[d.Id], size.Key, size.Value, timeout.Token);
+                            await client.RefreshAsync(timeout.Token);
+                        }
+                    }
+                    discovered = discovered.Select(d => LedLayers.Project(d.Id, client.Controllers[(int)indices[d.Id]])).ToArray();
+                    for (uint i = 0; i < client.Controllers.Count; i++) await client.SetDirectModeAsync(i, timeout.Token);
                     lock (stateGate) { devices = discovered; rgbIndices = indices; }
                     rgbConnected = true;
                 }
@@ -177,7 +227,10 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 foreach (var device in current.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, true)))
                 {
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
-                    await rgb.SetColorsAsync(rgbIndices[device.Id], engine.Render(value.Lighting.ToScene(), device.LedCount), timeout.Token);
+                    var layer = value.LedLayers.GetValueOrDefault(device.Id);
+                    var colors = LedLayers.Composite(engine.Render(value.Lighting.ToScene(), device.LedCount),
+                        layer?.Custom, layer?.Overlay, layer?.CustomEnabled == true || value.Lighting.Effect == LightingEffect.Custom);
+                    await rgb.SetColorsAsync(rgbIndices[device.Id], colors, timeout.Token);
                 }
                 warnings.TryRemove("rgb", out _);
             }
@@ -189,12 +242,14 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 await rgb.DisposeAsync(); rgb = mock ? new FakeRgbBackend() : new OpenRgbClient(new TcpConnectionFactory());
                 rgbConnected = mock;
             }
+            finally { rgbGate.Release(); }
         } while (await timer.WaitForNextTickAsync(token));
     }
 
     private async Task LampAsync(CancellationToken token)
     {
         if (Observe) await Task.Delay(Timeout.Infinite, token);
+        int credentials = Volatile.Read(ref lampCredentials); string? connectedHost = null;
         LampConfiguration? applied = null; string transport = mock ? "mock" : "not configured";
         LampSync? sync = lamp is null ? null : new(lamp, clock);
         var engine = new EffectEngine(clock, inputs, inputs, inputs);
@@ -205,6 +260,12 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             var value = Volatile.Read(ref settings); var config = value.Lamp;
             try
             {
+                if (credentials != Volatile.Read(ref lampCredentials) || (applied is not null && config.Host != connectedHost))
+                {
+                    if (lamp is not null) await lamp.DisposeAsync();
+                    lamp = null; applied = null; retry = TimeSpan.Zero;
+                    credentials = Volatile.Read(ref lampCredentials);
+                }
                 if (lamp is null && clock.Elapsed >= retry)
                 {
                     if (mock) { lamp = new FakeLampClient(); transport = "mock"; sync = new(lamp, clock); }
@@ -218,6 +279,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     }
                 }
                 if (lamp is null) continue;
+                connectedHost = config.Host;
                 if (config != applied)
                 {
                     await lamp.SetPowerAsync(config.On, token);
@@ -245,10 +307,18 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 
     private async Task RouterAsync(CancellationToken token)
     {
+        string? host = null; int credentials = Volatile.Read(ref routerCredentials);
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         do
         {
-            if (!mock && !Volatile.Read(ref settings).RouterEnabled) continue;
+            var config = Volatile.Read(ref settings);
+            if (!mock && (!config.RouterEnabled || host != config.RouterHost || credentials != Volatile.Read(ref routerCredentials)))
+            {
+                router?.Dispose(); router = null; host = config.RouterHost;
+                credentials = Volatile.Read(ref routerCredentials);
+                lock (stateGate) routerState = null;
+            }
+            if (!mock && !config.RouterEnabled) continue;
             try
             {
                 router ??= new RouterBackend(Volatile.Read(ref settings).RouterHost);

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Prism.Core;
 using Prism.Hardware;
+using Prism.Lighting;
 
 namespace Prism.Service;
 
@@ -23,11 +24,14 @@ public sealed record LightingConfiguration(LightingEffect Effect = LightingEffec
 public sealed record LampConfiguration(string? Host = null, bool On = true, int Brightness = 60,
     string Color = "#FF4D1A", string Follow = "own", int? Kelvin = null);
 public sealed record SceneConfiguration(FanMode Fans, LightingConfiguration Lighting, LampConfiguration Lamp);
+public sealed record LedConfiguration(string[]? Custom = null, string[]? Overlay = null, bool CustomEnabled = false);
 public sealed record ServiceSettings
 {
     public Dictionary<string, FanConfiguration> Fans { get; init; } = new() { ["Radiator"] = new(), ["Case fans"] = new() };
     public LightingConfiguration Lighting { get; init; } = new();
     public Dictionary<string, bool> SyncedDevices { get; init; } = new();
+    public Dictionary<string, LedConfiguration> LedLayers { get; init; } = new();
+    public Dictionary<string, Dictionary<int, int>> ZoneSizes { get; init; } = new();
     public LampConfiguration Lamp { get; init; } = new();
     public string? OpenRgbPath { get; init; }
     public bool LaunchOpenRgb { get; init; }
@@ -52,6 +56,17 @@ public sealed record ServiceSettings
             if (fan.Points?.Any(p => p.Temperature < 0 || p.Temperature > 120 || p.Percent < 0 || p.Percent > 100) == true)
                 throw new ArgumentException("Fan points must be 0..120 C and 0..100%.");
         }
+        if (LedLayers is null || ZoneSizes is null) throw new ArgumentException("LED settings cannot be null.");
+        foreach (var pair in LedLayers)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null ||
+                pair.Value.Custom?.Any(c => !Prism.Lighting.LedLayers.Valid(c, false)) == true ||
+                pair.Value.Overlay?.Any(c => !Prism.Lighting.LedLayers.Valid(c, true)) == true)
+                throw new ArgumentException("Invalid LED layer.");
+        }
+        if (ZoneSizes.Any(d => string.IsNullOrWhiteSpace(d.Key) || d.Value is null || d.Value.Any(z => z.Key < 0 || z.Value < 0 || z.Value > ushort.MaxValue)))
+            throw new ArgumentException("Invalid zone size.");
+        ValidateOptions(OpenRgbPath, LaunchOpenRgb, RouterHost);
         ValidateLighting(Lighting); ValidateLamp(Lamp);
         foreach (var scene in Scenes.Values)
         {
@@ -59,6 +74,17 @@ public sealed record ServiceSettings
             ValidateLighting(scene.Lighting); ValidateLamp(scene.Lamp);
         }
         if (SyncedDevices.Any(d => string.IsNullOrWhiteSpace(d.Key) || d.Key.Length > 256)) throw new ArgumentException("Invalid device id.");
+    }
+    public static void ValidateHost(string host)
+    {
+        if (string.IsNullOrWhiteSpace(host) || host.Length > 253 || Uri.CheckHostName(host) == UriHostNameType.Unknown)
+            throw new ArgumentException("Invalid host.");
+    }
+    public static void ValidateOptions(string? path, bool launch, string host)
+    {
+        ValidateHost(host);
+        if (path is { Length: > 1024 } || (launch && (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path) || !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))))
+            throw new ArgumentException("Provide an absolute OpenRGB executable path.");
     }
     public static void ValidateLighting(LightingConfiguration value)
     {

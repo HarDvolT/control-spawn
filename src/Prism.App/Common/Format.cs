@@ -105,6 +105,7 @@ public static class Format
         Core.LightingEffect.Smart => "Smart",
         Core.LightingEffect.Music => "Music",
         Core.LightingEffect.Adaptive => "Adaptive",
+        Core.LightingEffect.Custom => "Custom",
         Core.LightingEffect.Off => "Off",
         _ => effect.ToString()
     };
@@ -120,6 +121,7 @@ public static class Format
         Core.LightingEffect.Music => "Follows audio",
         Core.LightingEffect.Smart => "CPU temperature",
         Core.LightingEffect.Adaptive => "Screen colours",
+        Core.LightingEffect.Custom => "Per-LED colours",
         Core.LightingEffect.Off => "Lights off",
         _ => string.Empty
     };

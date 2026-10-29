@@ -97,6 +97,41 @@ public sealed class OpenRgbTests
         Assert.Empty(client.Controllers);
     }
     private static byte[] Reply(uint id, byte[] data) => OpenRgbProtocol.Encode(new(0, id, data));
+    [Fact]
+    public async Task ResizeRefreshAndDirectModeUseOnlyFixtureBytes()
+    {
+        static byte[] Controller(int count)
+        {
+            using var data = new MemoryStream(); using var w = new BinaryWriter(data, Encoding.UTF8, true);
+            void Text(string text) { var bytes = Encoding.UTF8.GetBytes(text + "\0"); w.Write((ushort)bytes.Length); w.Write(bytes); }
+            w.Write(0u); w.Write(0); foreach (var text in new[] { "Board", "ASUS", "", "", "serial", "USB" }) Text(text);
+            w.Write((ushort)0); w.Write(0); // modes, active
+            w.Write((ushort)1); Text("ARGB"); w.Write(1); w.Write(0u); w.Write(120u); w.Write((uint)count); w.Write((ushort)0);
+            w.Write((ushort)count); for (int i = 0; i < count; i++) { Text("LED " + i); w.Write((uint)i); }
+            w.Write((ushort)count); for (int i = 0; i < count; i++) w.Write(0u);
+            uint size = (uint)data.Length; data.Position = 0; w.Write(size); return data.ToArray();
+        }
+        var wire = new DuplexFixtureStream(Reply(40, OpenRgbProtocol.UInt32(3))
+            .Concat(Reply(0, OpenRgbProtocol.UInt32(1))).Concat(Reply(1, Controller(0))).ToArray());
+        var factory = new FakeConnectionFactory(); factory.Streams.Enqueue(wire);
+        await using var client = new OpenRgbClient(factory); await client.ConnectAsync();
+        Assert.Empty(client.Controllers[0].Colors);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.ResizeZoneAsync(0, 0, 121));
+        await client.ResizeZoneAsync(0, 0, 30);
+        wire.Feed(Reply(0, OpenRgbProtocol.UInt32(1)).Concat(Reply(1, Controller(30))).ToArray());
+        await client.RefreshAsync(); await client.SetDirectModeAsync(0);
+        await client.SetColorsAsync(0, Enumerable.Repeat(new RgbColor(1, 2, 3), 30).ToArray());
+        var projected = LedLayers.Project("board", client.Controllers[0]);
+        Assert.Equal(30, projected.LedCount); Assert.Equal(120, projected.Zones![0].MaxLeds);
+        using var output = new MemoryStream(wire.Output.ToArray()); var packets = new List<OpenRgbPacket>();
+        while (output.Position < output.Length)
+        {
+            var header = new byte[16]; output.ReadExactly(header); var h = OpenRgbProtocol.DecodeHeader(header);
+            var payload = new byte[h.Size]; output.ReadExactly(payload); packets.Add(new(h.Device, h.Id, payload));
+        }
+        Assert.Equal(new uint[] { 40, 50, 0, 1, 1000, 0, 1, 1100, 1050 }, packets.Select(p => p.Id));
+        Assert.Equal(Convert.FromHexString("000000001E000000"), packets.Single(p => p.Id == 1000).Data);
+    }
 
     // Independent field-by-field fixture including nonempty mode, matrix, LED, and colors.
     private static byte[] ControllerFixture(uint version)

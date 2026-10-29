@@ -39,6 +39,8 @@ public sealed class CommandSearch
             _entries.Add(new SearchEntry(page.Title, page.Subtitle, page.Group, SearchAction.Navigate,
                 page.Key.ToString(), page.Group + " page open " + page.Title));
 
+        _entries.Add(new SearchEntry("Edit LEDs", "Paint individual device LEDs", "COMMAND", SearchAction.Navigate,
+            PageKey.Lighting.ToString(), "lighting rgb custom overlay brush editor"));
         foreach (var mode in new[] { FanMode.Silent, FanMode.Standard, FanMode.Turbo, FanMode.Full })
             _entries.Add(new SearchEntry($"Fan mode · {Common.Format.FanModeName(mode)}",
                 "Set every controllable fan", "COMMAND", SearchAction.FanMode, mode.ToString(),

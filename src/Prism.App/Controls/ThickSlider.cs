@@ -42,6 +42,7 @@ public class ThickSlider : FrameworkElement
         nameof(Step), typeof(double), typeof(ThickSlider),
         new FrameworkPropertyMetadata(1d));
 
+    public event EventHandler? ValueChanged;
     private bool _dragging;
 
     public ThickSlider()
@@ -108,6 +109,7 @@ public class ThickSlider : FrameworkElement
 
     private static void OnValueChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
+        ((ThickSlider)d).ValueChanged?.Invoke(d, EventArgs.Empty);
         if (d is ThickSlider slider) slider.InvalidateVisual();
     }
 

@@ -24,6 +24,7 @@ public sealed class LightingViewModel : PageViewModel
     public LightingViewModel(IPrismClient client) : base(client)
     {
         PageTitle = "Lighting";
+        Editor = new(client);
 
         Effects =
         [
@@ -36,6 +37,7 @@ public sealed class LightingViewModel : PageViewModel
             new EffectOption(LightingEffect.Music, "Music", "Follows audio", "#3DDC84"),
             new EffectOption(LightingEffect.Smart, "Smart", "CPU temperature", "#FF4D1A"),
             new EffectOption(LightingEffect.Adaptive, "Adaptive", "Screen colours", "#60A5FA"),
+            new EffectOption(LightingEffect.Custom, "Custom", "Per-LED colours", "#B26BFF"),
             new EffectOption(LightingEffect.Off, "Off", "Lights off", "#3F3F46")
         ];
 
@@ -48,6 +50,7 @@ public sealed class LightingViewModel : PageViewModel
         Refresh();
     }
 
+    public LedEditorViewModel Editor { get; }
     public ObservableCollection<EffectOption> Effects { get; }
     public ObservableCollection<DeviceOption> Devices { get; } = new();
 
@@ -118,6 +121,7 @@ public sealed class LightingViewModel : PageViewModel
             return;
         }
 
+        Editor.Apply(state);
         var lighting = state.Lighting;
         _suppress = true;
         Effect = lighting.Effect;

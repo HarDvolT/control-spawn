@@ -64,7 +64,7 @@ public class LedStrip : FrameworkElement
     public double CornerRadius { get => (double)GetValue(CornerRadiusProperty); set => SetValue(CornerRadiusProperty, value); }
     public double Temperature { get => (double)GetValue(TemperatureProperty); set => SetValue(TemperatureProperty, value); }
 
-    private bool Animates => EffectKind is not (LightingEffect.Static or LightingEffect.Off or LightingEffect.Adaptive);
+    private bool Animates => EffectKind is not (LightingEffect.Static or LightingEffect.Off or LightingEffect.Adaptive or LightingEffect.Custom);
 
     private void OnFrame(object? sender, EventArgs e)
     {
@@ -106,6 +106,7 @@ public class LedStrip : FrameworkElement
         var t = _phase;
         switch (EffectKind)
         {
+            case LightingEffect.Custom: return ColorUtil.TextTertiary;
             case LightingEffect.Off:
                 return ColorUtil.Track;
             case LightingEffect.RainbowWave:

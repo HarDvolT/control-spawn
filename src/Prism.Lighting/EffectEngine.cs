@@ -18,6 +18,8 @@ public sealed class EffectEngine(IClock clock, IAudioLevelInput audio, IScreenAv
             RgbColor c = scene.Effect switch
             {
                 LightingEffect.Static => scene.Color,
+                LightingEffect.Custom => RgbColor.Black,
+                LightingEffect.Off => RgbColor.Black,
                 LightingEffect.Breathing => Scale(scene.Color, (1 - Math.Cos(time * Math.PI)) / 2),
                 LightingEffect.Strobing => (long)Math.Floor(time * 4) % 2 == 0 ? scene.Color : RgbColor.Black,
                 LightingEffect.ColorCycle => Hue(time / 8),

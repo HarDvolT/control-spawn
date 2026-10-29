@@ -15,6 +15,9 @@ public sealed class AppSettings
     public bool SceneAutoNight { get; set; } = true;
     public bool SceneAutoLock { get; set; }
     public string OpenRgbPath { get; set; } = string.Empty;
+    public bool LaunchOpenRgb { get; set; }
+    public string RouterHost { get; set; } = "192.168.0.1";
+    public Dictionary<string, string> SceneLedPresets { get; set; } = new();
     public bool RouterEnabled { get; set; }
     public string? LastPage { get; set; }
 }

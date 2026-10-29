@@ -14,10 +14,25 @@ public sealed class ScenesViewModel : PageViewModel
     private bool _autoGame = true;
     private bool _autoNight = true;
     private bool _autoLock;
+    private readonly AppSettings settings;
+    private readonly SettingsStore? store;
+    private string presetName = "", presetScene = "Gaming";
+    public IReadOnlyList<string> PresetScenes => SceneCatalog.All.Select(s => s.Name).ToArray();
+    public string PresetScene { get => presetScene; set { if (Set(ref presetScene, value)) { presetName = settings.SceneLedPresets.GetValueOrDefault(value) ?? ""; OnPropertyChanged(nameof(PresetName)); } } }
+    public string PresetName { get => presetName; set => Set(ref presetName, value); }
+    public RelayCommand SavePresetReferenceCommand { get; }
 
-    public ScenesViewModel(IPrismClient client) : base(client)
+    public ScenesViewModel(IPrismClient client, AppSettings? settings = null, SettingsStore? store = null) : base(client)
     {
         PageTitle = "Scenes";
+        this.settings = settings ?? new(); this.store = store;
+        presetName = this.settings.SceneLedPresets.GetValueOrDefault(presetScene) ?? "";
+        SavePresetReferenceCommand = new RelayCommand(() =>
+        {
+            this.settings.SceneLedPresets[PresetScene] = PresetName;
+            try { this.store?.Save(this.settings); StatusText = "LED layout reference saved"; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { StatusText = "LED layout reference could not be saved"; }
+        });
         foreach (var scene in SceneCatalog.All)
             Scenes.Add(new SceneCardItem(scene, string.Equals(scene.Name, _activeScene, StringComparison.OrdinalIgnoreCase)));
 
