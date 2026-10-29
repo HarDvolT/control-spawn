@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism v2 — Lamps</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes orb{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+.card{animation:rise .6s cubic-bezier(.22,1,.36,1) both}
+.d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s,border-color .2s}.btn:active{transform:scale(.97)}
+.orb{transition:box-shadow .5s,opacity .5s,background .5s;animation:orb 4s ease-in-out infinite}
+.fill{transition:width .5s cubic-bezier(.22,1,.36,1),background .4s,box-shadow .4s}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F5F7}
+.live{animation:livedot 1.6s ease-in-out infinite}
+.tg{transition:background .25s,box-shadow .25s}.tg span{transition:transform .25s cubic-bezier(.22,1,.36,1)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 860px; display: flex; flex-wrap: wrap; color: #F4F5F7; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse 70% 40% at 50% -10%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%), radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px) 0 0 / 24px 24px, #07080A;">
+
+  <nav aria-label="Main" style="flex: 0 0 220px; box-sizing: border-box; padding: 20px 12px; background: rgba(13,14,17,.8); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 22px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #FF4D1A, #FF8A3D); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(255,77,26,.5);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#07080A" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700;">Prism</span>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="10">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}"><p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{n.label}}</p></sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}"><a class="nav" href="{{n.href}}" style="{{n.style}}">{{n.label}}</a></sc-if>
+    </sc-for>
+  </nav>
+
+  <main style="flex: 999 1 600px; min-width: 0; box-sizing: border-box; padding: 24px 28px 28px; display: flex; flex-direction: column; gap: 16px;">
+    <header class="card" style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div>
+        <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">LAMPS</p>
+        <h1 style="margin: 4px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -0.02em;">Two lamps, right here</h1>
+      </div>
+      <button class="btn" type="button" onClick="{{toggleSetup}}" style="min-height: 40px; padding: 0 16px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.08); color: #C9CBD1; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;">{{setupLabel}}</button>
+    </header>
+
+    <section class="card d1" aria-label="Both lamps" style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 16px 20px; border-radius: 20px; background: linear-gradient(90deg, #16171C, #101115); border: 1px solid rgba(255,255,255,.07);">
+      <div style="display: flex; align-items: center; gap: 12px; flex: 0 0 auto;">
+        <span style="display: flex;"><span style="{{bothOrbA}}"></span><span style="{{bothOrbB}}"></span></span>
+        <div><p style="margin: 0; font-size: 15px; font-weight: 600;">Both lamps</p><p style="margin: 2px 0 0; font-size: 12px; color: #A3A6AE;">One tap changes both</p></div>
+      </div>
+      <button class="btn" type="button" onClick="{{allOn}}" style="min-height: 40px; padding: 0 16px; border-radius: 999px; background: #1E2026; border: 1px solid rgba(255,255,255,.08); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;">{{allLabel}}</button>
+      <div style="display: flex; gap: 8px;">
+        <sc-for list="{{bothSwatches}}" as="s" hint-placeholder-count="7"><button class="btn" type="button" aria-label="{{s.label}}" onClick="{{s.pick}}" style="{{s.style}}"></button></sc-for>
+      </div>
+      <div role="group" aria-label="Both lamps follow" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #0D0E12; margin-left: auto;">
+        <sc-for list="{{bothFollow}}" as="f" hint-placeholder-count="3"><button class="btn" type="button" onClick="{{f.pick}}" style="{{f.style}}">{{f.label}}</button></sc-for>
+      </div>
+    </section>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px;">
+      <sc-for list="{{lamps}}" as="l" hint-placeholder-count="2">
+        <section class="card d2" aria-label="{{l.name}}" style="box-sizing: border-box; padding: 22px; border-radius: 22px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 18px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 style="margin: 0; font-size: 20px; font-weight: 600;">{{l.name}}</h2>
+              <button class="btn" type="button" aria-label="Rename {{l.name}}" style="width: 30px; height: 30px; border-radius: 9px; background: transparent; border: 1px solid rgba(255,255,255,.08); color: #A3A6AE; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+            </div>
+            <span style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(61,220,132,.1); color: #7BE9AE; font-size: 12px;"><span class="live" style="width: 7px; height: 7px; border-radius: 4px; background: #3DDC84;"></span>{{l.status}}</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 24px;">
+            <button class="orb" type="button" onClick="{{l.toggle}}" aria-pressed="{{l.on}}" aria-label="Turn {{l.name}} {{l.nextState}}" style="{{l.orb}}">
+              <span style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 600; color: rgba(7,8,10,.75);">{{l.onLabel}}</span>
+            </button>
+            <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 12px; color: #A3A6AE;">Brightness</span><span style="font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 600;">{{l.bright}}%</span></div>
+              <div style="height: 16px; border-radius: 8px; background: #1E2026; overflow: hidden;"><div class="fill" style="{{l.fill}}"></div></div>
+              <div style="display: flex; gap: 6px;"><sc-for list="{{l.levels}}" as="b" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{b.pick}}" style="{{b.style}}">{{b.label}}</button></sc-for></div>
+            </div>
+          </div>
+
+          <div>
+            <p style="margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">COLOUR</p>
+            <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px;">
+              <sc-for list="{{l.swatches}}" as="s" hint-placeholder-count="8"><button class="btn" type="button" aria-label="{{s.label}}" onClick="{{s.pick}}" style="{{s.style}}"></button></sc-for>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;"><sc-for list="{{l.whites}}" as="w" hint-placeholder-count="3"><button class="btn" type="button" onClick="{{w.pick}}" style="{{w.style}}">{{w.label}}</button></sc-for></div>
+          </div>
+
+          <div>
+            <p style="margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">FOLLOWS</p>
+            <div role="group" aria-label="{{l.name}} follows" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 4px; border-radius: 14px; background: #0D0E12;">
+              <sc-for list="{{l.follow}}" as="f" hint-placeholder-count="3"><button class="btn" type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="{{f.style}}"><span style="font-size: 13px; font-weight: 600;">{{f.label}}</span><span style="font-size: 11px; opacity: .75;">{{f.sub}}</span></button></sc-for>
+            </div>
+          </div>
+        </section>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{setupOpen}}" hint-placeholder-val="{{false}}">
+      <section class="card" aria-label="Add or fix a lamp" style="padding: 20px; border-radius: 20px; background: #111216; border: 1px solid rgba(255,255,255,.07); display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+        <div style="flex: 1 1 260px;"><p style="margin: 0; font-size: 15px; font-weight: 600;">Add or fix a lamp</p><p style="margin: 4px 0 0; font-size: 13px; color: #A3A6AE;">Prism finds Xiaomi lamps on your Wi-Fi by itself. New ones need their token once — paste it or import the Tokens Extractor output.</p></div>
+        <button class="btn" type="button" style="min-height: 44px; padding: 0 18px; border-radius: 12px; background: #1E2026; border: 1px solid rgba(255,255,255,.08); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;">Find lamps</button>
+        <button class="btn" type="button" style="min-height: 44px; padding: 0 18px; border-radius: 12px; background: #FF4D1A; border: 0; color: #07080A; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;">Import tokens</button>
+      </section>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { setup: false, lamps: [
+      { name: 'Desk lamp', on: true, color: '#FF8A3D', bright: 70, follow: 'Own', ip: '192.168.0.8' },
+      { name: 'Bedside lamp', on: true, color: '#36D6FF', bright: 45, follow: 'Same as PC', ip: '192.168.0.175' } ] };
+  }
+  update(i, patch) { const lamps = this.state.lamps.map((l, k) => k === i ? { ...l, ...patch } : l); this.setState({ lamps }); }
+  renderVals() {
+    const s = this.state;
+    const small = (on) => 'flex: 1 1 0; min-height: 34px; border-radius: 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' +
+      (on ? 'background: rgba(255,77,26,.16); color: #FF7A50; border: 1px solid rgba(255,77,26,.55);' : 'background: #1E2026; color: #C9CBD1; border: 1px solid rgba(255,255,255,.06);');
+    const sw = [['#FF4D1A','Ember'],['#FF4D4F','Red'],['#F5A524','Amber'],['#3DDC84','Green'],['#36D6FF','Ion'],['#4D6BFF','Blue'],['#B26BFF','Violet'],['#FF4DB8','Pink']];
+    const orbStyle = (l, size) => 'width: ' + size + 'px; height: ' + size + 'px; border-radius: ' + size / 2 + 'px; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; flex: 0 0 ' + size + 'px; ' +
+      'background: radial-gradient(circle at 35% 28%, #FFFFFF 0%, ' + l.color + ' 42%, rgba(0,0,0,.35) 100%); ' +
+      'opacity: ' + (l.on ? (0.4 + 0.6 * l.bright / 100).toFixed(2) : '0.18') + '; box-shadow: 0 0 ' + (l.on ? Math.round(20 + l.bright * 0.6) : 0) + 'px ' + l.color + ', inset 0 -10px 24px rgba(0,0,0,.3);';
+    const followOpts = [['Own', 'its own colour'], ['Same as PC', 'matches the case'], ['Average', 'soft PC average']];
+    const nav = [
+      { section: true, label: 'GENERAL' }, ['Dashboard', 'Main.dc.html'], ['Monitor', 'V2Monitor.dc.html'], ['Devices', 'V2Devices.dc.html'],
+      { section: true, label: 'CONTROL' }, ['Lighting', 'V2Lighting.dc.html'], ['Lamps', 'V2Lamps.dc.html'], ['Fans', 'Fans.dc.html'], ['Scenes', 'Scenes.dc.html'],
+      { section: true, label: 'HOME' }, ['Air fryer', '#fryer'], ['Modem', 'Modem.dc.html']
+    ].map(n => Array.isArray(n) ? { link: true, section: false, label: n[0], href: n[1],
+      style: 'display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 12px; text-decoration: none; font-size: 14px; ' +
+        (n[0] === 'Lamps' ? 'background: linear-gradient(90deg, rgba(255,77,26,.18), rgba(255,77,26,.04)); color: #F4F5F7; font-weight: 600; box-shadow: inset 2px 0 0 #FF4D1A;' : 'color: #A3A6AE;') }
+      : { ...n, link: false });
+    const anyOn = s.lamps.some(l => l.on);
+    return {
+      nav,
+      setupOpen: s.setup, setupLabel: s.setup ? 'Hide setup' : 'Add or fix a lamp', toggleSetup: () => this.setState({ setup: !s.setup }),
+      bothOrbA: orbStyle(s.lamps[0], 36), bothOrbB: orbStyle(s.lamps[1], 36) + ' margin-left: -10px;',
+      allLabel: anyOn ? 'Turn both off' : 'Turn both on',
+      allOn: () => this.setState({ lamps: s.lamps.map(l => ({ ...l, on: !anyOn })) }),
+      bothSwatches: sw.slice(0, 7).map(([c, n]) => ({ label: 'Both lamps ' + n, pick: () => this.setState({ lamps: s.lamps.map(l => ({ ...l, color: c, on: true, follow: 'Own' })) }),
+        style: 'width: 30px; height: 30px; border-radius: 9px; cursor: pointer; border: 2px solid transparent; background: ' + c + ';' })),
+      bothFollow: followOpts.map(([f]) => ({ label: f, pick: () => this.setState({ lamps: s.lamps.map(l => ({ ...l, follow: f })) }),
+        style: 'min-height: 34px; padding: 0 14px; border-radius: 999px; border: 0; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' +
+          (s.lamps.every(l => l.follow === f) ? 'background: #FF4D1A; color: #07080A;' : 'background: transparent; color: #A3A6AE;') })),
+      lamps: s.lamps.map((l, i) => ({
+        name: l.name, on: l.on, bright: l.bright, onLabel: l.on ? 'ON' : 'OFF', nextState: l.on ? 'off' : 'on',
+        status: 'Connected · ' + l.ip,
+        toggle: () => this.update(i, { on: !l.on }),
+        orb: orbStyle(l, 150),
+        fill: 'height: 16px; border-radius: 8px; width: ' + (l.on ? l.bright : 0) + '%; background: linear-gradient(90deg, rgba(255,255,255,.2), ' + l.color + '); box-shadow: 0 0 16px ' + l.color + ';',
+        levels: [['10%', 10], ['45%', 45], ['70%', 70], ['Max', 100]].map(([t, v]) => ({ label: t, pick: () => this.update(i, { bright: v, on: true }), style: small(l.bright === v) })),
+        swatches: sw.map(([c, n]) => ({ label: l.name + ' ' + n, pick: () => this.update(i, { color: c, on: true, follow: 'Own' }),
+          style: 'height: 34px; border-radius: 10px; cursor: pointer; background: ' + c + '; ' + (l.color === c ? 'border: 2px solid #F4F5F7; box-shadow: 0 0 14px ' + c + ';' : 'border: 2px solid transparent;') })),
+        whites: [['Warm white', '#FFB070'], ['Neutral', '#FFE6C7'], ['Cool white', '#E8F1FF']].map(([t, c]) => ({ label: t, pick: () => this.update(i, { color: c, on: true, follow: 'Own' }),
+          style: small(l.color === c) + ' flex: 1 1 0;' })),
+        follow: followOpts.map(([f, sub]) => ({ label: f, sub, on: l.follow === f, pick: () => this.update(i, { follow: f }),
+          style: 'display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; border-radius: 10px; border: 0; font: inherit; cursor: pointer; ' +
+            (l.follow === f ? 'background: #1E2026; color: #F4F5F7; box-shadow: inset 0 0 0 1px rgba(255,77,26,.6), 0 0 14px rgba(255,77,26,.18);' : 'background: transparent; color: #A3A6AE;') }))
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

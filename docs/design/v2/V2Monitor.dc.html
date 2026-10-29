@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism v2 — Monitor</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes hot{0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.5)}50%{box-shadow:0 0 0 6px rgba(255,77,79,0)}}
+.card{animation:rise .6s cubic-bezier(.22,1,.36,1) both}
+.d1{animation-delay:.04s}.d2{animation-delay:.08s}.d3{animation-delay:.12s}.d4{animation-delay:.16s}.d5{animation-delay:.2s}.d6{animation-delay:.24s}
+.arc{transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1),stroke .5s}
+.needle{transition:transform .8s cubic-bezier(.22,1,.36,1)}
+.fill{transition:width .8s cubic-bezier(.22,1,.36,1),height .8s cubic-bezier(.22,1,.36,1),background .5s,box-shadow .5s}
+.tile{transition:background .6s,box-shadow .6s}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F5F7}
+.live{animation:livedot 1.6s ease-in-out infinite}
+.btn{transition:background .2s,color .2s}.btn:active{transform:scale(.97)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 860px; display: flex; flex-wrap: wrap; color: #F4F5F7; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse 70% 40% at 50% -10%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%), radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px) 0 0 / 24px 24px, #07080A;">
+
+  <nav aria-label="Main" style="flex: 0 0 220px; box-sizing: border-box; padding: 20px 12px; background: rgba(13,14,17,.8); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 22px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #FF4D1A, #FF8A3D); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(255,77,26,.5);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#07080A" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700;">Prism</span>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="10">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}"><p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{n.label}}</p></sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}"><a class="nav" href="{{n.href}}" style="{{n.style}}">{{n.label}}</a></sc-if>
+    </sc-for>
+  </nav>
+
+  <main style="flex: 999 1 600px; min-width: 0; box-sizing: border-box; padding: 22px 26px 24px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: min-content; gap: 14px;">
+    <header class="card" style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 600; letter-spacing: -0.02em;">Monitor</h1>
+        <span style="{{overallChip}}"><span class="live" style="{{overallDot}}"></span>{{overallText}}</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <sc-for list="{{chips}}" as="c" hint-placeholder-count="4"><span style="{{c.style}}"><span style="{{c.dot}}"></span>{{c.label}}</span></sc-for>
+      </div>
+    </header>
+
+    <sc-for list="{{chipCards}}" as="k" hint-placeholder-count="2">
+      <section class="card d1" aria-label="{{k.title}}" style="grid-column: span 4; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{k.title}}</h2><span style="font-size: 12px; color: #7C808A;">{{k.sub}}</span></div>
+        <div style="display: flex; justify-content: space-around; gap: 8px;">
+          <sc-for list="{{k.gauges}}" as="g" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+              <svg width="128" height="112" viewBox="0 0 128 112" role="img" aria-label="{{g.aria}}" style="{{g.glow}}">
+                <path d="M 22 98 A 50 50 0 1 1 106 98" fill="none" stroke="#1E2026" stroke-width="10" stroke-linecap="round"></path>
+                <path d="M 22 98 A 50 50 0 1 1 106 98" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="10" stroke-linecap="butt" stroke-dasharray="1 7.4"></path>
+                <path class="arc" d="M 22 98 A 50 50 0 1 1 106 98" fill="none" stroke="{{g.color}}" stroke-width="10" stroke-linecap="round" stroke-dasharray="236" stroke-dashoffset="{{g.offset}}"></path>
+                <text x="64" y="68" text-anchor="middle" fill="#F4F5F7" font-family="Space Grotesk" font-size="26" font-weight="600">{{g.value}}</text>
+                <text x="64" y="86" text-anchor="middle" fill="#7C808A" font-family="Inter" font-size="10">{{g.unit}}</text>
+              </svg>
+              <span style="font-size: 12px; color: #A3A6AE;">{{g.label}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{k.stats}}" as="t" hint-placeholder-count="3">
+            <div style="padding: 10px 12px; border-radius: 12px; background: #17181D;"><p style="margin: 0; font-size: 11px; color: #7C808A;">{{t.label}}</p><p style="margin: 2px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 600; color: {{t.color}};">{{t.value}}</p></div>
+          </sc-for>
+        </div>
+        <sc-if value="{{k.isCpu}}" hint-placeholder-val="{{true}}">
+          <div>
+            <p style="margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">16 THREADS</p>
+            <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px;">
+              <sc-for list="{{threads}}" as="h" hint-placeholder-count="16"><span class="tile" title="{{h.title}}" style="{{h.style}}"></span></sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{k.isGpu}}" hint-placeholder-val="{{false}}">
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #A3A6AE; margin-bottom: 8px;"><span>VRAM</span><span style="font-family: 'Space Grotesk', sans-serif; color: #F4F5F7;">{{vram}} / 16 GB</span></div>
+            <div style="display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px;"><sc-for list="{{vramSegs}}" as="v" hint-placeholder-count="16"><span class="tile" style="{{v.style}}"></span></sc-for></div>
+          </div>
+        </sc-if>
+      </section>
+    </sc-for>
+
+    <section class="card d3" aria-label="Memory and temperatures" style="grid-column: span 4; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Memory &amp; temperatures</h2><span style="font-size: 12px; color: #7C808A;">Vengeance RGB DDR5-6000</span></div>
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 12px; color: #A3A6AE;">RAM in use</span><span style="font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 600;">{{ramUsed}} <span style="font-size: 13px; color: #7C808A;">/ 31 GB</span></span></div>
+        <div style="display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; margin-top: 8px;"><sc-for list="{{ramSegs}}" as="v" hint-placeholder-count="16"><span class="tile" style="{{v.style}}"></span></sc-for></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <sc-for list="{{rails}}" as="r" hint-placeholder-count="5">
+          <div style="display: grid; grid-template-columns: 92px 1fr 54px; align-items: center; gap: 10px;">
+            <span style="font-size: 12px; color: #A3A6AE;">{{r.label}}</span>
+            <div style="position: relative; height: 8px; border-radius: 4px; background: linear-gradient(90deg, rgba(54,214,255,.25), rgba(61,220,132,.25), rgba(245,165,36,.25), rgba(255,77,79,.25));">
+              <span class="fill" style="{{r.marker}}"></span>
+            </div>
+            <span style="text-align: right; font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: {{r.color}};">{{r.value}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section class="card d4" aria-label="Fans" style="grid-column: span 6; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Fans</h2><span style="font-size: 12px; color: #7C808A;">Mode · Silent</span></div>
+      <div style="display: flex; justify-content: space-around; gap: 8px;">
+        <sc-for list="{{dials}}" as="d" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            <svg width="150" height="100" viewBox="0 0 150 100" role="img" aria-label="{{d.aria}}">
+              <path d="M 15 90 A 60 60 0 0 1 135 90" fill="none" stroke="#1E2026" stroke-width="8" stroke-linecap="round"></path>
+              <path class="arc" d="M 15 90 A 60 60 0 0 1 135 90" fill="none" stroke="{{d.color}}" stroke-width="8" stroke-linecap="round" stroke-dasharray="189" stroke-dashoffset="{{d.offset}}" style="filter: drop-shadow(0 0 6px {{d.color}});"></path>
+              <g class="needle" style="transform-origin: 75px 90px; transform: rotate({{d.angle}}deg);"><line x1="75" y1="90" x2="75" y2="40" stroke="#F4F5F7" stroke-width="3" stroke-linecap="round"></line></g>
+              <circle cx="75" cy="90" r="6" fill="#F4F5F7"></circle>
+            </svg>
+            <span style="font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600;">{{d.rpm}} <span style="font-size: 12px; color: #7C808A;">rpm</span></span>
+            <span style="font-size: 12px; color: #A3A6AE;">{{d.label}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section class="card d5" aria-label="Network and storage" style="grid-column: span 3; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 12px;">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Network &amp; disks</h2>
+      <div style="display: flex; gap: 10px;">
+        <div style="flex: 1; padding: 10px 12px; border-radius: 12px; background: #17181D;"><p style="margin: 0; font-size: 11px; color: #7C808A;">Download</p><p style="margin: 2px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; color: #36D6FF;">{{down}} <span style="font-size: 11px; color: #7C808A;">Mb/s</span></p></div>
+        <div style="flex: 1; padding: 10px 12px; border-radius: 12px; background: #17181D;"><p style="margin: 0; font-size: 11px; color: #7C808A;">Upload</p><p style="margin: 2px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; color: #FF7A50;">{{up}} <span style="font-size: 11px; color: #7C808A;">Mb/s</span></p></div>
+      </div>
+      <sc-for list="{{disks}}" as="k" hint-placeholder-count="3">
+        <div><div style="display: flex; justify-content: space-between; font-size: 12px; color: #A3A6AE;"><span>{{k.name}}</span><span>{{k.temp}}</span></div>
+        <div style="height: 6px; border-radius: 3px; background: #1E2026; margin-top: 6px;"><div class="fill" style="{{k.fill}}"></div></div></div>
+      </sc-for>
+    </section>
+
+    <section class="card d6" aria-label="Router" style="grid-column: span 3; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Internet</h2>
+      <div style="display: flex; align-items: flex-end; gap: 4px; height: 40px;"><sc-for list="{{bars}}" as="b" hint-placeholder-count="5"><span style="{{b.style}}"></span></sc-for></div>
+      <p style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 600; color: #F5A524;">Fair · {{score}}</p>
+      <p style="margin: 0; font-size: 12px; color: #A3A6AE;">5G n78 · ping {{ping}} ms · SINR 9 dB</p>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { t: 0 }; }
+  componentDidMount() { this.timer = setInterval(() => this.setState({ t: this.state.t + 1 }), 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const t = this.state.t;
+    const w = (b, a, k) => b + a * Math.sin(t * k) + a * 0.4 * Math.sin(t * k * 2.3);
+    const level = (v, warm, hot) => v >= hot ? '#FF4D4F' : v >= warm ? '#F5A524' : v >= warm * 0.6 ? '#3DDC84' : '#36D6FF';
+    const gauge = (label, v, max, unit, warm, hot) => { const c = level(v, warm, hot);
+      return { label, value: Math.round(v), unit, color: c, offset: (236 * (1 - Math.min(1, v / max))).toFixed(1),
+        aria: label + ' ' + Math.round(v) + ' ' + unit, glow: 'filter: drop-shadow(0 0 ' + (c === '#FF4D4F' ? 14 : 8) + 'px ' + c + '88);' }; };
+    const cpuLoad = Math.max(3, w(18, 9, .8)), cpuTemp = w(54, 4, .5), gpuLoad = Math.max(2, w(43, 18, .6)), gpuTemp = w(49, 5, .4), hotspot = gpuTemp + 5;
+    const chipStyle = (c) => 'display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: ' + c + '1A; color: #F4F5F7; font-size: 12px; border: 1px solid ' + c + '55;';
+    const vram = (3.6 + 0.4 * Math.sin(t * .3)).toFixed(1), ram = (20 + Math.sin(t * .2)).toFixed(1);
+    const segs = (used, total, c) => Array.from({ length: 16 }, (_, i) => ({ style: 'height: 14px; border-radius: 3px; background: ' + (i < Math.round(16 * used / total) ? c : '#1E2026') + '; ' + (i < Math.round(16 * used / total) ? 'box-shadow: 0 0 8px ' + c + '66;' : '') }));
+    const rail = (label, v, lo, hi, warm, hot) => { const c = level(v, warm, hot); const p = Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+      return { label, value: v.toFixed(1) + '°', color: c, marker: 'position: absolute; top: -4px; left: calc(' + p.toFixed(1) + '% - 3px); width: 6px; height: 16px; border-radius: 3px; background: ' + c + '; box-shadow: 0 0 10px ' + c + ';' }; };
+    const dial = (label, rpm, max, c) => { const f = Math.min(1, rpm / max); return { label, rpm: Math.round(rpm).toLocaleString('en-US'), color: c, offset: (189 * (1 - f)).toFixed(1), angle: (-90 + 180 * f).toFixed(1), aria: label + ' ' + Math.round(rpm) + ' rpm' }; };
+    const nav = [
+      { section: true, label: 'GENERAL' }, ['Dashboard', 'Main.dc.html'], ['Monitor', 'V2Monitor.dc.html'], ['Devices', 'V2Devices.dc.html'],
+      { section: true, label: 'CONTROL' }, ['Lighting', 'V2Lighting.dc.html'], ['Lamps', 'V2Lamps.dc.html'], ['Fans', 'Fans.dc.html'], ['Scenes', 'Scenes.dc.html'],
+      { section: true, label: 'HOME' }, ['Air fryer', '#fryer'], ['Modem', 'Modem.dc.html']
+    ].map(n => Array.isArray(n) ? { link: true, section: false, label: n[0], href: n[1],
+      style: 'display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 12px; text-decoration: none; font-size: 14px; ' +
+        (n[0] === 'Monitor' ? 'background: linear-gradient(90deg, rgba(255,77,26,.18), rgba(255,77,26,.04)); color: #F4F5F7; font-weight: 600; box-shadow: inset 2px 0 0 #FF4D1A;' : 'color: #A3A6AE;') }
+      : { ...n, link: false });
+    return {
+      nav,
+      overallChip: chipStyle('#3DDC84'), overallDot: 'width: 8px; height: 8px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 8px #3DDC84;', overallText: 'Everything is cool',
+      chips: [['CPU ' + cpuTemp.toFixed(0) + '°', level(cpuTemp, 75, 85)], ['GPU ' + gpuTemp.toFixed(0) + '°', level(gpuTemp, 80, 90)], ['Hotspot ' + hotspot.toFixed(0) + '°', level(hotspot, 90, 100)], ['Pump 2,812 rpm', '#3DDC84']]
+        .map(([l, c]) => ({ label: l, style: chipStyle(c), dot: 'width: 7px; height: 7px; border-radius: 4px; background: ' + c + ';' })),
+      chipCards: [
+        { title: 'Processor', sub: 'Ryzen 7 9800X3D', isCpu: true, isGpu: false,
+          gauges: [gauge('Load', cpuLoad, 100, '%', 70, 90), gauge('Temperature', cpuTemp, 95, '°C', 75, 85)],
+          stats: [{ label: 'Clock', value: (4.9 + 0.1 * Math.sin(t)).toFixed(2) + ' GHz', color: '#F4F5F7' }, { label: 'Power', value: Math.round(w(62, 8, .7)) + ' W', color: '#F4F5F7' }, { label: 'CCD', value: (cpuTemp - 2).toFixed(0) + '°', color: level(cpuTemp - 2, 75, 85) }] },
+        { title: 'Graphics', sub: 'RX 9070 XT Taichi', isCpu: false, isGpu: true,
+          gauges: [gauge('Load', gpuLoad, 100, '%', 70, 90), gauge('Temperature', gpuTemp, 100, '°C', 80, 90)],
+          stats: [{ label: 'Clock', value: Math.round(w(1600, 400, .6)) + ' MHz', color: '#F4F5F7' }, { label: 'Power', value: Math.round(w(110, 60, .6)) + ' W', color: '#F4F5F7' }, { label: 'Hotspot', value: hotspot.toFixed(0) + '°', color: level(hotspot, 90, 100) }] }
+      ],
+      threads: Array.from({ length: 16 }, (_, i) => { const v = Math.max(1, Math.min(100, 18 + 30 * Math.sin(t * .7 + i * 1.3) + (i < 2 ? 35 : 0))); const c = level(v, 70, 90);
+        return { title: 'Thread ' + (i + 1) + ': ' + Math.round(v) + '%', style: 'height: 24px; border-radius: 6px; background: linear-gradient(0deg, ' + c + ' ' + v.toFixed(0) + '%, #1E2026 ' + v.toFixed(0) + '%); ' + (v > 50 ? 'box-shadow: 0 0 10px ' + c + '66;' : '') }; }),
+      vram, vramSegs: segs(+vram, 16, '#36D6FF'),
+      ramUsed: ram, ramSegs: segs(+ram, 31, '#B26BFF'),
+      rails: [rail('Motherboard', w(38.5, .5, .3), 20, 80, 55, 70), rail('RAM stick 1', w(37.5, .3, .2), 20, 70, 50, 60), rail('RAM stick 2', w(37.2, .3, .2), 20, 70, 50, 60), rail('NVMe', w(36, .6, .3), 20, 80, 60, 70), rail('GPU hotspot', hotspot, 30, 110, 90, 100)],
+      dials: [dial('Radiator', w(1133, 60, .5), 2987, '#36D6FF'), dial('Case fans', w(541, 30, .4), 1636, '#36D6FF'), dial('AIO pump', w(2812, 15, .9), 2987, '#3DDC84')],
+      down: w(86, 22, .9).toFixed(0), up: w(3.1, 1, .7).toFixed(1),
+      disks: [['ADATA SX8100NP', 30, '36°'], ['ADATA LEGEND 710', 71, '36°'], ['Toshiba HDD', 85, '32°']].map(([n, p, tmp]) => ({ name: n, temp: tmp,
+        fill: 'height: 6px; border-radius: 3px; width: ' + p + '%; background: ' + (p > 80 ? '#F5A524' : '#36D6FF') + '; box-shadow: 0 0 8px ' + (p > 80 ? '#F5A52466' : '#36D6FF66') + ';' })),
+      bars: [1, 2, 3, 4, 5].map(i => ({ style: 'flex: 1; height: ' + (i * 8) + 'px; border-radius: 3px; background: ' + (i <= 3 ? '#F5A524' : '#1E2026') + '; ' + (i <= 3 ? 'box-shadow: 0 0 8px #F5A52466;' : '') })),
+      score: Math.round(w(47, 2, .3)), ping: Math.round(w(22, 5, 1.1))
+    };
+  }
+}
+</script>
+</body>
+</html>

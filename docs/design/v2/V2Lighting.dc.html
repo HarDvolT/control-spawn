@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism v2 — Lighting</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes lbreathe{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes lrainbow{to{filter:hue-rotate(360deg)}}
+@keyframes lflow{from{background-position:0% 50%}to{background-position:200% 50%}}
+@keyframes lstrobe{0%,49%{opacity:1}50%,100%{opacity:.08}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,.55)}50%{box-shadow:0 0 0 8px rgba(245,165,36,0)}}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+.card{animation:rise .6s cubic-bezier(.22,1,.36,1) both}
+.d1{animation-delay:.04s}.d2{animation-delay:.08s}.d3{animation-delay:.12s}.d4{animation-delay:.16s}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s,border-color .2s}.btn:hover{border-color:rgba(255,255,255,.18)!important}.btn:active{transform:scale(.97)}
+.tile{transition:transform .25s cubic-bezier(.22,1,.36,1),border-color .2s,box-shadow .25s}.tile:hover{transform:translateY(-2px)}
+.flow{background-size:200% 100%!important;animation:lflow 3s linear infinite}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F5F7}
+.live{animation:livedot 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 860px; display: flex; flex-wrap: wrap; color: #F4F5F7; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse 70% 40% at 50% -10%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%), radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px) 0 0 / 24px 24px, #07080A;">
+
+  <nav aria-label="Main" style="flex: 0 0 220px; box-sizing: border-box; padding: 20px 12px; background: rgba(13,14,17,.8); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 22px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #FF4D1A, #FF8A3D); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(255,77,26,.5);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#07080A" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: -0.01em;">Prism</span>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="10">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}"><p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{n.label}}</p></sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}"><a class="nav" href="{{n.href}}" style="{{n.style}}">{{n.label}}</a></sc-if>
+    </sc-for>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 12px 8px 0; padding: 10px 12px; border-radius: 12px; background: #111216; border: 1px solid rgba(255,255,255,.06); font-size: 12px; color: #A3A6AE;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 10px #3DDC84;"></span>Service live · 11 devices</div>
+  </nav>
+
+  <main style="flex: 999 1 600px; min-width: 0; box-sizing: border-box; padding: 24px 28px 28px; display: flex; flex-direction: column; gap: 16px;">
+    <header class="card" style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div>
+        <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">LIGHTING</p>
+        <h1 style="margin: 4px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -0.02em;">Your whole setup, one colour</h1>
+      </div>
+      <div role="group" aria-label="Lighting mode" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07);">
+        <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+          <button class="btn" type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="{{m.style}}">{{m.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+
+    <div class="card d1" role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 16px; background: linear-gradient(90deg, rgba(245,165,36,.14), rgba(245,165,36,.04)); border: 1px solid rgba(245,165,36,.35);">
+      <span style="width: 10px; height: 10px; border-radius: 5px; background: #F5A524; animation: pulse 1.8s infinite;"></span>
+      <p style="margin: 0; flex: 1 1 360px; font-size: 13px; color: #F4F5F7;"><b style="font-weight: 600;">Your case fans and LED strip aren't lit yet.</b> <span style="color: #C9CBD1;">They're on the motherboard's ARGB header, which starts at 0 LEDs. It takes 30 seconds to set up.</span></p>
+      <button class="btn" type="button" style="min-height: 40px; padding: 0 18px; border-radius: 999px; border: 0; background: #F5A524; color: #07080A; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;">Set up case lighting</button>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch;">
+      <section class="card d2" aria-label="Live preview of your PC" style="flex: 1.35 1 560px; min-width: 0; box-sizing: border-box; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">LIVE PREVIEW</p>
+          <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #A3A6AE;"><span class="live" style="width: 7px; height: 7px; border-radius: 4px; background: {{color}}; box-shadow: 0 0 10px {{color}};"></span>{{effectName}} · {{bright}}%</span>
+        </div>
+        <div style="display: flex; gap: 16px; align-items: center;">
+          <svg viewBox="0 0 560 400" role="img" aria-label="{{caseLabel}}" style="flex: 1 1 auto; width: 100%; max-height: 400px; opacity: {{caseOpacity}}; animation: {{anim}};">
+            <defs>
+              <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"></feGaussianBlur><feMerge><feMergeNode in="b"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
+              <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1A1C22"></stop><stop offset="1" stop-color="#0D0E12"></stop></linearGradient>
+            </defs>
+            <rect x="20" y="10" width="520" height="380" rx="22" fill="url(#glass)" stroke="rgba(255,255,255,.12)" stroke-width="1.5"></rect>
+            <rect x="34" y="24" width="492" height="352" rx="14" fill="none" stroke="rgba(255,255,255,.05)"></rect>
+            <text x="44" y="46" fill="#7C808A" font-family="Inter" font-size="11" letter-spacing="1.5">TOP RADIATOR</text>
+            <g filter="url(#glow)" fill="none" stroke="{{color}}" stroke-width="6">
+              <circle cx="190" cy="80" r="28"></circle><circle cx="270" cy="80" r="28"></circle><circle cx="350" cy="80" r="28"></circle>
+              <circle cx="470" cy="140" r="34"></circle><circle cx="470" cy="226" r="34"></circle><circle cx="470" cy="312" r="34"></circle>
+              <circle cx="78" cy="150" r="30"></circle>
+            </g>
+            <g fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"><circle cx="190" cy="80" r="16"></circle><circle cx="270" cy="80" r="16"></circle><circle cx="350" cy="80" r="16"></circle><circle cx="470" cy="140" r="20"></circle><circle cx="470" cy="226" r="20"></circle><circle cx="470" cy="312" r="20"></circle><circle cx="78" cy="150" r="17"></circle></g>
+            <rect x="130" y="128" width="270" height="150" rx="10" fill="#101116" stroke="rgba(255,255,255,.07)"></rect>
+            <path d="M196 168 l22 -10 l-8 22 z" fill="{{color}}" filter="url(#glow)" opacity="0.9"></path>
+            <text x="150" y="268" fill="#7C808A" font-family="Inter" font-size="10" letter-spacing="1.2">ROG STRIX B850-F</text>
+            <g filter="url(#glow)" fill="{{color}}"><rect x="300" y="138" width="10" height="104" rx="3"></rect><rect x="320" y="138" width="10" height="104" rx="3"></rect></g>
+            <rect x="120" y="296" width="300" height="34" rx="8" fill="#15161B" stroke="rgba(255,255,255,.08)"></rect>
+            <path d="M132 306 h96 l12 7 l-12 7 h-96" fill="none" stroke="{{color}}" stroke-width="4" filter="url(#glow)" stroke-linejoin="round"></path>
+            <text x="300" y="318" fill="#A3A6AE" font-family="Space Grotesk" font-size="11" letter-spacing="2">RADEON</text>
+            <line x1="56" y1="360" x2="440" y2="360" stroke="{{color}}" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 9" filter="url(#glow)"></line>
+            <text x="56" y="384" fill="#7C808A" font-family="Inter" font-size="10" letter-spacing="1.2">LED STRIP · FRONT FANS · REAR FAN (ARGB)</text>
+          </svg>
+          <div style="flex: 0 0 96px; display: flex; flex-direction: column; gap: 18px; align-items: center;">
+            <sc-for list="{{lamps}}" as="l" hint-placeholder-count="2">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <span style="{{l.orb}}"></span>
+                <span style="font-size: 12px; color: #C9CBD1;">{{l.name}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <span style="font-size: 12px; color: #7C808A; margin-right: 4px;">Applies to</span>
+          <sc-for list="{{targets}}" as="t" hint-placeholder-count="7">
+            <button class="btn" type="button" onClick="{{t.toggle}}" aria-pressed="{{t.on}}" style="{{t.style}}"><span style="{{t.dot}}"></span>{{t.label}}</button>
+          </sc-for>
+        </div>
+      </section>
+
+      <section class="card d3" aria-label="Colour and effect" style="flex: 1 1 380px; min-width: 0; box-sizing: border-box; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; gap: 18px; align-items: center;">
+          <div role="img" aria-label="Colour wheel, current colour {{color}}" style="position: relative; flex: 0 0 168px; height: 168px; border-radius: 84px; background: conic-gradient(#FF4D4F, #F5A524, #FFE34D, #3DDC84, #36D6FF, #4D6BFF, #B26BFF, #FF4DB8, #FF4D4F); box-shadow: 0 0 40px rgba(0,0,0,.5);">
+            <div style="position: absolute; inset: 20px; border-radius: 64px; background: #0F1014; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+              <span style="width: 58px; height: 58px; border-radius: 29px; background: {{color}}; box-shadow: 0 0 34px {{color}}, inset 0 -8px 16px rgba(0,0,0,.25);"></span>
+              <span style="font-family: 'Space Grotesk', monospace; font-size: 13px; color: #C9CBD1;">{{color}}</span>
+            </div>
+            <span style="position: absolute; left: {{markX}}; top: {{markY}}; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 9px; background: #F4F5F7; border: 3px solid #07080A; box-shadow: 0 0 12px rgba(255,255,255,.6);"></span>
+          </div>
+          <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 14px; min-width: 0;">
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+              <sc-for list="{{swatches}}" as="s" hint-placeholder-count="8">
+                <button class="btn" type="button" aria-label="{{s.label}}" onClick="{{s.pick}}" style="{{s.style}}"></button>
+              </sc-for>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 12px; color: #A3A6AE; margin-bottom: 8px;"><span>Brightness</span><span style="font-family: 'Space Grotesk', sans-serif; color: #F4F5F7;">{{bright}}%</span></div>
+              <div style="height: 14px; border-radius: 7px; background: #1E2026; overflow: hidden;"><div style="width: {{bright}}%; height: 14px; border-radius: 7px; background: linear-gradient(90deg, rgba(255,255,255,.15), {{color}}); box-shadow: 0 0 14px {{color}}; transition: width .6s cubic-bezier(.22,1,.36,1);"></div></div>
+              <div style="display: flex; gap: 6px; margin-top: 8px;">
+                <sc-for list="{{levels}}" as="b" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{b.pick}}" style="{{b.style}}">{{b.label}}</button></sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p style="margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">EFFECT</p>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+            <sc-for list="{{effects}}" as="e" hint-placeholder-count="9">
+              <button class="tile" type="button" onClick="{{e.pick}}" aria-pressed="{{e.on}}" style="{{e.style}}">
+                <span class="flow" style="{{e.preview}}"></span>
+                <span style="font-size: 13px; font-weight: 600;">{{e.name}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <sc-if value="{{hasSpeed}}" hint-placeholder-val="{{true}}">
+          <div style="padding: 14px; border-radius: 14px; background: #17181D; border: 1px solid rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #A3A6AE;"><span>{{effectName}} speed</span><span style="font-family: 'Space Grotesk', sans-serif; color: #F4F5F7;">{{speedLabel}}</span></div>
+            <div style="display: flex; gap: 6px;"><sc-for list="{{speeds}}" as="p" hint-placeholder-count="3"><button class="btn" type="button" onClick="{{p.pick}}" style="{{p.style}}">{{p.label}}</button></sc-for></div>
+          </div>
+        </sc-if>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'Whole case', color: '#36D6FF', effect: 'Static', bright: 80, speed: 'Medium',
+      off: {} };
+  }
+  renderVals() {
+    const s = this.state;
+    const pill = (on) => 'min-height: 38px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' +
+      (on ? 'background: #FF4D1A; color: #07080A; box-shadow: 0 0 18px rgba(255,77,26,.45);' : 'background: transparent; color: #A3A6AE;');
+    const small = (on) => 'flex: 1 1 0; min-height: 34px; border-radius: 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' +
+      (on ? 'background: rgba(255,77,26,.16); color: #FF7A50; border: 1px solid rgba(255,77,26,.55);' : 'background: #1E2026; color: #C9CBD1; border: 1px solid rgba(255,255,255,.06);');
+    const swatches = [['#FF4D1A','Ember'],['#FF4D4F','Red'],['#F5A524','Amber'],['#3DDC84','Green'],['#36D6FF','Ion'],['#4D6BFF','Blue'],['#B26BFF','Violet'],['#F4F5F7','White']];
+    const angle = { '#FF4D4F': 0, '#FF4D1A': 15, '#F5A524': 45, '#3DDC84': 135, '#36D6FF': 180, '#4D6BFF': 225, '#B26BFF': 270, '#F4F5F7': 320 }[s.color] ?? 180;
+    const rad = (angle - 90) * Math.PI / 180;
+    const effects = [
+      ['Static', 'linear-gradient(90deg, C, C)', ''],
+      ['Breathing', 'linear-gradient(90deg, #0F1014, C, #0F1014)', 'lbreathe 2.4s ease-in-out infinite'],
+      ['Rainbow', 'linear-gradient(90deg, #FF4D4F, #F5A524, #3DDC84, #36D6FF, #B26BFF, #FF4D4F)', 'lrainbow 4s linear infinite'],
+      ['Aurora', 'linear-gradient(90deg, #3DDC84, #36D6FF, #B26BFF, #3DDC84)', 'lrainbow 9s linear infinite'],
+      ['Comet', 'linear-gradient(90deg, #0F1014 0%, #0F1014 60%, C 80%, #FFFFFF 85%, #0F1014 100%)', 'lbreathe 1.2s ease-in-out infinite'],
+      ['Fire', 'linear-gradient(90deg, #FF4D4F, #F5A524, #FFE34D, #FF4D1A, #FF4D4F)', 'lbreathe 0.9s ease-in-out infinite'],
+      ['Ocean', 'linear-gradient(90deg, #4D6BFF, #36D6FF, #0F3D5C, #4D6BFF)', 'lbreathe 3.2s ease-in-out infinite'],
+      ['Strobe', 'linear-gradient(90deg, C, C)', 'lstrobe 0.5s steps(1) infinite'],
+      ['Sensor', 'linear-gradient(90deg, #36D6FF, #3DDC84, #F5A524, #FF4D4F)', '']
+    ];
+    const current = effects.find(e => e[0] === s.effect);
+    const targets = [['Radiator fans', true], ['Front fans', true], ['Rear fan', true], ['RAM', true], ['Graphics card', true], ['Motherboard', true], ['LED strip', true], ['Desk lamp', true], ['Bedside lamp', true]];
+    const nav = [
+      { section: true, label: 'GENERAL' }, ['Dashboard', 'Main.dc.html'], ['Monitor', 'V2Monitor.dc.html'], ['Devices', 'V2Devices.dc.html'],
+      { section: true, label: 'CONTROL' }, ['Lighting', 'V2Lighting.dc.html'], ['Lamps', 'V2Lamps.dc.html'], ['Fans', 'Fans.dc.html'], ['Scenes', 'Scenes.dc.html'],
+      { section: true, label: 'HOME' }, ['Air fryer', '#fryer'], ['Modem', 'Modem.dc.html']
+    ].map(n => Array.isArray(n) ? { link: true, section: false, label: n[0], href: n[1],
+      style: 'display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 12px; text-decoration: none; font-size: 14px; ' +
+        (n[0] === 'Lighting' ? 'background: linear-gradient(90deg, rgba(255,77,26,.18), rgba(255,77,26,.04)); color: #F4F5F7; font-weight: 600; box-shadow: inset 2px 0 0 #FF4D1A;' : 'color: #A3A6AE;') }
+      : { ...n, link: false });
+    return {
+      nav,
+      modes: ['Whole case', 'Per device', 'Sensor'].map(m => ({ label: m, on: s.mode === m, style: pill(s.mode === m), pick: () => this.setState({ mode: m }) })),
+      color: s.color, bright: s.bright, effectName: s.effect, anim: current[2] || 'none',
+      caseOpacity: (0.25 + 0.75 * s.bright / 100).toFixed(2),
+      caseLabel: 'Your PC case lit in ' + s.color + ' with the ' + s.effect + ' effect',
+      markX: (84 + 74 * Math.cos(rad)).toFixed(1) + 'px', markY: (84 + 74 * Math.sin(rad)).toFixed(1) + 'px',
+      swatches: swatches.map(([c, n]) => ({ label: n, pick: () => this.setState({ color: c }),
+        style: 'height: 36px; border-radius: 10px; cursor: pointer; background: ' + c + '; ' + (s.color === c ? 'border: 2px solid #F4F5F7; box-shadow: 0 0 16px ' + c + ';' : 'border: 2px solid transparent;') })),
+      levels: [['25%', 25], ['50%', 50], ['80%', 80], ['Max', 100]].map(([l, v]) => ({ label: l, pick: () => this.setState({ bright: v }), style: small(s.bright === v) })),
+      effects: effects.map(([n, g]) => ({ name: n, on: s.effect === n, pick: () => this.setState({ effect: n }),
+        preview: 'display: block; height: 38px; border-radius: 9px; background: ' + g.replace(/C/g, s.color) + ';',
+        style: 'display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 14px; font: inherit; color: #F4F5F7; text-align: left; cursor: pointer; ' +
+          (s.effect === n ? 'background: #1E2026; border: 1px solid #FF4D1A; box-shadow: 0 0 0 3px rgba(255,77,26,.15);' : 'background: #17181D; border: 1px solid rgba(255,255,255,.06);') })),
+      hasSpeed: !['Static', 'Sensor'].includes(s.effect),
+      speedLabel: s.speed,
+      speeds: ['Slow', 'Medium', 'Fast'].map(p => ({ label: p, pick: () => this.setState({ speed: p }), style: small(s.speed === p) })),
+      targets: targets.map(([n]) => { const on = !s.off[n]; return { label: n, on,
+        toggle: () => this.setState({ off: { ...s.off, [n]: on } }),
+        dot: 'width: 8px; height: 8px; border-radius: 4px; background: ' + (on ? s.color : '#3A3C44') + '; ' + (on ? 'box-shadow: 0 0 8px ' + s.color + ';' : ''),
+        style: 'display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 12px; cursor: pointer; ' +
+          (on ? 'background: #1E2026; color: #F4F5F7; border: 1px solid rgba(255,255,255,.1);' : 'background: transparent; color: #7C808A; border: 1px dashed rgba(255,255,255,.12);') }; }),
+      lamps: ['Desk lamp', 'Bedside lamp'].map(n => ({ name: n,
+        orb: 'width: 62px; height: 62px; border-radius: 31px; background: radial-gradient(circle at 35% 30%, #FFFFFF, ' + s.color + ' 45%, rgba(0,0,0,.3)); opacity: ' + (s.off[n] ? .2 : (0.35 + 0.65 * s.bright / 100)).toFixed(2) + '; box-shadow: 0 0 ' + (s.off[n] ? 0 : 36) + 'px ' + s.color + ';' }))
+    };
+  }
+}
+</script>
+</body>
+</html>
