@@ -8,6 +8,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Prism.App;
+using Prism.App.Controls;
+using System.Windows.Controls.Primitives;
 using Prism.App.Common;
 using Prism.App.Navigation;
 using Prism.App.Services;
@@ -34,6 +36,7 @@ internal static class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         foreach (var file in new[] { "Themes/Prism.xaml", "Views/PageTemplates.xaml" })
             app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/Prism.App;component/" + file, UriKind.Relative) });
+        VerifyControls(output);
         var client = new MockPrismClient();
         var settings = new AppSettings { ReduceAnimations = true };
         var vm = new MainViewModel(client, settings, new SettingsStore(Path.Combine(output,"settings.json")),
@@ -63,6 +66,16 @@ internal static class Program
             widget.Apply(client.CurrentState);
             Render(new WidgetContent { DataContext = widget }, Path.Combine(output,"Widget-"+kind+".png"),widget.Width);
         }
+        vm.Fans.SelectFanCommand.Execute(vm.Fans.Fans.First(f => f.Name == "Case fans"));
+        RenderPage("Fans-Case", vm.Fans);
+        vm.Fans.SelectFanCommand.Execute(vm.Fans.Fans.First(f => f.IsPump));
+        RenderPage("Fans-Pump", vm.Fans);
+        void RenderPage(string name, object model)
+        {
+            var template = (DataTemplate)app.Resources[new DataTemplateKey(model.GetType())];
+            var view = (FrameworkElement)template.LoadContent(); view.DataContext = model;
+            Render(view, Path.Combine(output, name + ".png"), 1020);
+        }
         window.Close();
         client.DisposeAsync().AsTask().GetAwaiter().GetResult();
         app.Shutdown();
@@ -72,10 +85,62 @@ internal static class Program
         if (errors.Length > 0) { Console.Error.WriteLine(errors); return 1; }
         return 0;
     }
+    private static void VerifyControls(string output)
+    {
+        // Real drawing checks: a one-pixel fill must not become a thumb-sized capsule.
+        foreach (var (minimum, maximum, value, edge) in new[] {
+            (0d, 60d, 33d, 110), (20d, 80d, 35d, 50), (0d, 100d, 0.5d, 1),
+            (1d, 100d, 1d, 0), (0d, 100d, 100d, 200), (60d, 60d, 60d, 0) })
+        {
+            var slider = new ThickSlider { Minimum = minimum, Maximum = maximum, Value = value,
+                Glow = false, TrackColor = Colors.Black, AccentColor = Colors.Red };
+            slider.Measure(new Size(200, 14)); slider.Arrange(new Rect(0, 0, 200, 14));
+            var bitmap = new RenderTargetBitmap(200, 14, 96, 96, PixelFormats.Pbgra32); bitmap.Render(slider);
+            var pixels = new byte[200 * 14 * 4]; bitmap.CopyPixels(pixels, 800, 0);
+            var last = -1;
+            for (var x = 0; x < 200; x++) if (pixels[(7 * 200 + x) * 4 + 2] > 127) last = x;
+            if (Math.Abs(last + 1 - edge) > 1) throw new InvalidOperationException($"Slider {minimum}..{maximum} at {value}: edge {last + 1}, expected {edge}");
+        }
+        var curve = new FanCurveEditor(); curve.Measure(new Size(400, 200)); curve.Arrange(new Rect(0, 0, 400, 200));
+        var drawing = VisualTreeHelper.GetDrawing(curve);
+        var paths = drawing.Children.OfType<GeometryDrawing>().Where(d => d.Geometry is StreamGeometry).ToArray();
+        if (paths.Length != 3 || paths.Any(p => p.Geometry.ToString().Contains('C')))
+            throw new InvalidOperationException("Curve fill, glow and stroke must all use straight segments.");
+        var panel = new StackPanel();
+        var combo = new ComboBox { ItemsSource = new[] { "CPU", "Motherboard", "GPU", "Highest" }, SelectedIndex = 0, Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
+        panel.Children.Add(combo);
+        panel.Children.Add(new TextBox { Text = "Graphite text selection", Margin = new Thickness(0, 12, 0, 12) });
+        panel.Children.Add(new PasswordBox { Password = "preview only", Background = (Brush)Application.Current.Resources["PanelAltBrush"], Foreground = Brushes.White, Padding = new Thickness(10) });
+        panel.Children.Add(new Button { Content = "Implicit button", Margin = new Thickness(0, 12, 0, 12) });
+        var scroll = new ScrollViewer { Height = 90, VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
+            Content = new TextBlock { Text = string.Join("\n", Enumerable.Repeat("Scroll preview", 20)) } };
+        panel.Children.Add(scroll);
+        panel.Children.Add(new ScrollBar { Orientation = Orientation.Horizontal, Minimum = 0, Maximum = 100, Value = 35, ViewportSize = 20, Margin = new Thickness(0, 10, 0, 0) });
+        panel.Children.Add(new ScrollBar { Orientation = Orientation.Vertical, Minimum = 0, Maximum = 100, Value = 35, ViewportSize = 20, Height = 80, HorizontalAlignment = HorizontalAlignment.Right });
+        Render(panel, Path.Combine(output, "Controls.png"), 500);
+        var popup = (Popup)combo.Template.FindName("PART_Popup", combo);
+        Render((FrameworkElement)popup.Child, Path.Combine(output, "ComboPopup.png"), 300);
+        var tooltip = new ToolTip { Content = "Graphite tooltip" };
+        Render(tooltip, Path.Combine(output, "Tooltip.png"), 300);
+        var menu = new ContextMenu(); menu.Items.Add(new MenuItem { Header = "Copy", InputGestureText = "Ctrl+C" }); menu.Items.Add(new MenuItem { Header = "Paste", IsEnabled = false });
+        Render(menu, Path.Combine(output, "ContextMenu.png"), 300);
+        using var tray = new System.Windows.Forms.ContextMenuStrip();
+        tray.Items.Add("Open");
+        var sub = new System.Windows.Forms.ToolStripMenuItem("Scenes"); sub.DropDownItems.Add("Gaming"); tray.Items.Add(sub);
+        GraphiteTrayTheme.Apply(tray);
+        tray.PerformLayout();
+        using var image = new System.Drawing.Bitmap(tray.Width, tray.Height);
+        tray.DrawToBitmap(image, new System.Drawing.Rectangle(0, 0, image.Width, image.Height));
+        image.Save(Path.Combine(output, "TrayMenu.png"));
+        using var submenu = new System.Drawing.Bitmap(sub.DropDown.Width, sub.DropDown.Height);
+        sub.DropDown.DrawToBitmap(submenu, new System.Drawing.Rectangle(0, 0, submenu.Width, submenu.Height));
+        submenu.Save(Path.Combine(output, "TraySubmenu.png"));
+        Console.WriteLine("Verified linear curve geometry and six slider fill cases; rendered detached controls and menus.");
+    }
     private static void Render(FrameworkElement view, string path, double width)
     {
         FrameworkElement frame = view;
-        if (view.Parent is null)
+        if (view.Parent is null && view is not ToolTip && view is not ContextMenu)
         {
             frame = new Border { Background = (Brush)Application.Current.Resources["PageBrush"], Child = view, Width = width };
             TextElement.SetForeground(frame, (Brush)Application.Current.Resources["TextPrimaryBrush"]);

@@ -215,9 +215,9 @@ public class ThickSlider : FrameworkElement
         var span = high - low;
         var ratio = span <= 0 ? 0 : Math.Clamp((Value - low) / span, 0, 1);
         var fillWidth = width * ratio;
-        if (fillWidth > 0.5)
+        if (fillWidth > 0)
         {
-            var rect = new Rect(0, 0, Math.Max(fillWidth, height), height);
+            var rect = new Rect(0, 0, fillWidth, height);
             var geometry = new RectangleGeometry(rect, radius, radius);
             geometry.Freeze();
             dc.PushClip(geometry);

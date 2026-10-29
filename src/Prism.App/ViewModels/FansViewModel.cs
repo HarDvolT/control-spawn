@@ -105,7 +105,7 @@ public sealed class FansViewModel : PageViewModel
 
     public string NowTempText => Format.TempUnit(NowTemp);
     public string NowPercentText => Format.Percent(NowPercent);
-    public string CurveSubtitle => $"{ModeName} curve · now {NowPercentText} at {NowTempText}";
+    public string CurveSubtitle => $"{(IsPumpSelected ? "Fixed" : ModeName)} curve · now {NowPercentText} at {NowTempText}";
 
     public string SourceName
     {
@@ -115,10 +115,10 @@ public sealed class FansViewModel : PageViewModel
 
     public double SmoothUp { get => _smoothUp; set => Set(ref _smoothUp, Math.Clamp(value, 0, 100)); }
     public double SmoothDown { get => _smoothDown; set => Set(ref _smoothDown, Math.Clamp(value, 0, 100)); }
-    public double MinSpeed { get => _minSpeed; set => Set(ref _minSpeed, Math.Clamp(value, 0, 60)); }
+    public double MinSpeed { get => _minSpeed; set { if (Set(ref _minSpeed, Math.Clamp(value, 0, 60))) OnPropertyChanged(nameof(MinSpeedText)); } }
     public string SmoothUpText => Format.Percent(SmoothUp);
     public string SmoothDownText => Format.Percent(SmoothDown);
-    public string MinSpeedText => Format.Percent(MinSpeed / 60 * 100);
+    public string MinSpeedText => Format.Percent(MinSpeed);
 
     public string MeasureText { get => _measureText; private set => Set(ref _measureText, value); }
 
@@ -138,7 +138,7 @@ public sealed class FansViewModel : PageViewModel
             var percent = fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? 0, 0, 100);
             var spin = Math.Max(0.3, 3000.0 / Math.Max(fan.Rpm ?? 300, 300));
             Fans.Add(new FanGroupItem(fan.Name,
-                fan.IsPump ? "Fixed at 100% for safety" : $"Header {fan.Header} · {fan.Name}",
+                $"Header {fan.Header} · {fan.Name}",
                 Format.RpmShort(fan.Rpm), percent, fan.IsPump, spin));
         }
         foreach (var fan in Fans) fan.IsSelected = fan.Name == selected;

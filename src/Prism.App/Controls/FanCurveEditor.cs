@@ -230,10 +230,7 @@ public class FanCurveEditor : FrameworkElement
             context.BeginFigure(first, false, false);
             for (var i = 1; i < points.Count; i++)
             {
-                var previous = At(points[i - 1]);
-                var current = At(points[i]);
-                var mid = (previous.X + current.X) / 2;
-                context.BezierTo(new Point(mid, previous.Y), new Point(mid, current.Y), current, true, false);
+                context.LineTo(At(points[i]), true, false);
             }
         }
         curve.Freeze();
@@ -247,10 +244,7 @@ public class FanCurveEditor : FrameworkElement
             context.LineTo(first, true, false);
             for (var i = 1; i < points.Count; i++)
             {
-                var previous = At(points[i - 1]);
-                var current = At(points[i]);
-                var mid = (previous.X + current.X) / 2;
-                context.BezierTo(new Point(mid, previous.Y), new Point(mid, current.Y), current, true, false);
+                context.LineTo(At(points[i]), true, false);
             }
             context.LineTo(new Point(last.X, height - Pad), true, false);
         }

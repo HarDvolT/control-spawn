@@ -161,6 +161,31 @@ public sealed class AppBehaviorTests : IDisposable
     }
 
     [Fact]
+    public async Task Fan_cards_report_actual_percent_and_rotation_tracks_live_rpm()
+    {
+        await using var mock = new MockPrismClient();
+        var vm = new FansViewModel(new RecordingClient()); vm.Apply(mock.CurrentState);
+        Assert.Equal("33%", vm.MinSpeedText);
+        var changed = new List<string?>(); vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        vm.MinSpeed = 20;
+        Assert.Equal("20%", vm.MinSpeedText);
+        Assert.Contains(nameof(vm.MinSpeedText), changed);
+        var radiator = vm.Fans.Single(f => f.Name == "Radiator");
+        var slow = vm.Fans.Single(f => f.Name == "Case fans");
+        var pump = vm.Fans.Single(f => f.IsPump);
+        Assert.True(pump.SpinSeconds < radiator.SpinSeconds);
+        Assert.True(radiator.SpinSeconds < slow.SpinSeconds);
+        Assert.Equal(100, pump.Percent);
+        Assert.Contains("Header", pump.Sub);
+        Assert.True(radiator.IsSelected);
+        vm.SelectFanCommand.Execute(pump);
+        Assert.True(pump.IsSelected);
+        Assert.False(radiator.IsSelected);
+        Assert.StartsWith("Fixed curve", vm.CurveSubtitle);
+        Assert.All(vm.Curve, p => Assert.Equal(100, p.Percent));
+    }
+
+    [Fact]
     public void Scenes_do_not_claim_success_when_the_service_refuses()
     {
         var vm = new ScenesViewModel(new RecordingClient { Reject = true });

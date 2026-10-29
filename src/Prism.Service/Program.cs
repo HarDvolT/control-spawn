@@ -23,6 +23,14 @@ public static class Program
             services.AddHostedService<PrismWorker>();
         });
         using var host = builder.Build();
+        // --exit-after <seconds>: clean, timed shutdown for supervised tests, so the normal stop path
+        // (StopAsync -> RestoreDefaults) always hands the fans back to the BIOS.
+        int exitIndex = Array.FindIndex(args, a => a.Equals("--exit-after", StringComparison.OrdinalIgnoreCase));
+        if (exitIndex >= 0 && exitIndex + 1 < args.Length && int.TryParse(args[exitIndex + 1], out var seconds) && seconds > 0)
+        {
+            var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+            _ = Task.Delay(TimeSpan.FromSeconds(seconds)).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
+        }
         await host.RunAsync();
     }
 }

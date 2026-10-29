@@ -22,6 +22,7 @@ public sealed class TrayIcon : IDisposable
         _menu.Items.Add("Show/Hide widgets", null, (_, _) => widgets.Toggle());
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _menu.Items.Add("Quit", null, (_, _) => quit());
+        GraphiteTrayTheme.Apply(_menu);
         _icon = new Forms.NotifyIcon { Text = "Prism", Icon = System.Drawing.SystemIcons.Application, ContextMenuStrip = _menu, Visible = true };
         _icon.DoubleClick += (_, _) => open();
     }
