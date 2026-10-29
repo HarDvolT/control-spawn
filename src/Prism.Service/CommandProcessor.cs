@@ -17,6 +17,8 @@ public interface IServiceRuntime
     Task ApplyAsync(ServiceSettings settings, CancellationToken cancellationToken);
     Task<RgbDeviceState> ResizeZoneAsync(string device, int zone, int size, CancellationToken cancellationToken) =>
         Task.FromException<RgbDeviceState>(new InvalidOperationException("Zone resizing is unavailable."));
+    void IdentifyZone(string device, int zone, int size) { }
+    void EndIdentification(string device) { }
     Task<IReadOnlyList<MiioDevice>> DiscoverLampsAsync(CancellationToken token) => Task.FromResult<IReadOnlyList<MiioDevice>>([]);
     void SetLampResolutionHandler(Func<string, MiioDevice, Task> handler) { }
     void CredentialsChanged(bool lamp) { }
@@ -84,7 +86,14 @@ public sealed partial class CommandProcessor
         finally { gate.Release(); }
     }
     public StateMessage GetState() => DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery);
+    public event Action? StateChanged;
     public async Task<Response> HandleAsync(Request request, CancellationToken cancellationToken = default)
+    {
+        var response = await HandleCoreAsync(request, cancellationToken);
+        if (response.Ok && request.Command != Commands.GetState) StateChanged?.Invoke();
+        return response;
+    }
+    private async Task<Response> HandleCoreAsync(Request request, CancellationToken cancellationToken)
     {
         // A speed test must not hold the settings gate while fans/scenes need to change.
         if (request.Command == Commands.StartSpeedTest) return await SpeedResponseAsync(request.Id, cancellationToken);
@@ -205,6 +214,7 @@ public sealed partial class CommandProcessor
                     var device = Device(a); var layers = new Dictionary<string, LedConfiguration>(Settings.LedLayers);
                     layers.Remove(device.Id); next = Settings with { LedLayers = layers }; break;
                 }
+                case Commands.IdentifyZone:
                 case Commands.ResizeZone:
                 {
                     var device = Device(a); int zone = a.GetProperty("zone").GetInt32(), size = a.GetProperty("size").GetInt32();
@@ -220,7 +230,10 @@ public sealed partial class CommandProcessor
                     if (layers.TryGetValue(device.Id, out var current)) layers[device.Id] = current with {
                         Custom = current.Custom is null ? null : LedLayers.Resize(current.Custom, resized.LedCount, false),
                         Overlay = current.Overlay is null ? null : LedLayers.Resize(current.Overlay, resized.LedCount, true) };
-                    next = Settings with { ZoneSizes = sizes, LedLayers = layers }; break;
+                    next = Settings with { ZoneSizes = sizes, LedLayers = layers };
+                    if (request.Command == Commands.IdentifyZone) runtime.IdentifyZone(device.Id, zone, size);
+                    else runtime.EndIdentification(device.Id);
+                    break;
                 }
                 case Commands.SetLampToken:
                 {
@@ -292,6 +305,23 @@ public sealed partial class CommandProcessor
                     { var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans) { [int.Parse(group.AsSpan(4))] = new(FanMode.Custom, source, points) }; next = Settings with { HeaderFans = headers }; break; }
                     var fans = new Dictionary<string, FanConfiguration>(Settings.Fans) { [group] = new(FanMode.Custom, source, points) };
                     next = Settings with { Fans = fans }; break;
+                }
+                case Commands.SetAllLighting:
+                {
+                    var lighting = Settings.Lighting with {
+                        Effect = a.TryGetProperty("effect", out _) ? EnumValue<LightingEffect>(a, "effect") : Settings.Lighting.Effect,
+                        Color = a.TryGetProperty("color", out _) ? Text(a, "color") : Settings.Lighting.Color,
+                        Brightness = a.TryGetProperty("brightness", out var b) ? b.GetDouble() : Settings.Lighting.Brightness,
+                        Speed = a.TryGetProperty("speed", out var sp) ? sp.GetDouble() : Settings.Lighting.Speed };
+                    bool reset = a.TryGetProperty("resetOverrides", out var r) && r.GetBoolean();
+                    var lamps = Settings.ConfiguredLamps.Select(l => l with { Follow = "pc", On = lighting.Effect != LightingEffect.Off && lighting.Brightness > 0,
+                        Brightness = Math.Max(1, (int)Math.Round(lighting.Brightness * 100)), Color = lighting.Color, Kelvin = null }).ToArray();
+                    var parameters = lighting.Parameters;
+                    if (parameters is not null) lighting = lighting with { Parameters = parameters with { Devices = null } };
+                    next = Settings with { Lighting = lighting, Lamps = lamps,
+                        SyncedDevices = runtime.GetState(Settings).Lighting.Devices.ToDictionary(d => d.Id, _ => true),
+                        LedLayers = reset ? new() : Settings.LedLayers, Bindings = reset ? new() : Settings.Bindings };
+                    break;
                 }
                 case Commands.SetLighting:
                     next = Settings with { Lighting = new(EnumValue<LightingEffect>(a, "effect"), Text(a, "color"), a.GetProperty("brightness").GetDouble(), a.GetProperty("speed").GetDouble(), Settings.Lighting.Parameters) }; break;

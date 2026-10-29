@@ -175,7 +175,7 @@ public sealed class DashboardViewModel : PageViewModel
         _suppressLamp = false;
         LampSubtitle = state.Lamp is { } lamp
             ? (lamp.Follow switch { "pc" => "Synced to PC", "average" => "Average of PC colours", _ => "Own colour" })
-              + " · " + lamp.Transport
+              + " · " + Controls.FriendlyLabelConverter.Label(lamp.Transport)
             : "Not connected";
 
 

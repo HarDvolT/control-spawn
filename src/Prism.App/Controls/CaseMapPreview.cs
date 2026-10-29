@@ -113,6 +113,12 @@ public sealed class CaseMapPreview : FrameworkElement
             }
             if (!mini && model?.State is { } sensorState)
                 colors = sensorLighting.Composite(device, sensorState.Lighting.Bindings, sensorState, time, colors, scene.Brightness).ToArray();
+            if (!mini && model?.State?.Lighting.IdentifyingZones?.FirstOrDefault(z => z.Device == device.Id) is { } identifying && device.Zones is { } identifyingZones && identifying.Zone < identifyingZones.Count)
+            {
+                var zone = identifyingZones[identifying.Zone];
+                colors = Enumerable.Repeat(RgbColor.Black, device.LedCount).ToArray();
+                for (int led = 0; led < zone.LedCount; led++) colors[zone.FirstLed + led] = led + 1 == identifying.LedIndex ? new RgbColor(255, 255, 255) : new RgbColor(24, 24, 24);
+            }
             if (!mini && device.Zones is not null)
                 for (int z = 0; z < device.Zones.Count; z++)
                 {
@@ -123,7 +129,7 @@ public sealed class CaseMapPreview : FrameworkElement
                     var start = Pixel(new(Math.Clamp(empty.X - Math.Cos(a) * empty.Length / 2, 0, 1), Math.Clamp(empty.Y - Math.Sin(a) * empty.Length / 2, 0, 1)));
                     var end = Pixel(new(Math.Clamp(empty.X + Math.Cos(a) * empty.Length / 2, 0, 1), Math.Clamp(empty.Y + Math.Sin(a) * empty.Length / 2, 0, 1)));
                     dc.DrawLine(new Pen(Brush("#555563"), 5) { DashStyle = DashStyles.Dash }, start, end);
-                    Label(dc, "ARGB / 0 LEDs", new(start.X, start.Y + 10), 10, Brush("#A1A1AA"));
+                    Label(dc, "Set up case lighting", new(start.X, start.Y + 10), 10, Brush("#A1A1AA"));
                     if (MapEditing) for (int hIndex = 0; hIndex <= 10; hIndex++) hits.Add((new(start.X + (end.X - start.X) * hIndex / 10, start.Y + (end.Y - start.Y) * hIndex / 10), device, -1, empty));
                 }
             for (int i = 0; i < positions.Length; i++)

@@ -46,7 +46,7 @@ public sealed class LedEditor : UserControl
         ((Button)tools.Children[7]).ToolTip = "Apply to selected range";
         ((Button)tools.Children[8]).ToolTip = "Clear layers";
         var picker = new WrapPanel { Margin = new Thickness(0, 6, 0, 12) }; root.Children.Add(picker);
-        var wheel = new ColorWheel { Width = 110, Height = 110, Margin = new Thickness(0, 0, 18, 0) };
+        var wheel = new ColorWheel { Width = 110, Height = 110, MinWidth = 0, MinHeight = 0, Margin = new Thickness(0, 0, 18, 0) };
         wheel.ColorPicked += hex => { color.Text = hex; SyncColor(); };
         picker.Children.Add(wheel);
         var colors = new StackPanel(); picker.Children.Add(colors);
@@ -199,33 +199,3 @@ public sealed class LedEditor : UserControl
     }
 }
 
-public sealed class ColorWheel : FrameworkElement
-{
-    public event Action<string>? ColorPicked;
-    protected override void OnRender(DrawingContext dc)
-    {
-        double radius = Math.Min(ActualWidth, ActualHeight) / 2 - 2;
-        var center = new Point(ActualWidth / 2, ActualHeight / 2);
-        for (int angle = 0; angle < 360; angle += 3)
-        {
-            var c = Hue(angle / 360d);
-            dc.DrawLine(new Pen(new SolidColorBrush(c), 4), center, new Point(center.X + Math.Cos(angle * Math.PI / 180) * radius, center.Y + Math.Sin(angle * Math.PI / 180) * radius));
-        }
-        dc.DrawEllipse(new RadialGradientBrush(Colors.White, Colors.Transparent), null, center, radius, radius);
-    }
-    protected override void OnMouseDown(MouseButtonEventArgs e) { Pick(e.GetPosition(this)); CaptureMouse(); }
-    protected override void OnMouseMove(MouseEventArgs e) { if (IsMouseCaptured) Pick(e.GetPosition(this)); }
-    protected override void OnMouseUp(MouseButtonEventArgs e) { ReleaseMouseCapture(); }
-    private void Pick(Point p)
-    {
-        double x = p.X - ActualWidth / 2, y = p.Y - ActualHeight / 2;
-        double hue = Math.Atan2(y, x) / (2 * Math.PI); if (hue < 0) hue++;
-        var c = Hue(hue); double s = Math.Clamp(Math.Sqrt(x * x + y * y) / (Math.Min(ActualWidth, ActualHeight) / 2), 0, 1);
-        ColorPicked?.Invoke($"#{(byte)(255 + (c.R - 255) * s):X2}{(byte)(255 + (c.G - 255) * s):X2}{(byte)(255 + (c.B - 255) * s):X2}");
-    }
-    private static Color Hue(double h)
-    {
-        double n = h * 6; byte x = (byte)(255 * (1 - Math.Abs(n % 2 - 1)));
-        return (int)n switch { 0 => Color.FromRgb(255, x, 0), 1 => Color.FromRgb(x, 255, 0), 2 => Color.FromRgb(0, 255, x), 3 => Color.FromRgb(0, x, 255), 4 => Color.FromRgb(x, 0, 255), _ => Color.FromRgb(255, 0, x) };
-    }
-}

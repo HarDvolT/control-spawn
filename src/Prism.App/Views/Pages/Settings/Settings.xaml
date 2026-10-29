@@ -1,0 +1,69 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:v="clr-namespace:Prism.App.Views">
+<DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+    <StackPanel>
+      <c:GlassCard Margin="0,0,0,18" StaggerIndex="3">
+        <StackPanel>
+          <TextBlock Text="Device discovery" Style="{StaticResource H2}" Margin="0,4"/>
+          <CheckBox Content="Notify me when new devices are found" IsChecked="{Binding NotifyNewDevices}" Margin="0,6"/>
+          <CheckBox Content="Auto-join new RGB devices to sync" IsChecked="{Binding AutoJoinNewRgb}" Margin="0,6"/>
+          <CheckBox Content="Flash event lights when cooking finishes" IsChecked="{Binding CookingLightFlash}" Margin="0,6"/>
+          <TextBlock Text="Startup and background" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+          <DockPanel Margin="0,9">
+            <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding StartWithWindows, Mode=TwoWay}" AutomationProperties.Name="Start with Windows"/>
+            <TextBlock Text="Start with Windows" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          </DockPanel>
+          <DockPanel Margin="0,9">
+            <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding StartMinimizedToTray, Mode=TwoWay}" AutomationProperties.Name="Start minimized to tray"/>
+            <TextBlock Text="Start minimized to tray" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          </DockPanel>
+          <DockPanel Margin="0,9">
+            <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding KeepRunningWhenClosed, Mode=TwoWay}" AutomationProperties.Name="Keep running when closed"/>
+            <TextBlock Text="Keep running when closed" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          </DockPanel>
+          <DockPanel Margin="0,9">
+            <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding ShowWidgetsAtStartup, Mode=TwoWay}" AutomationProperties.Name="Show widgets at startup"/>
+            <TextBlock Text="Show widgets at startup" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          </DockPanel>
+        </StackPanel>
+      </c:GlassCard>
+      <c:GlassCard Margin="0,0,0,18" StaggerIndex="4">
+        <StackPanel>
+          <TextBlock Text="Appearance" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+          <DockPanel Margin="0,9">
+            <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding ReduceAnimations, Mode=TwoWay}" AutomationProperties.Name="Reduce animations"/>
+            <TextBlock Text="Reduce animations" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          </DockPanel>
+        </StackPanel>
+      </c:GlassCard>
+      <c:GlassCard Margin="0,0,0,18" StaggerIndex="5">
+        <StackPanel>
+          <TextBlock Text="Integrations" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="OpenRGB path" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBox Text="{Binding OpenRgbPath, UpdateSourceTrigger=LostFocus}" Background="#252529" Padding="10" Margin="0,8"/>
+          <DockPanel Margin="0,9">
+            <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding RouterEnabled, Mode=TwoWay}" AutomationProperties.Name="Enable router integration"/>
+            <TextBlock Text="Enable router integration" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          </DockPanel>
+          <CheckBox Content="Launch OpenRGB with the service" IsChecked="{Binding LaunchOpenRgb}" Margin="0,8"/>
+          <TextBlock Text="Router host" Style="{StaticResource Muted}"/>
+          <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding RouterHost, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/>
+          <Button Content="Save service options" Command="{Binding SaveServiceOptionsCommand}" HorizontalAlignment="Left" Margin="0,8"/>
+          <TextBlock Text="{Binding IntegrationNote}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+        </StackPanel>
+      </c:GlassCard>
+      <c:GlassCard Margin="0,0,0,18" StaggerIndex="0">
+        <StackPanel>
+          <TextBlock Text="Service" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="{Binding ServiceText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="{Binding ModeText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="{Binding ElevationText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="{Binding PipeName}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="{Binding LastSavedText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          <Button Content="Reset preferences" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding ResetCommand}"/>
+        </StackPanel>
+      </c:GlassCard>
+      <TextBlock Text="{Binding LastError}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12"/>
+          <c:EventOptionsPanel/>
+    </StackPanel>
+  </DataTemplate>
+</ResourceDictionary>

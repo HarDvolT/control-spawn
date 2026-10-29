@@ -1,0 +1,88 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:v="clr-namespace:Prism.App.Views">
+<DataTemplate DataType="{x:Type vm:LampViewModel}">
+    <DataTemplate.Resources>
+      <Style x:Key="LampListStyle" TargetType="ListBox">
+        <Setter Property="Background" Value="#18181B"/><Setter Property="Foreground" Value="#F4F4F5"/>
+        <Setter Property="BorderBrush" Value="#3F3F46"/><Setter Property="Padding" Value="6"/>
+      </Style>
+      <Style x:Key="LampListItemStyle" TargetType="ListBoxItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="Row" Padding="8" Margin="0,2" CornerRadius="6" Background="Transparent"><ContentPresenter/></Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#252529"/></Trigger>
+            <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="#3D2823"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+    </DataTemplate.Resources>
+    <StackPanel>
+      <Button Content="Find lamps" Command="{Binding FindCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+      <ListBox Style="{StaticResource LampListStyle}" ItemContainerStyle="{StaticResource LampListItemStyle}" ItemsSource="{Binding Discovered}" SelectedItem="{Binding SelectedFound}" DisplayMemberPath="Label" MaxHeight="150"/>
+      <ListBox Style="{StaticResource LampListStyle}" ItemContainerStyle="{StaticResource LampListItemStyle}" ItemsSource="{Binding Lamps}" SelectedItem="{Binding SelectedLamp}" Margin="0,12" MaxHeight="220">
+        <ListBox.ItemTemplate><DataTemplate><StackPanel Orientation="Horizontal" Margin="4,8">
+          <Ellipse Width="12" Height="12" Fill="{Binding Color}" Margin="0,0,12,0"/>
+          <TextBlock Text="{Binding Name}" Margin="0,0,12,0"/>
+          <TextBlock Text="{Binding Connected, Converter={StaticResource FriendlyLabel}}" Margin="0,0,12,0"/>
+          <TextBlock Text="{Binding Transport, Converter={StaticResource FriendlyLabel}}" Margin="0,0,12,0"/>
+          <TextBlock Text="{Binding Host}"/>
+        </StackPanel></DataTemplate></ListBox.ItemTemplate>
+      </ListBox>
+      <c:DeviceNameEditor DeviceId="{Binding SelectedLamp.Id}" DisplayName="{Binding SelectedLamp.Name}" Client="{Binding Client}"/>
+      <StackPanel Orientation="Horizontal" Margin="0,8">
+
+        <Button Content="Remove" Command="{Binding RemoveCommand}" Margin="12,0"/>
+      </StackPanel>
+      <TextBlock Text="{Binding Host}"/>
+      <TextBlock Text="{Binding LampError}" Foreground="#FF8A8A"/>
+      <ComboBox ItemsSource="{Binding FollowModes}" SelectedItem="{Binding SelectedFollow}" Margin="0,8"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource FriendlyLabel}}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+
+      <c:GlassCard Margin="0,0,0,18" StaggerIndex="1">
+        <StackPanel>
+          <TextBlock Text="Yeelight colour bulb" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="{Binding StateText}" Style="{StaticResource NumberLarge}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          <DockPanel Margin="0,9">
+            <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding On, Mode=TwoWay}" AutomationProperties.Name="Power"/>
+            <TextBlock Text="Power" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+          </DockPanel>
+          <StackPanel Margin="0,8">
+            <TextBlock Text="Brightness" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Right" Width="60" Text="{Binding Brightness, Converter={StaticResource Percent}}" TextAlignment="Right"/>
+              <c:ThickSlider Minimum="1" Maximum="100" Value="{Binding Brightness, Mode=TwoWay}" AutomationProperties.Name="Brightness" VerticalAlignment="Center"/>
+            </DockPanel>
+          </StackPanel>
+          <c:ColorWheel ColorHex="{Binding ColorEntry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left" AutomationProperties.Name="Lamp colour"/>
+          <ItemsControl ItemsSource="{Binding Swatches}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Width="36" Height="36" Margin="4" Background="{Binding Converter={StaticResource HexToBrush}}" Command="{Binding DataContext.SelectColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" ToolTip="{Binding}" AutomationProperties.Name="{Binding}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding ColorEntry}" AutomationProperties.Name="Lamp hex colour" Margin="0,8"/>
+          <WrapPanel>
+            <Button Content="Same as PC" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding SetFollowCommand}" CommandParameter="pc"/>
+            <Button Content="Average colours" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding SetFollowCommand}" CommandParameter="average"/>
+            <Button Content="Own colour" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding SetFollowCommand}" CommandParameter="own"/>
+          </WrapPanel>
+          <TextBlock Text="{Binding FollowText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+        </StackPanel>
+      </c:GlassCard>
+      <c:GlassCard Margin="0,0,0,18" StaggerIndex="2">
+        <StackPanel>
+          <TextBlock Text="Add token for selected device" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+          <v:TokenEntry/>
+          <TextBlock Text="{Binding TokenNote}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+        </StackPanel>
+      </c:GlassCard>
+      <TextBlock Text="{Binding LastError}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12"/>
+    </StackPanel>
+  </DataTemplate>
+</ResourceDictionary>

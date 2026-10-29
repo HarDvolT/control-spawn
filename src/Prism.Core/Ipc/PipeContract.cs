@@ -56,6 +56,8 @@ public static class Commands
                                                          //   custom  = the device shows exactly these colours (effect "Custom")
                                                          //   overlay = colours with alpha "#RRGGBBAA" painted over the running effect; "#00000000" = untouched
     public const string ClearLedColors = "clearLedColors"; // args: { "device": "<id>" }  removes custom/overlay colours for that device
+    public const string IdentifyZone = "identifyZone";
+    public const string SetAllLighting = "setAllLighting";
     public const string ResizeZone = "resizeZone";       // args: { "device": "<id>", "zone": 0, "size": 30 }  ARGB headers start at 0 LEDs
     public const string DiscoverLamps = "discoverLamps"; // returns [{ ip, deviceId, alreadyConfigured }]
     public const string RemoveLamp = "removeLamp"; // { lamp: id }
@@ -93,7 +95,8 @@ public sealed record SystemState(
 public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent, double? ActivityPercent = null);
 public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve);
 public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices,
-    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null);
+    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null, IReadOnlyList<ZoneIdentification>? IdentifyingZones = null);
+public sealed record ZoneIdentification(string Device, int Zone, int Size, int LedIndex);
 public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Connected, bool Synced, int LedCount,
     IReadOnlyList<RgbZoneState>? Zones = null,
     IReadOnlyList<string>? CustomColors = null,     // "#RRGGBB" per LED when the device is in Custom, else null

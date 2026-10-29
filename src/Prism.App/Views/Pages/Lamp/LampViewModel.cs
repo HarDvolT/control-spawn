@@ -125,8 +125,8 @@ public sealed class LampViewModel : PageViewModel
         Brightness = lamp?.Brightness ?? 70;
         ColorHex = lamp?.Color ?? ColorHex;
         Follow = lamp?.Follow ?? "pc";
-        Model = lamp?.Model ?? Format.Dash;
-        Transport = lamp?.Transport ?? Format.Dash;
+        Model = lamp?.Name ?? "Smart lamp";
+        Transport = Controls.FriendlyLabelConverter.Label(lamp?.Transport);
         _suppress = false;
 
         OnPropertiesChanged(nameof(StateText), nameof(DotColorHex), nameof(BrightnessText),
@@ -156,5 +156,5 @@ public sealed class LampViewModel : PageViewModel
             return response;
         });
     }
-    private Task PushAsync() => RunAsync(() => Client.SendAsync(Commands.SetLamp, new { lamp = selectedLamp?.Id, on = On, brightness = (int)Math.Round(Brightness), follow = Follow, color = ColorHex }));
+    private Task PushAsync() => RunLatestAsync("lamp:" + selectedLamp?.Id, Commands.SetLamp, new { lamp = selectedLamp?.Id, on = On, brightness = (int)Math.Round(Brightness), follow = Follow, color = ColorHex });
 }

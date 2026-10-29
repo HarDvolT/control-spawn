@@ -62,6 +62,32 @@ public sealed class LedCommandTests
         Assert.True((await processor.HandleAsync(Command(Commands.ClearLedColors, new { device = "fixture" }))).Ok);
         Assert.Empty(processor.Settings.LedLayers);
     }
+    [Fact]
+    public async Task IdentifyResizesPersistsAndNotifiesOnlyAfterAcceptedCommand()
+    {
+        var runtime = new Runtime(); var store = new MemorySettingsStore(); var processor = new CommandProcessor(store, runtime);
+        int pushes = 0; processor.StateChanged += () => { pushes++; Assert.Equal(120, processor.GetState().Lighting.Devices[0].Zones![1].LedCount); };
+        Assert.True((await processor.HandleAsync(Command(Commands.IdentifyZone, new { device = "fixture", zone = 1, size = 120 }))).Ok);
+        Assert.Equal(120, store.Load().ZoneSizes["fixture"][1]); Assert.Equal(1, pushes);
+        Assert.False((await processor.HandleAsync(Command(Commands.IdentifyZone, new { device = "fixture", zone = 1, size = 121 }))).Ok);
+        Assert.Equal(1, pushes);
+    }
+    [Fact]
+    public async Task WholeCaseUpdatesAllLampsAndPreservesOverridesUntilExplicitReset()
+    {
+        var store = new MemorySettingsStore();
+        store.Save(new ServiceSettings { Lamps = [new(Id: "one"), new(Id: "two")],
+            LedLayers = new() { ["fixture"] = new(["#112233", "#112233"], CustomEnabled: true) }, SyncedDevices = new() { ["fixture"] = false } });
+        var processor = new CommandProcessor(store, new Runtime());
+        Assert.True((await processor.HandleAsync(Command(Commands.SetAllLighting, new { color = "#334455", brightness = .7 }))).Ok);
+        Assert.All(processor.Settings.ConfiguredLamps, l => { Assert.Equal("pc", l.Follow); Assert.Equal(70, l.Brightness); Assert.Equal("#334455", l.Color); });
+        Assert.True(processor.Settings.SyncedDevices["fixture"]); Assert.Single(processor.Settings.LedLayers);
+        Assert.True((await processor.HandleAsync(Command(Commands.SetAllLighting, new { resetOverrides = true }))).Ok);
+        Assert.Empty(processor.Settings.LedLayers);
+        var before = processor.Settings;
+        Assert.False((await processor.HandleAsync(Command(Commands.SetAllLighting, new { brightness = 2 }))).Ok);
+        Assert.Same(before, processor.Settings);
+    }
     public static IEnumerable<object[]> Invalid()
     {
         yield return [Commands.SetLedColors, new { device = "missing", layer = "custom", colors = new[] { "#112233", "#112233" } }];

@@ -42,7 +42,7 @@ public sealed class DevicesWorkspace : UserControl
         if (next == signature) { UpdateCards(); return; } signature = next; list.Children.Clear(); cards.Clear();
         foreach (var group in model.Groups)
         {
-            list.Children.Add(new TextBlock { Text = group.Kind, FontSize = 18, Foreground = Brushes.WhiteSmoke, Margin = new(0, 20, 0, 8) });
+            list.Children.Add(new TextBlock { Text = FriendlyLabelConverter.Label(group.Kind), FontSize = 18, Foreground = Brushes.WhiteSmoke, Margin = new(0, 20, 0, 8) });
             foreach (var device in group.Devices)
             {
                 var card = new StackPanel { Margin = new(12) };
@@ -67,7 +67,7 @@ public sealed class DevicesWorkspace : UserControl
             if (cards.TryGetValue(device.Id, out var card))
             {
                 card.Name.DisplayName = device.Name;
-                card.Info.Text = $"{device.Status} · {device.Source} · {device.Model ?? device.Id}\n{device.Ip}  {device.Mac}  {device.Vendor}";
+                card.Info.Text = $"{FriendlyLabelConverter.Label(device.Status)} \u00b7 {FriendlyLabelConverter.Label(device.Source)} \u00b7 {FriendlyLabelConverter.Label(device.Kind)}";
                 card.Buttons.Visibility = device.Configured || device.Dismissed ? Visibility.Collapsed : Visibility.Visible;
             }
     }

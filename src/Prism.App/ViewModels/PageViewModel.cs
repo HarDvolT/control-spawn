@@ -33,10 +33,33 @@ public abstract class PageViewModel : ObservableObject
 
     protected void RequestNavigate(PageKey page) => NavigateRequested?.Invoke(this, page);
 
+    private int optimisticChanges;
+    private readonly Dictionary<string, long> editVersions = new();
+    private readonly Dictionary<string, string> editErrors = new();
+    protected async Task RunLatestAsync(string key, string command, object args)
+    {
+        optimisticChanges++;
+        long version = editVersions.GetValueOrDefault(key) + 1; editVersions[key] = version;
+        string? error;
+        try
+        {
+            var response = await Client.SendLatestAsync(key, command, args);
+            error = response.Ok ? null : response.Error ?? "The service refused the command";
+        }
+        catch (Exception e) { error = e.Message; }
+        if (editVersions[key] == version)
+        {
+            if (error is null) editErrors.Remove(key); else editErrors[key] = error;
+            LastError = editErrors.Values.FirstOrDefault();
+            OnPropertyChanged(nameof(LastError)); OnPropertyChanged(nameof(HasError));
+        }
+        if (--optimisticChanges == 0 && editErrors.Count > 0) Refresh();
+    }
+
     public virtual void Apply(StateMessage state)
     {
         State = state;
-        Refresh();
+        if (optimisticChanges == 0) Refresh();
     }
 
     protected virtual void Refresh() => OnPropertyChanged(string.Empty);
@@ -288,5 +311,5 @@ public sealed record LampRow(string Id, string Name, string Color, string Status
 {
     public static IReadOnlyList<LampRow> From(StateMessage state) => (state.Lamps ?? (state.Lamp is { } first ? [first] : []))
         .Select(l => new LampRow(l.Id ?? "unresolved", l.Name ?? "Lamp", l.Connected && l.On ? l.Color : "#3F3F46",
-            !l.Connected ? "Offline" : l.On ? $"{l.Brightness}% | {l.Transport}" : "Off")).ToArray();
+            !l.Connected ? "Offline" : l.On ? $"{l.Brightness}% \u00b7 {Controls.FriendlyLabelConverter.Label(l.Transport)}" : "Off")).ToArray();
 }

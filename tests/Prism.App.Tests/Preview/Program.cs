@@ -34,7 +34,7 @@ internal static class Program
         PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Warning;
         PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(new StringWriter(errors)));
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-        foreach (var file in new[] { "Themes/Prism.xaml", "Views/PageTemplates.xaml" })
+        foreach (var file in new[] { "Themes/Prism.xaml", "Views/Pages/Devices/Devices.xaml", "Views/Pages/AirFryer/AirFryer.xaml", "Views/Pages/Dashboard/Dashboard.xaml", "Views/Pages/Monitor/Monitor.xaml", "Views/Pages/Lighting/Lighting.xaml", "Views/Pages/Fans/Fans.xaml", "Views/Pages/Lamp/Lamp.xaml", "Views/Pages/Scenes/Scenes.xaml", "Views/Pages/Modem/Modem.xaml", "Views/Pages/Settings/Settings.xaml", "Views/Pages/Widgets/Widgets.xaml" })
             app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/Prism.App;component/" + file, UriKind.Relative) });
         if (args.Contains("--sensor"))
         {
@@ -77,6 +77,26 @@ internal static class Program
             view.DataContext = vm.CurrentPage;
             Render(view, Path.Combine(output,page + ".png"), 1020);
         }
+        var foundation = new CardGrid();
+        foundation.Children.Add(new GlassCard { Size = CardSize.M, Span = 4, Content = new RadialGauge { Value = 78, SensorKind = SensorKind.CpuTctl, Suffix = "\u00b0C" } });
+        foundation.Children.Add(new GlassCard { Size = CardSize.M, Span = 4, Content = new ArcSpeedometer { Value = 2650, Maximum = 4000, Suffix = " RPM" } });
+        var meters = new StackPanel();
+        meters.Children.Add(new ThermalBar { Value = 92, SensorKind = SensorKind.GpuHotspot, Maximum = 110, Suffix = "\u00b0C" });
+        meters.Children.Add(new SegmentedCapsule { Value = 44, Suffix = "%", Margin = new Thickness(0, 12, 0, 12) });
+        meters.Children.Add(new Sparkline { Values = new double[] { 10, 25, 18, 42, 34, 65, 50, 78 } });
+        meters.Children.Add(new StatusChip { Text = "GPU hotspot hot", Level = StatusLevel.Hot });
+        foundation.Children.Add(new GlassCard { Size = CardSize.M, Span = 4, Content = meters });
+        foundation.Children.Add(new GlassCard { Size = CardSize.L, Span = 4, Content = new ColorWheel() });
+        foundation.Children.Add(new GlassCard { Size = CardSize.L, Span = 8, Content = new HeatGrid { Values = new double?[] { 15, 24, 36, 78, 95, 82, 52, 12, 23, 44, 69, 88, 99, 76, 18, null }, Height = 150, VerticalAlignment = VerticalAlignment.Top } });
+        Render(foundation, Path.Combine(output, "Foundation-controls.png"), 1100);
+        Render(foundation, Path.Combine(output, "Foundation-controls-narrow.png"), 560);
+        var icons = new WrapPanel();
+        foreach (var icon in Enum.GetValues<DeviceIconKind>()) icons.Children.Add(new DeviceIcon { Kind = icon, Width = 48, Height = 48, Margin = new Thickness(16) });
+        Render(icons, Path.Combine(output, "Foundation-icons.png"), 800);
+        var choices = new IconSegmented { ItemsSource = new[] { new IconChoice("own", "Own colour", DeviceIconKind.Lamp), new IconChoice("pc", "Same as PC", DeviceIconKind.Board), new IconChoice("average", "Average", DeviceIconKind.Network) }, SelectedValue = "pc" };
+        Render(choices, Path.Combine(output, "Foundation-segmented.png"), 640);
+        var setup = new CaseLightingSetup { DataContext = vm.Lighting, IsExpanded = true };
+        Render(setup, Path.Combine(output, "Foundation-ARGB-setup.png"), 800);
         foreach (var mode in vm.Modem.Views)
         {
             vm.Modem.SelectedView = mode;
@@ -239,5 +259,6 @@ internal static class Program
         bitmap.Render(frame);
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var stream = File.Create(path); encoder.Save(stream);
+        if (frame is Border parent && ReferenceEquals(parent.Child, view)) parent.Child = null;
     }
 }

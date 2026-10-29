@@ -50,7 +50,7 @@ public sealed class AppliancesWorkspace : UserControl
                 if (!safe)
                 {
                     var text = new TextBlock { Foreground = Brushes.WhiteSmoke };
-                    propertyUpdates[(appliance.Id, p.Siid, p.Piid)] = current => text.Text = current.Value is { } value && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt32(out var key) && current.Values?.TryGetValue(key, out var label) == true ? label : current.Value?.ToString() ?? "Unavailable";
+                    propertyUpdates[(appliance.Id, p.Siid, p.Piid)] = current => text.Text = current.Value is { } value && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt32(out var key) && current.Values?.TryGetValue(key, out var label) == true ? label : FriendlyLabelConverter.Label(current.Value?.ToString());
                     line.Children.Add(text);
                 }
                 else if (p.Format == "bool")
@@ -83,7 +83,7 @@ public sealed class AppliancesWorkspace : UserControl
             var actions = new WrapPanel();
             foreach (var action in appliance.Actions.Where(a => a.Name is "start-cook" or "resume-cook" or "resume-cooking" or "pause" or "cancel-cooking"))
             {
-                var button = new Button { Content = action.Name == "cancel-cooking" ? "Cancel cooking" : action.Name, Margin = new(0, 8, 12, 8), IsEnabled = appliance.Connected || action.Name == "cancel-cooking" };
+                var button = new Button { Content = FriendlyLabelConverter.Label(action.Name), Margin = new(0, 8, 12, 8), IsEnabled = appliance.Connected || action.Name == "cancel-cooking" };
                 button.Click += async (_, _) => {
                     var current = model.Appliances.FirstOrDefault(a => a.Id == appliance.Id) ?? appliance;
                     if (!action.NeedsConfirmation) { await model.ActAsync(current, action); return; }

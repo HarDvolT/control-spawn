@@ -20,6 +20,8 @@ public interface IPrismClient : IAsyncDisposable
     Task StartAsync(CancellationToken cancellationToken = default);
     Task<Response> SendAsync(string command, object? args = null, CancellationToken cancellationToken = default);
 
+    Task<Response> SendLatestAsync(string key, string command, object? args = null, CancellationToken cancellationToken = default);
+
     Task<Response> SetFanModeAsync(string group, FanMode mode, CancellationToken cancellationToken = default);
     Task<Response> SetFanCurveAsync(string group, IReadOnlyList<FanPoint> points, TemperatureSource source, CancellationToken cancellationToken = default);
     Task<Response> SetLightingAsync(LightingEffect effect, string color, double brightness, double speed, CancellationToken cancellationToken = default);
@@ -32,6 +34,10 @@ public interface IPrismClient : IAsyncDisposable
 
 public abstract class PrismClientBase : IPrismClient
 {
+    private LatestCommandQueue? _latest;
+    public Task<Response> SendLatestAsync(string key, string command, object? args = null, CancellationToken cancellationToken = default) =>
+        (LazyInitializer.EnsureInitialized(ref _latest, () => new LatestCommandQueue(SendAsync))).SendAsync(key, command, args, cancellationToken);
+
     private ServiceConnection _connection = ServiceConnection.Disconnected;
 
     public event EventHandler<StateMessage>? StateReceived;

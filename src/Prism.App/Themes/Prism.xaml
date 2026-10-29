@@ -1,7 +1,33 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:system="clr-namespace:System;assembly=mscorlib"
                     xmlns:controls="clr-namespace:Prism.App.Controls">
 
+    <FontFamily x:Key="BodyFont">Inter, Segoe UI</FontFamily>
+    <FontFamily x:Key="NumberFont">Space Grotesk, Segoe UI</FontFamily>
+    <system:Double x:Key="TypeDisplay">32</system:Double>
+    <system:Double x:Key="TypeTitle">20</system:Double>
+    <system:Double x:Key="TypeHeading">15</system:Double>
+    <system:Double x:Key="TypeBody">13</system:Double>
+    <system:Double x:Key="TypeCaption">11</system:Double>
+    <system:Double x:Key="Space4">4</system:Double>
+    <system:Double x:Key="Space8">8</system:Double>
+    <system:Double x:Key="Space12">12</system:Double>
+    <system:Double x:Key="Space16">16</system:Double>
+    <system:Double x:Key="Space24">24</system:Double>
+    <system:Double x:Key="Space32">32</system:Double>
+    <CornerRadius x:Key="Radius12">12</CornerRadius>
+    <CornerRadius x:Key="Radius16">16</CornerRadius>
+    <CornerRadius x:Key="Radius20">20</CornerRadius>
+    <SolidColorBrush x:Key="StatusCoolBrush" Color="#5AA7FF"/>
+    <SolidColorBrush x:Key="StatusOkBrush" Color="#3DDC84"/>
+    <SolidColorBrush x:Key="StatusWarmBrush" Color="#F5A524"/>
+    <SolidColorBrush x:Key="StatusHotBrush" Color="#FF4D4F"/>
+    <SolidColorBrush x:Key="StatusCriticalBrush" Color="#FF4D4F"/>
+    <controls:MetricToLevelConverter x:Key="MetricToLevel"/>
+    <controls:LevelToBrushConverter x:Key="LevelToBrush"/>
+    <controls:LevelToGlowConverter x:Key="LevelToGlow"/>
+    <controls:FriendlyLabelConverter x:Key="FriendlyLabel"/>
     <!-- Palette from docs/design -->
     <Color x:Key="PageColor">#0A0A0B</Color>
     <Color x:Key="PanelColor">#141416</Color>
@@ -62,19 +88,19 @@
     <!-- Typography -->
     <Style TargetType="{x:Type TextBlock}">
         <Setter Property="FontFamily" Value="Inter, Segoe UI" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
         <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
     </Style>
 
     <Style x:Key="H1" TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
-        <Setter Property="FontSize" Value="30" />
+        <Setter Property="FontFamily" Value="Inter, Segoe UI" />
+        <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="H2" TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
+        <Setter Property="FontFamily" Value="Inter, Segoe UI" />
         <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
@@ -98,7 +124,7 @@
 
     <Style x:Key="SmallMuted" TargetType="{x:Type TextBlock}">
         <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="11" />
     </Style>
 
     <Style x:Key="Tiny" TargetType="{x:Type TextBlock}">
@@ -107,20 +133,23 @@
     </Style>
 
     <Style x:Key="Number" TargetType="{x:Type TextBlock}">
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
         <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
-        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="NumberLarge" TargetType="{x:Type TextBlock}">
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
         <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
-        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="NumberXl" TargetType="{x:Type TextBlock}">
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
         <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
-        <Setter Property="FontSize" Value="34" />
+        <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 

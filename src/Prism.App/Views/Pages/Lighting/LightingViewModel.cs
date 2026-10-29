@@ -53,6 +53,9 @@ public sealed class LightingViewModel : PageViewModel
         Refresh();
     }
 
+    public Task SyncAllAsync(bool resetOverrides = false) => RunLatestAsync("lighting:all", Commands.SetAllLighting,
+        new { effect = Effect.ToString(), color = ColorHex, brightness = Brightness, speed = Speed, resetOverrides });
+
     public EffectParameters Parameters { get; private set; } = new();
     public LightingMap Map { get; private set; } = new([]);
     public EventEffectOptions Events { get; private set; } = new();
@@ -67,12 +70,12 @@ public sealed class LightingViewModel : PageViewModel
         try { LightingValidation.Parameters(parameters); }
         catch (ArgumentException e) { SavedText = e.Message; return; }
         Parameters = parameters; OnPropertyChanged(nameof(Parameters));
-        await RunAsync(() => Client.SendAsync(Commands.SetEffectParams, new { parameters }));
+        await RunLatestAsync("lighting:parameters", Commands.SetEffectParams, new { parameters });
     }
     public async Task SetMapAsync(LightingMap map)
     {
         Map = map; OnPropertyChanged(nameof(Map));
-        await RunAsync(() => Client.SendAsync(Commands.SetLightingMap, new { map }));
+        await RunLatestAsync("lighting:map", Commands.SetLightingMap, new { map });
     }
     public async Task SetEventsAsync(EventEffectOptions events)
     {
@@ -98,6 +101,7 @@ public sealed class LightingViewModel : PageViewModel
         private set => Set(ref _effect, value);
     }
 
+    public string ColorEntry { get => ColorHex; set { if (Prism.Lighting.LedLayers.Valid(value, false) && value != ColorHex) _ = SelectColorAsync(value); } }
     public string EffectName => Format.EffectName(Effect);
     public string EffectSubtitle => Format.EffectSubtitle(Effect);
     public string ColorHex { get => _colorHex; private set => Set(ref _colorHex, value); }
@@ -115,6 +119,7 @@ public sealed class LightingViewModel : PageViewModel
             if (!Set(ref _brightnessPercent, clamped) || _suppress) return;
             _brightness = clamped / 100.0;
             OnPropertyChanged(nameof(Brightness));
+            OnPropertyChanged(nameof(BrightnessText));
             _ = PushLightingAsync();
         }
     }
@@ -128,6 +133,7 @@ public sealed class LightingViewModel : PageViewModel
             if (!Set(ref _speedPercent, clamped) || _suppress) return;
             _speed = clamped / 100.0 * 2;
             OnPropertyChanged(nameof(Speed));
+            OnPropertyChanged(nameof(SpeedText));
             _ = PushLightingAsync();
         }
     }
@@ -211,12 +217,13 @@ public sealed class LightingViewModel : PageViewModel
     private async Task SelectColorAsync(string hex)
     {
         ColorHex = hex;
+        OnPropertyChanged(nameof(ColorEntry));
         await PushLightingAsync();
     }
 
     private async Task PushLightingAsync()
     {
-        await RunAsync(() => Client.SetLightingAsync(Effect, ColorHex, Brightness, Speed));
+        await RunLatestAsync("lighting", Commands.SetLighting, new { effect = Effect.ToString(), color = ColorHex, brightness = Brightness, speed = Speed });
     }
 
     private async Task SetDeviceAsync(DeviceOption? option)

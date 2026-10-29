@@ -43,6 +43,7 @@ public class ThickSlider : FrameworkElement
         new FrameworkPropertyMetadata(1d));
 
     public event EventHandler? ValueChanged;
+    public event EventHandler? ValueCommitted;
     private bool _dragging;
 
     public ThickSlider()
@@ -161,8 +162,10 @@ public class ThickSlider : FrameworkElement
     {
         base.OnMouseLeftButtonUp(e);
         if (!_dragging) return;
+        SetFromPoint(e.GetPosition(this).X);
         _dragging = false;
         ReleaseMouseCapture();
+        ValueCommitted?.Invoke(this, EventArgs.Empty);
         e.Handled = true;
     }
 

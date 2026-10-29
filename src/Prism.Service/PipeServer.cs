@@ -4,6 +4,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 using Prism.Core.Ipc;
 
 namespace Prism.Service;
@@ -32,16 +33,24 @@ public sealed class PipeSession(CommandProcessor commands)
             }
             finally { writeGate.Release(); }
         }
+        var updates = Channel.CreateBounded<bool>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropOldest });
+        void Changed() { if (Volatile.Read(ref subscribed)) updates.Writer.TryWrite(true); }
+        commands.StateChanged += Changed;
+        async Task TickAsync()
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (await timer.WaitForNextTickAsync(linked.Token)) Changed();
+        }
         async Task PushAsync()
         {
             try
             {
-                using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-                while (await timer.WaitForNextTickAsync(linked.Token))
+                await foreach (var _ in updates.Reader.ReadAllAsync(linked.Token))
                     if (Volatile.Read(ref subscribed)) await WriteAsync(commands.GetState());
             }
             finally { linked.Cancel(); }
         }
+        var ticks = TickAsync();
         var push = PushAsync();
         var pending = new List<Task>();
         async Task DispatchAsync(Request request)
@@ -83,15 +92,16 @@ public sealed class PipeSession(CommandProcessor commands)
                     await WriteAsync(new Response(request.Id, false, "Cooking start is only available in the app."));
                 else if (request.Command == Commands.Subscribe)
                 {
-                    await WriteAsync(new Response(request.Id, true)); Volatile.Write(ref subscribed, true);
+                    await WriteAsync(new Response(request.Id, true)); Volatile.Write(ref subscribed, true); Changed();
                 }
                 else pending.Add(DispatchAsync(request));
             }
         }
         finally
         {
+            commands.StateChanged -= Changed;
             linked.Cancel();
-            try { await Task.WhenAll(pending.Append(push)); } catch (OperationCanceledException) when (linked.IsCancellationRequested) { }
+            try { await Task.WhenAll(pending.Append(push).Append(ticks)); } catch (OperationCanceledException) when (linked.IsCancellationRequested) { }
         }
     }
     public static async Task<string?> ReadLineAsync(TextReader reader, CancellationToken token)

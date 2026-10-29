@@ -215,4 +215,5 @@ public class LineChart : FrameworkElement
 /// <summary>Small single-series line chart (same drawing code as <see cref="LineChart"/>).</summary>
 public sealed class Sparkline : LineChart
 {
+    public Sparkline() { ShowGrid = false; Height = 32; MinHeight = 16; }
 }

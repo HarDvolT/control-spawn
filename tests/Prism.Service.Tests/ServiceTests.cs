@@ -239,6 +239,42 @@ public sealed class ServiceTests
         Assert.False(mismatch.Ok); await session;
     }
     [Fact]
+    public async Task AcceptedCommandPushesFreshStateToEverySubscriberBeforePeriodicTick()
+    {
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var processor = new CommandProcessor(new MemorySettingsStore(), new Runtime());
+        var (client1, server1) = MemoryDuplex.Create(); var (client2, server2) = MemoryDuplex.Create();
+        await using var a = client1; await using var b = server1; await using var c = client2; await using var d = server2;
+        var session1 = new PipeSession(processor).RunAsync(server1, stop.Token);
+        var session2 = new PipeSession(processor).RunAsync(server2, stop.Token);
+        using var writer1 = new StreamWriter(client1, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+        using var writer2 = new StreamWriter(client2, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+        using var reader1 = new StreamReader(client1, leaveOpen: true); using var reader2 = new StreamReader(client2, leaveOpen: true);
+        async Task Subscribe(StreamWriter writer, StreamReader reader)
+        {
+            await writer.WriteLineAsync(JsonSerializer.Serialize(Request(1, Commands.Hello, new { version = 1, client = "app" }), PipeContract.Json));
+            await reader.ReadLineAsync(stop.Token);
+            await writer.WriteLineAsync(JsonSerializer.Serialize(Request(2, Commands.Subscribe), PipeContract.Json));
+            await reader.ReadLineAsync(stop.Token); await reader.ReadLineAsync(stop.Token);
+        }
+        await Subscribe(writer1, reader1); await Subscribe(writer2, reader2);
+        await writer1.WriteLineAsync(JsonSerializer.Serialize(Request(3, Commands.SetLighting, new { effect = "Static", color = "#123456", brightness = .4, speed = 1 }), PipeContract.Json));
+        using var immediate = new CancellationTokenSource(TimeSpan.FromMilliseconds(600));
+        async Task Fresh(StreamReader reader)
+        {
+            while (true)
+            {
+                using var json = JsonDocument.Parse((await reader.ReadLineAsync(immediate.Token))!);
+                if (json.RootElement.GetProperty("type").GetString() != "state") continue;
+                var state = json.RootElement.Deserialize<StateMessage>(PipeContract.Json)!;
+                if (state.Lighting.Color == "#123456") return;
+            }
+        }
+        await Task.WhenAll(Fresh(reader1), Fresh(reader2));
+        await client1.DisposeAsync(); await client2.DisposeAsync(); await Task.WhenAll(session1, session2);
+    }
+
+    [Fact]
     public async Task MalformedJsonDoesNotEndSessionAndOversizedLinesAreBounded()
     {
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(3));

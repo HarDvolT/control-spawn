@@ -9,6 +9,13 @@ namespace Prism.App.Controls;
 /// <summary>A glass panel that fades and rises on load (with a stagger) and lifts on hover.</summary>
 public class GlassCard : ContentControl
 {
+    public static readonly DependencyProperty SizeProperty = DependencyProperty.Register(nameof(Size), typeof(CardSize), typeof(GlassCard),
+        new FrameworkPropertyMetadata(CardSize.Auto, FrameworkPropertyMetadataOptions.AffectsMeasure, (d, e) =>
+            d.SetValue(HeightProperty, (CardSize)e.NewValue switch { CardSize.S => 140d, CardSize.M => 220d, CardSize.L => 320d, _ => double.NaN })));
+    public static readonly DependencyProperty SpanProperty = CardGrid.SpanProperty.AddOwner(typeof(GlassCard));
+    public CardSize Size { get => (CardSize)GetValue(SizeProperty); set => SetValue(SizeProperty, value); }
+    public int Span { get => (int)GetValue(SpanProperty); set => SetValue(SpanProperty, value); }
+
     public static readonly DependencyProperty CornerRadiusProperty = DependencyProperty.Register(
         nameof(CornerRadius), typeof(CornerRadius), typeof(GlassCard),
         new FrameworkPropertyMetadata(new CornerRadius(20)));

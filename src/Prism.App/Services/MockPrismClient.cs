@@ -19,6 +19,7 @@ public sealed partial class MockPrismClient : PrismClientBase
     private StateMessage? _last;
     private int _tick;
     private int _stripSize;
+    private DateTimeOffset identifyUntil;
     private readonly HashSet<string> _customEnabled = new();
     private readonly Dictionary<string, string[]> _custom = new(), _overlay = new();
     private bool _disposed;
@@ -170,7 +171,7 @@ public sealed partial class MockPrismClient : PrismClientBase
         };
 
         system = system with { Disks = system.Disks.Select(d => d with { ActivityPercent = 50 + 40 * Math.Sin(t) }).ToArray(), GpuMemoryJunction = 65 + 10 * Math.Sin(t * 0.3) };
-        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events, Bindings: new Dictionary<string, SensorBinding>(_bindings));
+        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events, Bindings: new Dictionary<string, SensorBinding>(_bindings), IdentifyingZones: identifyUntil > now ? [new("board", 1, _stripSize, _stripSize == 0 ? 0 : (int)(now.TimeOfDay.TotalSeconds * 6) % _stripSize + 1)] : []);
         var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "miio", "lamp:470875761", firstLampName, 470875761, "192.0.2.1");
 
         var rsrp5 = Math.Round(-97 + Math.Sin(t * 0.11) * 3);
@@ -306,12 +307,14 @@ public sealed partial class MockPrismClient : PrismClientBase
                     { response = new(0, false, "Unknown device"); break; }
                     _custom.Remove(id); _overlay.Remove(id); _customEnabled.Remove(id); publish = BuildState(); response = new(0, true); break;
                 }
+                case Commands.IdentifyZone:
                 case Commands.ResizeZone:
                 {
                     if (!TryString(element, "device", out var id) || id != "board" || !TryNumber(element, "zone", out var zone) || zone != 1 ||
                         !TryNumber(element, "size", out var size) || !double.IsFinite(size) || size != Math.Truncate(size) || size < 0 || size > 120)
                     { response = new(0, false, "Invalid zone size"); break; }
                     _stripSize = (int)size;
+                    identifyUntil = command == Commands.IdentifyZone ? DateTimeOffset.Now.AddSeconds(30) : default;
                     if (_custom.TryGetValue(id, out var c)) _custom[id] = ViewModels.LedEditorViewModel.Resize(c, 2 + _stripSize, "custom");
                     if (_overlay.TryGetValue(id, out var o)) _overlay[id] = ViewModels.LedEditorViewModel.Resize(o, 2 + _stripSize, "overlay");
                     publish = BuildState(); response = new(0, true); break;
@@ -372,6 +375,16 @@ public sealed partial class MockPrismClient : PrismClientBase
                     else response = new Response(0, false, "eight points are required");
                     break;
                 }
+                case Commands.SetAllLighting:
+                    if (TryBool(element, "resetOverrides", out var reset) && reset) { _custom.Clear(); _overlay.Clear(); _customEnabled.Clear(); _bindings.Clear(); }
+                    _unsyncedDevices.Clear();
+                    if (TryString(element, "effect", out var allEffect) && Enum.TryParse<LightingEffect>(allEffect, out var parsedEffect)) _effect = parsedEffect;
+                    if (TryString(element, "color", out var allColor)) _lightColor = allColor;
+                    if (TryNumber(element, "brightness", out var allBrightness)) _brightness = Math.Clamp(allBrightness, 0, 1);
+                    if (TryNumber(element, "speed", out var allSpeed)) _speed = Math.Clamp(allSpeed, 0, 2);
+                    _lampFollow = "pc"; _lampOn = _effect != LightingEffect.Off && _brightness > 0; _lampColor = _lightColor; _lampBrightness = Math.Max(1, (int)Math.Round(_brightness * 100));
+                    foreach (var key in extraLamps.Keys.ToArray()) extraLamps[key] = extraLamps[key] with { Follow = "pc", On = _lampOn, Brightness = _lampBrightness, Color = _lightColor };
+                    publish = BuildState(); response = new(0, true); break;
                 case Commands.SetLighting:
                     if (TryString(element, "effect", out var effectText) && Enum.TryParse<LightingEffect>(effectText, true, out var effect))
                         _effect = effect;
