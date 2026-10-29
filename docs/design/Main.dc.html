@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism — Dashboard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0A0B}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(61,220,132,.6)}50%{box-shadow:0 0 0 7px rgba(61,220,132,0)}}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes draw{from{stroke-dashoffset:1200}to{stroke-dashoffset:0}}
+.card{animation:rise .7s cubic-bezier(.22,1,.36,1) both;transition:border-color .3s,transform .3s,box-shadow .3s}
+.card:hover{border-color:rgba(255,255,255,.14)!important;transform:translateY(-3px);box-shadow:0 18px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06)!important}
+.d1{animation-delay:.04s}.d2{animation-delay:.1s}.d3{animation-delay:.16s}.d4{animation-delay:.22s}.d5{animation-delay:.28s}.d6{animation-delay:.34s}.d7{animation-delay:.4s}.d8{animation-delay:.46s}
+.live{animation:pulse 1.8s infinite}
+.fill{position:relative;overflow:hidden;transition:width .8s cubic-bezier(.22,1,.36,1),height .8s cubic-bezier(.22,1,.36,1),background .4s}
+.fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2.6s ease-in-out infinite}
+.ring{transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1),stroke .4s}
+.curve{stroke-dasharray:1200;animation:draw 1.6s cubic-bezier(.22,1,.36,1) both}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F4F5}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s}.btn:active{transform:scale(.97)}
+.led{transition:background .6s linear,box-shadow .6s linear}
+.sw{appearance:none;-webkit-appearance:none;margin:0;flex:0 0 44px;width:44px;height:24px;border-radius:12px;background:#2A2A2F;position:relative;cursor:pointer;transition:background .25s,box-shadow .25s}.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:9px;background:#F4F4F5;transition:transform .25s cubic-bezier(.22,1,.36,1)}.sw:checked{background:#FF4D1A;box-shadow:0 0 14px rgba(255,77,26,.45)}.sw:checked::after{transform:translateX(20px)}.sw:focus-visible{outline:2px solid #FF7A50;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 800px; display: flex; flex-wrap: wrap; background: radial-gradient(ellipse 70% 45% at 50% -8%, rgba(255,255,255,.08), rgba(255,255,255,0) 70%), #0A0A0B; color: #F4F4F5; font-family: Inter, system-ui, sans-serif;">
+
+  <nav aria-label="Main" style="flex: 0 0 228px; box-sizing: border-box; padding: 20px 14px; background: rgba(20,20,22,.72); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: #FF4D1A; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(255,77,26,.45);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A0A0B" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700;">Prism</span>
+    </div>
+    <p style="margin: 8px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">GENERAL</p>
+    <a class="nav" href="Main.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; background: rgba(255,255,255,.07); color: #F4F4F5; text-decoration: none; font-size: 14px; font-weight: 600; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 18px rgba(0,0,0,.45);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF4D1A" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"></rect><rect x="14" y="3" width="7" height="5" rx="2"></rect><rect x="14" y="12" width="7" height="9" rx="2"></rect><rect x="3" y="16" width="7" height="5" rx="2"></rect></svg>Dashboard</a>
+    <a class="nav" href="Monitor.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Monitor</a>
+    <p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">TOOLS</p>
+    <a class="nav" href="Lighting.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"></path></svg>Lighting</a>
+    <a class="nav" href="Fans.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><path d="M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2"></path></svg>Fans</a>
+    <a class="nav" href="#lamp" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 21h8M12 17v4M6 3h12l-3 8H9z"></path><path d="M9 11a3 3 0 0 0 6 0"></path></svg>Lamp</a>
+    <a class="nav" href="Scenes.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"></path></svg>Scenes</a>
+    <p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">INSIGHTS</p>
+    <a class="nav" href="Modem.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 20v-4M10 20v-8M15 20v-12M20 20V4"></path></svg>Modem</a>
+    <div style="flex-grow: 1;"></div>
+    <p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">OTHER</p>
+    <a class="nav" href="#settings" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"></path></svg>Settings</a>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 12px 12px 0; padding: 10px 12px; border-radius: 12px; background: #141416; border: 1px solid rgba(255,255,255,.06); font-size: 12px; color: #A1A1AA;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84;"></span>Service · 42 MB</div>
+  </nav>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column;">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 32px; border-bottom: 1px solid rgba(255,255,255,.05);">
+      <p style="margin: 0; font-size: 14px; color: #A1A1AA;">Prism <span style="color: #6B6B73;">/</span> <span style="color: #F4F4F5;">Dashboard</span></p>
+      <div style="flex-grow: 1;"></div>
+      <label style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 14px; border-radius: 999px; background: #141416; border: 1px solid rgba(255,255,255,.06); flex: 0 1 340px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A1A1AA" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Search</span>
+        <input type="search" placeholder="Search or type command" style="flex-grow: 1; min-width: 0; background: transparent; border: 0; outline: none; color: #F4F4F5; font: inherit; font-size: 13px;">
+        <span style="padding: 3px 7px; border-radius: 6px; background: #1F1F23; font-size: 11px; color: #A1A1AA;">Ctrl</span><span style="padding: 3px 7px; border-radius: 6px; background: #1F1F23; font-size: 11px; color: #A1A1AA;">Space</span>
+      </label>
+      <button class="btn" type="button" aria-label="Notifications" style="width: 44px; height: 44px; border-radius: 22px; background: #141416; border: 1px solid rgba(255,255,255,.06); color: #F4F4F5; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"></path></svg></button>
+      <button class="btn" type="button" aria-label="Theme" style="width: 44px; height: 44px; border-radius: 22px; background: #141416; border: 1px solid rgba(255,255,255,.06); color: #F4F4F5; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg></button>
+    </div>
+
+    <main style="box-sizing: border-box; padding: 26px 32px 32px; display: flex; flex-direction: column; gap: 18px;">
+      <header class="card" style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #A1A1AA;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84;"></span>All systems normal · live</div>
+          <h1 style="margin: 6px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -0.02em;">Good evening</h1>
+          <p style="margin: 4px 0 0; font-size: 14px; color: #A1A1AA;">ROG STRIX B850-F · Ryzen 7 9800X3D · RX 9070 XT Taichi</p>
+        </div>
+        <div role="group" aria-label="Quick scene" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #141416; border: 1px solid rgba(255,255,255,.06);">
+          <sc-for list="{{scenes}}" as="s" hint-placeholder-count="4">
+            <button class="btn" type="button" onClick="{{s.pick}}" aria-pressed="{{s.on}}" style="{{s.style}}">{{s.name}}</button>
+          </sc-for>
+        </div>
+      </header>
+
+      <section aria-label="Key readings" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+        <sc-for list="{{gauges}}" as="g" hint-placeholder-count="4">
+          <div class="{{g.cls}}" style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #1A1A1D, #141416); border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); display: flex; align-items: center; gap: 14px;">
+            <svg width="76" height="76" viewBox="0 0 100 100" role="img" aria-label="{{g.aria}}" style="flex: 0 0 76px; filter: drop-shadow(0 0 8px {{g.glow}});">
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#232327" stroke-width="8"></circle>
+              <circle class="ring" cx="50" cy="50" r="40" fill="none" stroke="{{g.color}}" stroke-width="8" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="{{g.off}}" transform="rotate(-90 50 50)"></circle>
+            </svg>
+            <div>
+              <p style="margin: 0; font-size: 13px; color: #A1A1AA;">{{g.label}}</p>
+              <p style="margin: 2px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums;">{{g.value}}</p>
+              <p style="margin: 0; font-size: 12px; color: #8A8A93;">{{g.sub}}</p>
+            </div>
+          </div>
+        </sc-for>
+      </section>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;">
+        <section class="card d5" aria-labelledby="load-h" style="grid-column: span 2; padding: 20px 22px; border-radius: 20px; background: linear-gradient(180deg, #1A1A1D, #141416); border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;">
+            <h2 id="load-h" style="margin: 0; font-size: 15px; font-weight: 600;">System load · last 60 s</h2>
+            <div style="display: flex; gap: 14px; font-size: 12px; color: #A1A1AA;"><span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 3px; border-radius: 2px; background: #F4F4F5;"></span>CPU</span><span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 3px; border-radius: 2px; background: #FF4D1A;"></span>GPU</span></div>
+          </div>
+          <div style="position: relative; height: 170px; border-radius: 14px; background-image: radial-gradient(rgba(255,255,255,.09) 1px, transparent 1px); background-size: 16px 16px;">
+            <svg viewBox="0 0 600 170" preserveAspectRatio="none" role="img" aria-label="{{loadAria}}" style="position: absolute; inset: 0; width: 100%; height: 100%;">
+              <path class="curve" d="{{gpuPath}}" fill="none" stroke="#FF4D1A" stroke-width="2.5" vector-effect="non-scaling-stroke" style="filter: drop-shadow(0 0 6px rgba(255,77,26,.6));"></path>
+              <path class="curve" d="{{cpuPath}}" fill="none" stroke="#F4F4F5" stroke-width="2" vector-effect="non-scaling-stroke" style="filter: drop-shadow(0 0 4px rgba(255,255,255,.35));"></path>
+            </svg>
+            <span style="position: absolute; right: 12px; top: 10px; padding: 5px 10px; border-radius: 999px; background: #FF4D1A; color: #0A0A0B; font-size: 12px; font-weight: 700; box-shadow: 0 0 18px rgba(255,77,26,.5);">GPU {{gpuNow}}</span>
+          </div>
+        </section>
+
+        <section class="card d6" aria-labelledby="fans-h" style="padding: 20px 22px; border-radius: 20px; background: linear-gradient(180deg, #1A1A1D, #141416); border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 id="fans-h" style="margin: 0; font-size: 15px; font-weight: 600;">Fans</h2>
+            <a href="Fans.dc.html" style="font-size: 13px; text-decoration: none;">Curves</a>
+          </div>
+          <div role="group" aria-label="Fan mode" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: 12px; background: #0E0E10;">
+            <sc-for list="{{modes}}" as="m" hint-placeholder-count="4">
+              <button class="btn" type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="{{m.style}}">{{m.name}}</button>
+            </sc-for>
+          </div>
+          <sc-for list="{{fans}}" as="f" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #A1A1AA;">{{f.name}}</span><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums;">{{f.rpm}}</span></div>
+              <div style="height: 14px; border-radius: 7px; background: #232327; overflow: hidden"><div class="fill" style="height: 100%; border-radius: 7px"></div></div>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
+        <section class="card d7" aria-labelledby="light-h" style="padding: 20px 22px; border-radius: 20px; background: linear-gradient(180deg, #1A1A1D, #141416); border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 id="light-h" style="margin: 0; font-size: 15px; font-weight: 600;">Lighting · Smart</h2>
+            <a href="Lighting.dc.html" style="font-size: 13px; text-decoration: none;">Effects</a>
+          </div>
+          <p style="margin: 0; font-size: 13px; color: #A1A1AA;">Colour follows CPU temperature · board, strip, RAM, GPU and lamp in sync</p>
+          <div style="display: flex; gap: 5px;">
+            <sc-for list="{{leds}}" as="l" hint-placeholder-count="20">
+              <span class="led" style="{{l.style}}"></span>
+            </sc-for>
+          </div>
+        </section>
+
+        <section id="lamp" class="card d8" aria-labelledby="lamp-h" style="padding: 20px 22px; border-radius: 20px; background: linear-gradient(180deg, #1A1A1D, #141416); border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span class="led" style="{{lampDot}}"></span>
+            <div style="flex-grow: 1;">
+              <h2 id="lamp-h" style="margin: 0; font-size: 15px; font-weight: 600;">Yeelight lamp</h2>
+              <p style="margin: 2px 0 0; font-size: 13px; color: #A1A1AA;">Synced to PC · music mode</p>
+            </div>
+            <label style="display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px;">On<input type="checkbox" role="switch" class="sw" checked=""></label>
+          </div>
+          <label style="display: flex; align-items: stretch; gap: 8px; font-size: 13px; color: #A1A1AA; flex-direction: column"><span style="display: flex; justify-content: space-between; align-items: baseline;">Brightness<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #F4F4F5;">70%</span></span><input class="pbar" type="range" min="1" max="100" value="70" style="-webkit-appearance: none; appearance: none; width: 100%; height: 14px; margin: 0; border-radius: 7px; outline: none; cursor: pointer; background: linear-gradient(90deg, #FF4D1A 0%, #FF4D1A 70%, #232327 70%, #232327 100%);"><style>.pbar::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:1px;height:14px;background:transparent;border:0;box-shadow:none}.pbar::-moz-range-thumb{width:1px;height:14px;background:transparent;border:0}.pbar::-moz-range-track{background:transparent}</style></label>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const seed = (b, a) => Array.from({ length: 30 }, (_, i) => Math.max(2, b + Math.sin(i / 3) * a + (Math.random() - 0.5) * a));
+    this.tgt = { cpu: 18, ctemp: 48, gtemp: 41, ram: 38, r1: 1268, r2: 622, r3: 2801 };
+    this.state = { scene: 'Gaming', mode: 'Standard', t: 0, cpuH: seed(20, 8), gpuH: seed(38, 14), d: { cpu: 0, ctemp: 0, gtemp: 0, ram: 0, r1: 0, r2: 0, r3: 0 } };
+  }
+  componentDidMount() {
+    const j = (v, a, lo, hi) => Math.min(hi, Math.max(lo, v + (Math.random() - 0.5) * a));
+    this.timer = setInterval(() => {
+      const g = this.tgt;
+      this.tgt = { cpu: j(g.cpu, 10, 4, 70), ctemp: j(g.ctemp, 1.6, 42, 62), gtemp: j(g.gtemp, 1.2, 36, 58), ram: j(g.ram, 1.2, 30, 55), r1: j(g.r1, 40, 1150, 1400), r2: j(g.r2, 24, 560, 700), r3: j(g.r3, 20, 2760, 2840) };
+      const s = this.state;
+      this.setState({ t: s.t + 1, cpuH: s.cpuH.slice(1).concat([this.tgt.cpu]), gpuH: s.gpuH.slice(1).concat([j(s.gpuH[29], 14, 5, 95)]) });
+    }, 1000);
+    const step = () => {
+      const d = { ...this.state.d }; let moving = false;
+      Object.keys(this.tgt).forEach((k) => { const diff = this.tgt[k] - d[k]; if (Math.abs(diff) > 0.05) { d[k] += diff * 0.09; moving = true; } else d[k] = this.tgt[k]; });
+      if (moving) this.setState({ d });
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+  componentWillUnmount() { clearInterval(this.timer); cancelAnimationFrame(this.raf); }
+  renderVals() {
+    const s = this.state, d = s.d;
+    const pill = (on) => 'min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #0A0A0B; box-shadow: 0 0 20px rgba(255,77,26,.45);' : 'background: transparent; color: #A1A1AA;');
+    const seg = (on) => 'min-height: 40px; border-radius: 9px; border: 0; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #232327; color: #F4F4F5; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 12px rgba(0,0,0,.4);' : 'background: transparent; color: #A1A1AA;');
+    const tc = (v) => v < 55 ? '#3DDC84' : v < 75 ? '#F5A524' : '#FF4D4F';
+    const ring = (label, val, pct, color, sub, i) => ({ label, value: val, sub, color, glow: color + '66', cls: 'card d' + (i + 1), off: (251.3 * (1 - this.tgt[pct[0]] / pct[1])).toFixed(1), aria: label + ' ' + val });
+    const smooth = (arr, max, w, h) => {
+      const p = arr.map((v, i) => [i * w / (arr.length - 1), h - 10 - (v / max) * (h - 24)]);
+      let out = 'M' + p[0][0].toFixed(1) + ' ' + p[0][1].toFixed(1);
+      for (let i = 1; i < p.length; i++) { const mx = (p[i - 1][0] + p[i][0]) / 2; out += ' C' + mx.toFixed(1) + ' ' + p[i - 1][1].toFixed(1) + ' ' + mx.toFixed(1) + ' ' + p[i][1].toFixed(1) + ' ' + p[i][0].toFixed(1) + ' ' + p[i][1].toFixed(1); }
+      return out;
+    };
+    const mix = (t) => { const a = [244, 244, 245], b = [255, 77, 26]; return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',') + ')'; };
+    const heat = Math.max(0, Math.min(1, (d.ctemp - 40) / 30));
+    const fan = (n, v, p) => ({ name: n, rpm: Math.round(v).toLocaleString('en-US') + ' rpm', bar: 'width: ' + p + '%; height: 6px; border-radius: 3px; background: ' + (p === 100 ? '#D4D4D8' : '#FF4D1A') + '; box-shadow: 0 0 12px ' + (p === 100 ? 'rgba(255,255,255,.3)' : 'rgba(255,77,26,.55)') + ';' });
+    const fanPct = { Silent: 30, Standard: 44, Turbo: 70, Full: 100 }[s.mode];
+    return {
+      scenes: ['Gaming', 'Work', 'Night', 'Movie'].map((n) => ({ name: n, on: s.scene === n, style: pill(s.scene === n), pick: () => this.setState({ scene: n }) })),
+      modes: ['Silent', 'Standard', 'Turbo', 'Full'].map((n) => ({ name: n, on: s.mode === n, style: seg(s.mode === n), pick: () => this.setState({ mode: n }) })),
+      gauges: [
+        ring('CPU usage', Math.round(d.cpu) + '%', ['cpu', 100], '#F4F4F5', '8 cores · 16 threads', 0),
+        ring('CPU temp', d.ctemp.toFixed(1) + '°', ['ctemp', 100], tc(this.tgt.ctemp), 'Tctl / Tdie', 1),
+        ring('GPU temp', d.gtemp.toFixed(1) + '°', ['gtemp', 100], tc(this.tgt.gtemp), 'RX 9070 XT', 2),
+        ring('RAM used', Math.round(d.ram) + '%', ['ram', 100], '#FF4D1A', (d.ram * 0.32).toFixed(1) + ' of 32 GB', 3)
+      ],
+      cpuPath: smooth(s.cpuH, 100, 600, 170), gpuPath: smooth(s.gpuH, 100, 600, 170),
+      gpuNow: Math.round(s.gpuH[29]) + '%', loadAria: 'CPU ' + Math.round(s.cpuH[29]) + ' percent, GPU ' + Math.round(s.gpuH[29]) + ' percent',
+      fans: [fan('Radiator', d.r1, fanPct), fan('Case fans · front 3 + rear', d.r2, fanPct), fan('AIO pump', d.r3, 100)],
+      leds: Array.from({ length: 20 }, (_, i) => { const c = mix(Math.max(0, Math.min(1, heat + Math.sin((i + s.t) / 3) * 0.2))); return { style: 'flex: 1 1 0; height: 24px; border-radius: 7px; background: ' + c + '; box-shadow: 0 0 12px ' + c + ';' }; }),
+      lampDot: 'width: 44px; height: 44px; border-radius: 22px; flex: 0 0 44px; background: ' + mix(heat) + '; box-shadow: 0 0 26px ' + mix(heat) + ';'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+docs/*_log.txt
+docs/*last_message*.md

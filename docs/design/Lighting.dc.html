@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism — Lighting</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0A0B}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(61,220,132,.6)}50%{box-shadow:0 0 0 7px rgba(61,220,132,0)}}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.card{animation:rise .7s cubic-bezier(.22,1,.36,1) both;transition:border-color .3s,transform .3s,box-shadow .3s}
+.d1{animation-delay:.04s}.d2{animation-delay:.1s}.d3{animation-delay:.16s}.d4{animation-delay:.22s}
+.live{animation:pulse 1.8s infinite}
+.fx{transition:background .25s,border-color .25s,transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s}.fx:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.16)!important}
+.fill{position:relative;overflow:hidden;transition:width .8s cubic-bezier(.22,1,.36,1)}
+.fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2.6s ease-in-out infinite}
+.led{transition:background .5s linear,box-shadow .5s linear}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F4F5}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s}.btn:active{transform:scale(.97)}
+.sw{appearance:none;-webkit-appearance:none;margin:0;flex:0 0 44px;width:44px;height:24px;border-radius:12px;background:#2A2A2F;position:relative;cursor:pointer;transition:background .25s,box-shadow .25s}.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:9px;background:#F4F4F5;transition:transform .25s cubic-bezier(.22,1,.36,1)}.sw:checked{background:#FF4D1A;box-shadow:0 0 14px rgba(255,77,26,.45)}.sw:checked::after{transform:translateX(20px)}.sw:focus-visible{outline:2px solid #FF7A50;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 800px; display: flex; flex-wrap: wrap; background: radial-gradient(ellipse 70% 45% at 50% -8%, rgba(255,255,255,.08), rgba(255,255,255,0) 70%), #0A0A0B; color: #F4F4F5; font-family: Inter, system-ui, sans-serif;">
+
+  <nav aria-label="Main" style="flex: 0 0 228px; box-sizing: border-box; padding: 20px 14px; background: rgba(20,20,22,.72); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: #FF4D1A; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(255,77,26,.45);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A0A0B" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700;">Prism</span>
+    </div>
+    <p style="margin: 8px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">GENERAL</p>
+    <a class="nav" href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"></rect><rect x="14" y="3" width="7" height="5" rx="2"></rect><rect x="14" y="12" width="7" height="9" rx="2"></rect><rect x="3" y="16" width="7" height="5" rx="2"></rect></svg>Dashboard</a>
+    <a class="nav" href="Monitor.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Monitor</a>
+    <p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">TOOLS</p>
+    <a class="nav" href="Lighting.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; background: rgba(255,255,255,.07); color: #F4F4F5; text-decoration: none; font-size: 14px; font-weight: 600; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 18px rgba(0,0,0,.45);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF4D1A" stroke-width="1.8" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"></path></svg>Lighting</a>
+    <a class="nav" href="Fans.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><path d="M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2"></path></svg>Fans</a>
+    <a class="nav" href="Main.dc.html#lamp" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 21h8M12 17v4M6 3h12l-3 8H9z"></path><path d="M9 11a3 3 0 0 0 6 0"></path></svg>Lamp</a>
+    <a class="nav" href="Scenes.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"></path></svg>Scenes</a>
+    <p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">INSIGHTS</p>
+    <a class="nav" href="Modem.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 20v-4M10 20v-8M15 20v-12M20 20V4"></path></svg>Modem</a>
+    <div style="flex-grow: 1;"></div>
+    <p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">OTHER</p>
+    <a class="nav" href="#settings" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #A1A1AA; text-decoration: none; font-size: 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"></path></svg>Settings</a>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 12px 12px 0; padding: 10px 12px; border-radius: 12px; background: #141416; border: 1px solid rgba(255,255,255,.06); font-size: 12px; color: #A1A1AA;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84;"></span>Service · 42 MB</div>
+  </nav>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column;">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 32px; border-bottom: 1px solid rgba(255,255,255,.05);">
+      <p style="margin: 0; font-size: 14px; color: #A1A1AA;">Prism <span style="color: #6B6B73;">/</span> <span style="color: #F4F4F5;">Lighting</span></p>
+      <div style="flex-grow: 1;"></div>
+      <label style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 14px; border-radius: 999px; background: #141416; border: 1px solid rgba(255,255,255,.06); flex: 0 1 340px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A1A1AA" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Search</span>
+        <input type="search" placeholder="Search or type command" style="flex-grow: 1; min-width: 0; background: transparent; border: 0; outline: none; color: #F4F4F5; font: inherit; font-size: 13px;">
+        <span style="padding: 3px 7px; border-radius: 6px; background: #1F1F23; font-size: 11px; color: #A1A1AA;">Ctrl</span><span style="padding: 3px 7px; border-radius: 6px; background: #1F1F23; font-size: 11px; color: #A1A1AA;">Space</span>
+      </label>
+      <button class="btn" type="button" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: #FF4D1A; color: #0A0A0B; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 0 22px rgba(255,77,26,.4);">Save to scene</button>
+    </div>
+
+    <main style="box-sizing: border-box; padding: 24px 32px 32px; display: flex; flex-wrap: wrap; gap: 16px; align-content: flex-start;">
+      <div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
+        <section class="card d1" aria-label="Live preview" style="padding: 20px 22px; border-radius: 20px; background: linear-gradient(180deg, #1A1A1D, #141416); border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">{{current}}</h1>
+              <p style="margin: 2px 0 0; font-size: 13px; color: #A1A1AA;">{{currentSub}} · 6 devices in sync</p>
+            </div>
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #A1A1AA;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84;"></span>Live · 30 fps</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <sc-for list="{{leds}}" as="l" hint-placeholder-count="24">
+              <span class="led" style="{{l.style}}"></span>
+            </sc-for>
+          </div>
+        </section>
+
+        <section class="card d2" aria-labelledby="fx-h" style="display: flex; flex-direction: column; gap: 10px;">
+          <h2 id="fx-h" style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">EFFECT</h2>
+          <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px;">
+            <sc-for list="{{effects}}" as="e" hint-placeholder-count="10">
+              <button class="fx" type="button" onClick="{{e.pick}}" aria-pressed="{{e.on}}" style="{{e.style}}">
+                <span style="{{e.dot}}"></span>
+                <span style="font-size: 14px; font-weight: 600;">{{e.name}}</span>
+                <span style="font-size: 12px; color: #A1A1AA;">{{e.sub}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </section>
+
+        <section class="card d3" aria-labelledby="dev-h" style="display: flex; flex-direction: column; gap: 10px;">
+          <h2 id="dev-h" style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #8A8A93;">DEVICES IN SYNC</h2>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+            <sc-for list="{{devices}}" as="d" hint-placeholder-count="6">
+              <label class="fx" style="{{d.style}}">
+                <span style="flex-grow: 1; font-size: 14px; font-weight: 600;">{{d.name}}<span style="display: block; font-size: 12px; font-weight: 400; color: #A1A1AA;">{{d.sub}}</span></span>
+                <input type="checkbox" role="switch" class="sw" checked="{{d.on}}" onChange="{{d.toggle}}">
+              </label>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+
+      <aside class="card d4" aria-labelledby="set-h" style="flex: 1 1 300px; box-sizing: border-box; padding: 22px; border-radius: 20px; background: linear-gradient(180deg, #1A1A1D, #141416); border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 20px; align-self: flex-start;">
+        <h2 id="set-h" style="margin: 0; font-size: 15px; font-weight: 600;">Settings</h2>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <span style="font-size: 13px; color: #A1A1AA;">Cool → hot colours</span>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" aria-label="Cool colour: white" style="width: 44px; height: 44px; border-radius: 14px; border: 2px solid #F4F4F5; background: #E4E4E7; cursor: pointer; box-shadow: 0 0 16px rgba(255,255,255,.35);"></button>
+            <span style="flex-grow: 1; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #E4E4E7, #F5A524, #FF4D1A);"></span>
+            <button type="button" aria-label="Hot colour: orange-red" style="width: 44px; height: 44px; border-radius: 14px; border: 2px solid rgba(255,255,255,.1); background: #FF4D1A; cursor: pointer; box-shadow: 0 0 16px rgba(255,77,26,.5);"></button>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #A1A1AA; font-family: 'Space Grotesk', sans-serif;"><span>40 °C</span><span>85 °C</span></div>
+        </div>
+        <sc-for list="{{sliders}}" as="s" hint-placeholder-count="2">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #A1A1AA;">{{s.name}}</span><span style="font-family: 'Space Grotesk', sans-serif;">{{s.text}}</span></div>
+            <div style="height: 14px; border-radius: 7px; background: #232327; overflow: hidden"><div class="fill" style="height: 100%; border-radius: 7px"></div></div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn" type="button" onClick="{{s.down}}" aria-label="{{s.downLabel}}" style="flex: 1 1 0; min-height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); background: #1F1F23; color: #F4F4F5; font: inherit; cursor: pointer;">−</button>
+              <button class="btn" type="button" onClick="{{s.up}}" aria-label="{{s.upLabel}}" style="flex: 1 1 0; min-height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); background: #1F1F23; color: #F4F4F5; font: inherit; cursor: pointer;">+</button>
+            </div>
+          </div>
+        </sc-for>
+        <fieldset style="margin: 0; padding: 14px 16px; border-radius: 16px; background: #1F1F23; border: 1px solid rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 4px;">
+          <legend style="float: left; padding: 0; margin-bottom: 6px; font-size: 14px; font-weight: 600;">Yeelight lamp</legend>
+          <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 14px;"><input type="radio" name="lamp" checked="" style="width: 18px; height: 18px; accent-color: #FF4D1A;">Same as PC</label>
+          <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 14px;"><input type="radio" name="lamp" style="width: 18px; height: 18px; accent-color: #FF4D1A;">Average of PC colours</label>
+          <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 14px;"><input type="radio" name="lamp" style="width: 18px; height: 18px; accent-color: #FF4D1A;">Own colour</label>
+        </fieldset>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { effect: 'Smart', off: {}, t: 0, bright: 80, speed: 50 }; }
+  componentDidMount() { this.timer = setInterval(() => this.setState({ t: this.state.t + 1 }), 500); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const fx = [
+      ['Static', 'One colour', '#FF4D1A'], ['Breathing', 'Fade in/out', '#F5A524'], ['Strobing', 'Flash', '#F4F4F5'], ['Color cycle', 'All colours', '#A78BFA'], ['Rainbow', 'Moving wave', '#60A5FA'],
+      ['Starry night', 'Twinkles', '#E4E4E7'], ['Music', 'Follows audio', '#3DDC84'], ['Smart', 'CPU temperature', '#FF4D1A'], ['Adaptive', 'Screen colours', '#60A5FA'], ['Off', 'Lights off', '#3F3F46']
+    ];
+    const devs = [
+      ['Motherboard', 'ROG STRIX B850-F'], ['LED strip', 'ARGB header'], ['RAM', 'Vengeance RGB ×2'],
+      ['Graphics card', 'RX 9070 XT Taichi'], ['Lamp', 'Yeelight bulb'], ['Add device', 'Scan again']
+    ];
+    const card = (on) => 'min-height: 92px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; padding: 0 14px; border-radius: 16px; font: inherit; color: #F4F4F5; cursor: pointer; text-align: left; ' +
+      (on ? 'background: #1F1F23; border: 1px solid #FF4D1A; box-shadow: 0 0 24px rgba(255,77,26,.22), inset 0 1px 0 rgba(255,255,255,.08);' : 'background: #141416; border: 1px solid rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.04);');
+    const dev = (on) => 'display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 14px; border-radius: 16px; cursor: pointer; ' + (on ? 'background: #141416; border: 1px solid rgba(255,255,255,.08);' : 'background: #0E0E10; border: 1px solid rgba(255,255,255,.04); opacity: .6;');
+    const hsl = (h, l) => 'hsl(' + Math.round(h) + ', 90%, ' + l + '%)';
+    const mix = (t) => { const a = [228, 228, 231], b = [255, 77, 26]; return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',') + ')'; };
+    const color = (i) => {
+      const e = s.effect, t = s.t;
+      if (e === 'Off') return '#1A1A1D';
+      if (e === 'Rainbow') return hsl((i * 15 + t * 20) % 360, 60);
+      if (e === 'Color cycle') return hsl((t * 25) % 360, 60);
+      if (e === 'Breathing') return 'rgba(255,77,26,' + (0.2 + 0.8 * Math.abs(Math.sin(t / 3))).toFixed(2) + ')';
+      if (e === 'Strobing') return t % 2 ? '#F4F4F5' : '#1A1A1D';
+      if (e === 'Starry night') return (i * 7 + t) % 5 === 0 ? '#F4F4F5' : '#232327';
+      if (e === 'Music') return Math.abs(Math.sin(i / 2 + t)) > 0.5 ? '#FF4D1A' : '#3A1A10';
+      if (e === 'Static') return '#FF4D1A';
+      if (e === 'Adaptive') return i < 12 ? '#60A5FA' : '#F5A524';
+      return mix(Math.max(0, Math.min(1, 0.35 + Math.sin((i + t) / 4) * 0.25)));
+    };
+    const cur = fx.find((f) => f[0] === s.effect);
+    const bar = (p) => 'width: ' + p + '%; height: 6px; border-radius: 3px; background: #FF4D1A; box-shadow: 0 0 12px rgba(255,77,26,.55);';
+    const clamp = (v) => Math.max(0, Math.min(100, v));
+    return {
+      current: s.effect, currentSub: cur[1],
+      effects: fx.map(([n, sub, c]) => ({ name: n, sub, on: s.effect === n, style: card(s.effect === n), dot: 'width: 10px; height: 10px; border-radius: 5px; background: ' + c + '; box-shadow: 0 0 10px ' + c + '; margin-bottom: 6px;', pick: () => this.setState({ effect: n }) })),
+      devices: devs.map(([n, sub]) => ({ name: n, sub, on: !s.off[n], style: dev(!s.off[n]), toggle: () => this.setState({ off: { ...s.off, [n]: !s.off[n] } }) })),
+      sliders: [['Brightness', 'bright'], ['Speed', 'speed']].map(([n, k]) => ({ name: n, text: s[k] + '%', bar: bar(s[k]), downLabel: 'Lower ' + n.toLowerCase(), upLabel: 'Raise ' + n.toLowerCase(), down: () => this.setState({ [k]: clamp(s[k] - 10) }), up: () => this.setState({ [k]: clamp(s[k] + 10) }) })),
+      leds: Array.from({ length: 24 }, (_, i) => { const c = color(i); return { style: 'flex: 1 1 0; height: 34px; border-radius: 9px; background: ' + c + '; box-shadow: 0 0 16px ' + c + ';' }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+using Prism.App.Navigation;
+using Prism.App.Services;
+using Prism.Core;
+using Prism.Core.Ipc;
+
+namespace Prism.App.ViewModels;
+
+/// <summary>
+/// Base for every page. All pages receive the same state snapshot so switching pages is instant;
+/// formatting lives in the view-model so it can be unit-tested without a window.
+/// </summary>
+public abstract class PageViewModel : ObservableObject
+{
+    protected PageViewModel(IPrismClient client)
+    {
+        Client = client;
+        OpenPageCommand = new RelayCommand<string>(key =>
+        {
+            if (Enum.TryParse<PageKey>(key, ignoreCase: true, out var page)) RequestNavigate(page);
+        });
+    }
+
+    public IPrismClient Client { get; }
+    public StateMessage? State { get; private set; }
+    public string? LastError { get; private set; }
+    public bool HasError => !string.IsNullOrWhiteSpace(LastError);
+    public string PageTitle { get; protected init; } = string.Empty;
+
+    /// <summary>Cross-page links ("Curves", "5G modem", …) are routed by the shell.</summary>
+    public event EventHandler<PageKey>? NavigateRequested;
+
+    public RelayCommand<string> OpenPageCommand { get; }
+
+    protected void RequestNavigate(PageKey page) => NavigateRequested?.Invoke(this, page);
+
+    public virtual void Apply(StateMessage state)
+    {
+        State = state;
+        Refresh();
+    }
+
+    protected virtual void Refresh() => OnPropertyChanged(string.Empty);
+
+    protected async Task RunAsync(Func<Task<Response>> action)
+    {
+        try
+        {
+            var response = await action().ConfigureAwait(true);
+            LastError = response.Ok ? null : response.Error ?? "The service refused the command";
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+        }
+        OnPropertyChanged(nameof(LastError));
+        OnPropertyChanged(nameof(HasError));
+    }
+
+    protected void NotifyAll() => OnPropertyChanged(string.Empty);
+}
+
+public sealed class GaugeItem : ObservableObject
+{
+    public GaugeItem(string label, string value, string sub, string colorHex, double percent)
+    { Label = label; Value = value; Sub = sub; ColorHex = colorHex; Percent = percent; }
+    public string Label { get; private set; }
+    public string Value { get; private set; }
+    public string Sub { get; private set; }
+    public string ColorHex { get; private set; }
+    public double Percent { get; private set; }
+    public string Suffix => Label.Contains("temp") ? "\u00b0" : "%";
+    public string ValueFormat => Label.Contains("temp") ? "F1" : "F0";
+    public double NumericValue => double.TryParse(Value.TrimEnd('%', '\u00b0'), System.Globalization.NumberStyles.Float,
+        System.Globalization.CultureInfo.InvariantCulture,out var value) ? value : double.NaN;
+    public void Update(GaugeItem item)
+    {
+        Label = item.Label; Value = item.Value; Sub = item.Sub; ColorHex = item.ColorHex; Percent = item.Percent;
+        OnPropertyChanged(string.Empty);
+    }
+}
+
+public sealed record FanRow(string Name, string Sub, string RpmText, double Percent, bool IsPump);
+
+public sealed record StatRow(string Key, string Value, string ColorHex);
+
+public sealed record TempRow(string Name, string Value, double Percent, string ColorHex);
+
+public sealed record BarItem(double Height, string ColorHex);
+
+public sealed record ThreadItem(double Percent, string ColorHex);
+
+public sealed record SimpleNetworkRow(string Net, IReadOnlyList<BarItem> Bars, string Text);
+
+public sealed record MetricRow(string Net, string Value, string Rating, string ColorHex, double Position);
+
+public sealed record MetricGroup(string Title, string Code, IReadOnlyList<MetricRow> Rows);
+
+public sealed record LaneData(string Title, string Now, string ColorHex, IReadOnlyList<double> Values, double Maximum);
+
+public sealed record NeighborRow(string Band, string Pci, string Rsrp, string Sinr);
+
+public sealed record SpeedStat(string Key, string Unit, string Value);
+
+public sealed record PingBar(double Height, string ColorHex);
+
+public sealed record SpikeItem(string Ms, string Cause, string Tip, string TagBackground, string TagForeground);
+
+public sealed record DeviceRow(string Name, string Connection, string DotColorHex, bool IsThisPc);
+
+public sealed record WidgetGalleryItem(Widgets.WidgetKind Kind, string Name, string Subtitle);
+
+public sealed class SceneOption : ObservableObject
+{
+    private bool _isActive;
+
+    public SceneOption(string name, string colorHex)
+    {
+        Name = name;
+        ColorHex = colorHex;
+    }
+
+    public string Name { get; }
+    public string ColorHex { get; }
+
+    public bool IsActive
+    {
+        get => _isActive;
+        set => Set(ref _isActive, value);
+    }
+}
+
+public sealed class EffectOption : ObservableObject
+{
+    private bool _isSelected;
+
+    public EffectOption(LightingEffect effect, string name, string subtitle, string colorHex)
+    {
+        Effect = effect;
+        Name = name;
+        Subtitle = subtitle;
+        ColorHex = colorHex;
+    }
+
+    public LightingEffect Effect { get; }
+    public string Name { get; }
+    public string Subtitle { get; }
+    public string ColorHex { get; }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => Set(ref _isSelected, value);
+    }
+}
+
+public sealed class DeviceOption : ObservableObject
+{
+    private bool _synced;
+
+    public DeviceOption(string id, string name, string sub, bool synced)
+    {
+        Id = id;
+        Name = name;
+        Sub = sub;
+        _synced = synced;
+    }
+
+    public string Id { get; }
+    public string Name { get; }
+    public string Sub { get; }
+
+    public bool Synced
+    {
+        get => _synced;
+        set => Set(ref _synced, value);
+    }
+}
+
+public sealed class FanGroupItem : ObservableObject
+{
+    private bool _isSelected;
+
+    public FanGroupItem(string name, string sub, string rpmText, double percent, bool isPump, double spinSeconds)
+    {
+        Name = name;
+        Sub = sub;
+        RpmText = rpmText;
+        Percent = percent;
+        IsPump = isPump;
+        SpinSeconds = spinSeconds;
+    }
+
+    public string Name { get; }
+    public string Sub { get; }
+    public string RpmText { get; }
+    public double Percent { get; }
+    public bool IsPump { get; }
+    public double SpinSeconds { get; }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => Set(ref _isSelected, value);
+    }
+}
+
+public sealed class ChoiceOption : ObservableObject
+{
+    private bool _isActive;
+
+    public ChoiceOption(string key, string name)
+    {
+        Key = key;
+        Name = name;
+    }
+
+    public string Key { get; }
+    public string Name { get; }
+
+    public bool IsActive
+    {
+        get => _isActive;
+        set => Set(ref _isActive, value);
+    }
+}
+
+public sealed class ToggleOption : ObservableObject
+{
+    private bool _isOn;
+
+    public ToggleOption(string key, string name, string subtitle, bool isOn)
+    {
+        Key = key;
+        Name = name;
+        Subtitle = subtitle;
+        _isOn = isOn;
+    }
+
+    public string Key { get; }
+    public string Name { get; }
+    public string Subtitle { get; }
+
+    public bool IsOn
+    {
+        get => _isOn;
+        set => Set(ref _isOn, value);
+    }
+}
+
+public sealed class SceneCardItem : ObservableObject
+{
+    private bool _isActive;
+
+    public SceneCardItem(Models.SceneDefinition definition, bool isActive)
+    {
+        Definition = definition;
+        _isActive = isActive;
+    }
+
+    public Models.SceneDefinition Definition { get; }
+    public string Name => Definition.Name;
+    public string ColorHex => Definition.Color;
+    public string Trigger => Definition.Trigger;
+    public string LightingText => Definition.LightingText;
+    public string FansText => Definition.FansText;
+    public string LampText => Definition.LampText;
+    public double Noise => Definition.Noise;
+    public string NoiseText => Definition.Noise < 30 ? "Quiet" : Definition.Noise < 55 ? "Normal" : "Loud";
+
+    public bool IsActive
+    {
+        get => _isActive;
+        set
+        {
+            if (Set(ref _isActive, value)) OnPropertyChanged(nameof(ButtonLabel));
+        }
+    }
+
+    public string ButtonLabel => IsActive ? "Active" : "Apply";
+}

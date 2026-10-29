@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
+    <ProjectReference Include="../Prism.Core/Prism.Core.csproj" />
+    <ProjectReference Include="../Prism.Hardware/Prism.Hardware.csproj" />
+    <ProjectReference Include="../Prism.Lighting/Prism.Lighting.csproj" />
+    <ProjectReference Include="../Prism.Router/Prism.Router.csproj" />
+  </ItemGroup>
+</Project>
