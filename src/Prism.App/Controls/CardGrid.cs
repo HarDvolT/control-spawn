@@ -3,7 +3,7 @@ using System.Windows.Controls;
 
 namespace Prism.App.Controls;
 
-public enum CardSize { Auto, S, M, L }
+public enum CardSize { Auto, S, M, L, XL }
 
 /// <summary>Twelve columns, collapsing to six and then one at narrow widths.</summary>
 public sealed class CardGrid : Panel

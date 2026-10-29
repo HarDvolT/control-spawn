@@ -11,7 +11,7 @@ public class GlassCard : ContentControl
 {
     public static readonly DependencyProperty SizeProperty = DependencyProperty.Register(nameof(Size), typeof(CardSize), typeof(GlassCard),
         new FrameworkPropertyMetadata(CardSize.Auto, FrameworkPropertyMetadataOptions.AffectsMeasure, (d, e) =>
-            d.SetValue(HeightProperty, (CardSize)e.NewValue switch { CardSize.S => 140d, CardSize.M => 220d, CardSize.L => 320d, _ => double.NaN })));
+            d.SetValue(HeightProperty, (CardSize)e.NewValue switch { CardSize.S => 132d, CardSize.M => 208d, CardSize.XL => 456d, CardSize.L => 320d, _ => double.NaN })));
     public static readonly DependencyProperty SpanProperty = CardGrid.SpanProperty.AddOwner(typeof(GlassCard));
     public CardSize Size { get => (CardSize)GetValue(SizeProperty); set => SetValue(SizeProperty, value); }
     public int Span { get => (int)GetValue(SpanProperty); set => SetValue(SpanProperty, value); }
@@ -34,7 +34,7 @@ public class GlassCard : ContentControl
     public GlassCard()
     {
         Loaded += OnLoaded;
-        MouseEnter += (_, _) => Lift(-3);
+        MouseEnter += (_, _) => Lift(-2);
         MouseLeave += (_, _) => Lift(0);
     }
 
@@ -73,9 +73,9 @@ public class GlassCard : ContentControl
         }
 
         Opacity = 0;
-        var translate = new TranslateTransform(0, 16);
+        var translate = new TranslateTransform(0, 12);
         RenderTransform = translate;
-        var delay = TimeSpan.FromMilliseconds(Math.Min(StaggerIndex, 12) * 55);
+        var delay = TimeSpan.FromMilliseconds(Math.Min(StaggerIndex, 12) * 40);
         var duration = TimeSpan.FromMilliseconds(620);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
 
@@ -84,7 +84,7 @@ public class GlassCard : ContentControl
             BeginTime = delay,
             EasingFunction = ease
         });
-        translate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(16, 0, duration)
+        translate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(12, 0, duration)
         {
             BeginTime = delay,
             EasingFunction = ease

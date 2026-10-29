@@ -5,8 +5,8 @@
 
     <FontFamily x:Key="BodyFont">Inter, Segoe UI</FontFamily>
     <FontFamily x:Key="NumberFont">Space Grotesk, Segoe UI</FontFamily>
-    <system:Double x:Key="TypeDisplay">32</system:Double>
-    <system:Double x:Key="TypeTitle">20</system:Double>
+    <system:Double x:Key="TypeDisplay">40</system:Double>
+    <system:Double x:Key="TypeTitle">22</system:Double>
     <system:Double x:Key="TypeHeading">15</system:Double>
     <system:Double x:Key="TypeBody">13</system:Double>
     <system:Double x:Key="TypeCaption">11</system:Double>
@@ -19,7 +19,7 @@
     <CornerRadius x:Key="Radius12">12</CornerRadius>
     <CornerRadius x:Key="Radius16">16</CornerRadius>
     <CornerRadius x:Key="Radius20">20</CornerRadius>
-    <SolidColorBrush x:Key="StatusCoolBrush" Color="#5AA7FF"/>
+    <SolidColorBrush x:Key="StatusCoolBrush" Color="#36D6FF"/>
     <SolidColorBrush x:Key="StatusOkBrush" Color="#3DDC84"/>
     <SolidColorBrush x:Key="StatusWarmBrush" Color="#F5A524"/>
     <SolidColorBrush x:Key="StatusHotBrush" Color="#FF4D4F"/>
@@ -29,20 +29,20 @@
     <controls:LevelToGlowConverter x:Key="LevelToGlow"/>
     <controls:FriendlyLabelConverter x:Key="FriendlyLabel"/>
     <!-- Palette from docs/design -->
-    <Color x:Key="PageColor">#0A0A0B</Color>
-    <Color x:Key="PanelColor">#141416</Color>
-    <Color x:Key="PanelAltColor">#1F1F23</Color>
-    <Color x:Key="PanelDeepColor">#0E0E10</Color>
-    <Color x:Key="TrackColor">#232327</Color>
-    <Color x:Key="TrackSoftColor">#2A2A2F</Color>
+    <Color x:Key="PageColor">#07080A</Color>
+    <Color x:Key="PanelColor">#111216</Color>
+    <Color x:Key="PanelAltColor">#17181D</Color>
+    <Color x:Key="PanelDeepColor">#0F1014</Color>
+    <Color x:Key="TrackColor">#1E2026</Color>
+    <Color x:Key="TrackSoftColor">#2A2C33</Color>
     <Color x:Key="AccentColor">#FF4D1A</Color>
     <Color x:Key="AccentHoverColor">#FF7A50</Color>
     <Color x:Key="GoodColor">#3DDC84</Color>
     <Color x:Key="FairColor">#F5A524</Color>
     <Color x:Key="PoorColor">#FF4D4F</Color>
-    <Color x:Key="TextPrimaryColor">#F4F4F5</Color>
-    <Color x:Key="TextSecondaryColor">#A1A1AA</Color>
-    <Color x:Key="TextTertiaryColor">#8A8A93</Color>
+    <Color x:Key="TextPrimaryColor">#F4F5F7</Color>
+    <Color x:Key="TextSecondaryColor">#A3A6AE</Color>
+    <Color x:Key="TextTertiaryColor">#7C808A</Color>
 
     <SolidColorBrush x:Key="PageBrush" Color="{StaticResource PageColor}" />
     <SolidColorBrush x:Key="PanelBrushSolid" Color="{StaticResource PanelColor}" />
@@ -61,12 +61,12 @@
     <SolidColorBrush x:Key="BorderBrush" Color="#0FFFFFFF" />
     <SolidColorBrush x:Key="BorderStrongBrush" Color="#24FFFFFF" />
     <SolidColorBrush x:Key="AccentSoftBrush" Color="#26FF4D1A" />
-    <SolidColorBrush x:Key="InkBrush" Color="#0A0A0B" />
+    <SolidColorBrush x:Key="InkBrush" Color="#07080A" />
     <SolidColorBrush x:Key="DarkOverlayBrush" Color="#CC141416" />
 
     <LinearGradientBrush x:Key="PanelGradientBrush" StartPoint="0.5,0" EndPoint="0.5,1">
-        <GradientStop Color="#1A1A1D" Offset="0" />
-        <GradientStop Color="#141416" Offset="1" />
+        <GradientStop Color="#14151A" Offset="0" />
+        <GradientStop Color="#111216" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="WindowGlowBrush" StartPoint="0.5,0" EndPoint="0.5,1">
         <GradientStop Color="#1CFFFFFF" Offset="0" />
@@ -94,7 +94,7 @@
     </Style>
 
     <Style x:Key="H1" TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
         <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
@@ -594,21 +594,7 @@
         <Setter Property="Width" Value="8" />
         <Setter Property="Height" Value="8" />
         <Setter Property="Fill" Value="{StaticResource GoodBrush}" />
-        <Style.Triggers>
-            <Trigger Property="IsVisible" Value="True">
-                <Trigger.EnterActions>
-                    <BeginStoryboard x:Name="LivePulse">
-                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.35"
-                                             Duration="0:0:0.9" />
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                    <StopStoryboard BeginStoryboardName="LivePulse" />
-                </Trigger.ExitActions>
-            </Trigger>
-        </Style.Triggers>
+
     </Style>
 
     <Style x:Key="ToolTipStyle" TargetType="{x:Type ToolTip}">
@@ -698,4 +684,21 @@
             <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource AccentBrush}" /></Trigger></ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
+
+    <SolidColorBrush x:Key="DataBrush" Color="#36D6FF"/>
+    <LinearGradientBrush x:Key="NavActiveBrush" StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#2EFF4D1A" Offset="0"/><GradientStop Color="#0AFF4D1A" Offset="1"/></LinearGradientBrush>
+    <Style x:Key="ShellNav" TargetType="Button" BasedOn="{StaticResource BaseButton}">
+      <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+      <Setter Property="FontSize" Value="14"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="Padding" Value="12,0"/><Setter Property="Height" Value="40"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Chrome" CornerRadius="12" Background="{TemplateBinding Background}"><Grid>
+        <Border x:Name="ActiveBar" Width="2" HorizontalAlignment="Left" Background="{StaticResource AccentBrush}" Visibility="Collapsed"/>
+        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+      </Grid></Border><ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#0AFFFFFF"/></Trigger>
+        <DataTrigger Binding="{Binding IsCurrent}" Value="True"><Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter TargetName="Chrome" Property="Background" Value="{StaticResource NavActiveBrush}"/><Setter TargetName="ActiveBar" Property="Visibility" Value="Visible"/></DataTrigger>
+      </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="PageEyebrow" TargetType="TextBlock" BasedOn="{StaticResource SectionLabel}"><Setter Property="Margin" Value="0,0,0,4"/></Style>
+    <Style x:Key="PageSubtitle" TargetType="TextBlock" BasedOn="{StaticResource Muted}"><Setter Property="Margin" Value="0,6,0,0"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+    <Style x:Key="Placeholder" TargetType="TextBlock" BasedOn="{StaticResource SmallMuted}"><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="Margin" Value="0,10"/></Style>
 </ResourceDictionary>

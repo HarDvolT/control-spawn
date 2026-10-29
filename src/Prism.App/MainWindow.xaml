@@ -1,90 +1,41 @@
-<?xml version="1.0" ?>
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" x:Class="Prism.App.MainWindow" Title="Prism" Width="1320" Height="900" MinWidth="1000" MinHeight="650" WindowStyle="None" Background="{StaticResource PageBrush}" Foreground="{StaticResource TextPrimaryBrush}" KeyDown="WindowKeyDown">
-  <WindowChrome.WindowChrome>
-    <WindowChrome CaptionHeight="0" ResizeBorderThickness="7" CornerRadius="0"/>
-  </WindowChrome.WindowChrome>
-  <Grid>
-    <Grid.Background>
-      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#18181B" Offset="0"/>
-        <GradientStop Color="#0A0A0B" Offset="0.3"/>
-      </LinearGradientBrush>
-    </Grid.Background>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="220"/>
-      <ColumnDefinition Width="*"/>
-    </Grid.ColumnDefinitions>
-    <Border Background="#AF101012" BorderBrush="#10FFFFFF" BorderThickness="0,0,1,0" Padding="20">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" x:Class="Prism.App.MainWindow" Title="Prism" Width="1440" Height="940" MinWidth="1000" MinHeight="650" WindowStyle="None" Background="{StaticResource PageBrush}" Foreground="{StaticResource TextPrimaryBrush}" KeyDown="WindowKeyDown">
+  <WindowChrome.WindowChrome><WindowChrome CaptionHeight="0" ResizeBorderThickness="7" CornerRadius="0"/></WindowChrome.WindowChrome>
+  <Grid ClipToBounds="True">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <c:GraphiteBackground Grid.ColumnSpan="2" IsHitTestVisible="False"/>
+    <Border Background="#CC0D0E11" BorderBrush="#0FFFFFFF" BorderThickness="0,0,1,0" Padding="12,20">
       <DockPanel>
-        <StackPanel DockPanel.Dock="Top">
-          <TextBlock Text="◈  Prism" Style="{StaticResource H1}" Foreground="{StaticResource AccentBrush}" Margin="8,10,0,32"/>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="10,4,0,20">
+          <Border Width="30" Height="30" CornerRadius="9"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#FF4D1A" Offset="0"/><GradientStop Color="#FF8A3D" Offset="1"/></LinearGradientBrush></Border.Background><Border.Effect><DropShadowEffect Color="#FF4D1A" BlurRadius="22" ShadowDepth="0" Opacity="0.5"/></Border.Effect><Path Data="M12 3 4 7.5v9L12 21l8-4.5v-9z" Stroke="#07080A" StrokeThickness="2.4" Width="16" Height="18" Stretch="Uniform"/></Border>
+          <TextBlock Text="Prism" FontFamily="{StaticResource NumberFont}" FontSize="19" FontWeight="Bold" VerticalAlignment="Center" Margin="10,0,0,0"/>
         </StackPanel>
-        <StackPanel DockPanel.Dock="Bottom">
-          <TextBlock Text="{Binding ServiceStatusText}" FontSize="12" Margin="0,16"/>
-          <TextBlock Text="{Binding ModeBadge}" Foreground="{StaticResource AccentBrush}"/>
-        </StackPanel>
-        <ItemsControl ItemsSource="{Binding NavigationGroups}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <StackPanel Margin="0,0,0,18">
-                <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}" Margin="12,8"/>
-                <ItemsControl ItemsSource="{Binding Items}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Definition.Key}" Margin="0,2">
-                        <Button.Style>
-                          <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
-                            <Style.Triggers>
-                              <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                <Setter Property="Background" Value="#26FF4D1A"/>
-                                <Setter Property="Foreground" Value="#FF7A50"/>
-                              </DataTrigger>
-                            </Style.Triggers>
-                          </Style>
-                        </Button.Style>
-                        <StackPanel Orientation="Horizontal">
-                          <TextBlock Text="{Binding Glyph}" Width="27"/>
-                          <TextBlock Text="{Binding Title}"/>
-                        </StackPanel>
-                      </Button>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <Border DockPanel.Dock="Bottom" Background="#111216" BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="12" Padding="10" Margin="8,12,8,0">
+          <StackPanel Orientation="Horizontal"><c:LiveIndicator Width="8" Height="8" Color="{Binding ServiceDot, Converter={StaticResource HexToColor}}" Margin="0,0,8,0"/><TextBlock Text="{Binding ServiceStatusText}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" ToolTip="{Binding ModeBadge}"/></StackPanel>
+        </Border>
+        <ItemsControl ItemsSource="{Binding NavigationGroups}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel>
+          <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}" Margin="12,14,0,6"/>
+          <ItemsControl ItemsSource="{Binding Items}"><ItemsControl.ItemTemplate><DataTemplate>
+            <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Definition.Key}" Margin="0,1" Style="{StaticResource ShellNav}">
+              <StackPanel Orientation="Horizontal"><Path Data="{Binding Icon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="18" Height="18" Stretch="Uniform" Margin="0,0,12,0"/><TextBlock Text="{Binding Title}" FontSize="14"/></StackPanel>
+            </Button>
+          </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+        </StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
       </DockPanel>
     </Border>
     <Grid Grid.Column="1">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="76"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-        <RowDefinition Height="28"/>
-      </Grid.RowDefinitions>
-      <Border BorderBrush="#10FFFFFF" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleDrag">
-        <DockPanel Margin="28,12">
-          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-            <Button Content="−" Style="{StaticResource IconButton}" Click="MinimizeClick"/>
-            <Button Content="□" Style="{StaticResource IconButton}" Click="MaximizeClick"/>
-            <Button Content="×" Style="{StaticResource IconButton}" Click="CloseClick"/>
-          </StackPanel>
-          <Button DockPanel.Dock="Right" Content="Search   Ctrl+Space" Style="{StaticResource GhostButton}" Command="{Binding OpenSearchCommand}" Margin="12,0"/>
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="{Binding BreadcrumbLeft}" Style="{StaticResource Muted}"/>
-            <TextBlock Text=" / " Margin="8,0"/>
-            <TextBlock Text="{Binding BreadcrumbTitle}"/>
-          </StackPanel>
-        </DockPanel>
-      </Border>
-      <Border Grid.Row="1" Background="#33F5A524" Padding="24,12" Visibility="{Binding ShowBanner, Converter={StaticResource BoolToVisibility}}">
-        <TextBlock Text="{Binding BannerText}" TextWrapping="Wrap"/>
-      </Border>
-      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <ContentControl Margin="30,24" Content="{Binding CurrentPage}"/>
-      </ScrollViewer>
-      <TextBlock Grid.Row="3" Text="{Binding StatusText}" Style="{StaticResource SmallMuted}" Margin="30,3"/>
+      <Grid.RowDefinitions><RowDefinition Height="76"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+      <Grid Margin="26,20,26,16" MouseLeftButtonDown="TitleDrag">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="360"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="Prism" Foreground="#7C808A"/><TextBlock Text=" / " Foreground="#3A3C44" Margin="5,0"/><TextBlock Text="{Binding BreadcrumbTitle}" Foreground="#C9CBD1"/></StackPanel>
+        <Button Grid.Column="1" Style="{StaticResource PillButton}" Command="{Binding OpenSearchCommand}" Padding="14,0,8,0" MinHeight="40" Height="40" HorizontalContentAlignment="Stretch">
+          <DockPanel Width="330"><Border DockPanel.Dock="Right" Background="#1E2026" CornerRadius="6" Padding="8,3"><TextBlock Text="Ctrl Space" FontSize="11" Foreground="#A3A6AE"/></Border><Path DockPanel.Dock="Left" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M16 16 L21 21" Stroke="#7C808A" StrokeThickness="2" Width="15" Height="15" Stretch="Uniform" Margin="0,0,10,0"/><TextBlock Text="Search or type a command" FontWeight="Normal" Foreground="#7C808A" VerticalAlignment="Center"/></DockPanel>
+        </Button>
+        <Border Grid.Column="2" Margin="12,0" CornerRadius="20" Background="#143DDC84" BorderBrush="#4D3DDC84" BorderThickness="1" Padding="14,0" Height="40"><StackPanel Orientation="Horizontal"><c:LiveIndicator Width="7" Height="7" Margin="0,0,8,0" Color="{Binding ServiceDot, Converter={StaticResource HexToColor}}"/><TextBlock Text="{Binding StatusText}" Foreground="#9BEFC2" FontSize="12" VerticalAlignment="Center" MaxWidth="220" TextTrimming="CharacterEllipsis"/></StackPanel></Border>
+        <Button Grid.Column="3" Style="{StaticResource PillButton}" Width="40" Height="40" MinHeight="40" Padding="0" AutomationProperties.Name="Notifications" Click="NotificationsClick"><Path Data="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4" Stroke="#C9CBD1" StrokeThickness="1.8" Width="17" Height="20" Stretch="Uniform"/></Button>
+        <ContextMenuService.ContextMenu><ContextMenu><MenuItem Header="Minimize" Click="MinimizeClick"/><MenuItem Header="Maximize / restore" Click="MaximizeClick"/><MenuItem Header="Close" Click="CloseClick"/></ContextMenu></ContextMenuService.ContextMenu>
+      </Grid>
+      <Border Grid.Row="1" Background="#33F5A524" Padding="26,12" Visibility="{Binding ShowBanner, Converter={StaticResource BoolToVisibility}}"><TextBlock Text="{Binding BannerText}" TextWrapping="Wrap"/></Border>
+      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ContentControl Margin="26,0,26,26" Content="{Binding CurrentPage}"/></ScrollViewer>
     </Grid>
     <Border Grid.ColumnSpan="2" Background="#D9000000" Visibility="{Binding IsSearchOpen, Converter={StaticResource BoolToVisibility}}">
       <Border Background="#202024" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="20" Width="620" Padding="24" VerticalAlignment="Top" Margin="0,105,0,0">

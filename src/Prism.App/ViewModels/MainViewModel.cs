@@ -20,6 +20,7 @@ public sealed class NavItem : ObservableObject
     public PageDefinition Definition { get; }
     public string Title => Definition.Title;
     public string Glyph => Definition.Glyph;
+    public System.Windows.Media.Geometry Icon => System.Windows.Media.Geometry.Parse(Definition.Glyph);
     public string Subtitle => Definition.Subtitle;
 
     public bool IsCurrent
@@ -145,8 +146,8 @@ public sealed class MainViewModel : ObservableObject
     public PageViewModel CurrentPage { get => _currentPage; private set => Set(ref _currentPage, value); }
     public PageKey CurrentKey { get => _currentKey; private set => Set(ref _currentKey, value); }
     public string CurrentTitle => CurrentPage.PageTitle;
-    public string BreadcrumbLeft => CurrentKey == PageKey.Modem ? "Insights" : "Prism";
-    public string BreadcrumbTitle => CurrentTitle;
+    public string BreadcrumbLeft => "Prism";
+    public string BreadcrumbTitle => Navigation.Pages.Get(CurrentKey).Title;
     public StateMessage? LastState => _lastState;
 
     public bool IsSearchOpen

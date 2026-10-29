@@ -1,8 +1,13 @@
 namespace Prism.App.Common;
 
-/// <summary>Global motion preference, driven by the "Reduce animations" setting.</summary>
+/// <summary>App preference combined with the Windows animation accessibility preference.</summary>
 public static class Motion
 {
-    public static bool ReduceAnimations { get; set; }
+    private static bool reduceAnimations;
+    public static bool ReduceAnimations
+    {
+        get => reduceAnimations || !System.Windows.SystemParameters.ClientAreaAnimation;
+        set => reduceAnimations = value;
+    }
     public static TimeSpan Duration(TimeSpan normal) => ReduceAnimations ? TimeSpan.Zero : normal;
 }
