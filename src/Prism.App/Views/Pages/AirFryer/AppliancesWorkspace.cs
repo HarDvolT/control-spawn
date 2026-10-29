@@ -31,8 +31,10 @@ public sealed class AppliancesWorkspace : UserControl
         if (next == signature && displays.Count > 0) { UpdateReadings(); return; }
         signature = next; root.Children.Clear(); displays.Clear(); propertyUpdates.Clear(); settingControls.Clear();
         root.Children.Add(new TextBlock { Text = "AIR FRYER", FontSize = 11, Foreground = Brushes.WhiteSmoke, Margin = new(0, 0, 0, 12) });
-        root.Children.Add(new TextBlock { Text = "Cooking starts only after you confirm here. Cancel is always one click.", Foreground = Brushes.Silver, TextWrapping = TextWrapping.Wrap });
-        var error = new TextBlock { Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap }; error.SetBinding(TextBlock.TextProperty, new Binding("LastError")); root.Children.Add(error);
+        var title = new TextBlock { Text = "Ready when you are", Margin = new(0, -8, 0, 6) };
+        title.SetResourceReference(StyleProperty, "H1"); root.Children.Add(title);
+        root.Children.Add(new TextBlock { Text = "Cooking starts only after you confirm here.", Foreground = Brushes.Silver, TextWrapping = TextWrapping.Wrap });
+        var error = new TextBlock { Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap }; error.SetBinding(VisibilityProperty, new Binding("LastError") { Converter = new StringToVisibilityConverter() }); error.SetBinding(TextBlock.TextProperty, new Binding("LastError")); root.Children.Add(error);
         if (model.Appliances.Count == 0) root.Children.Add(new TextBlock { Text = "Find your fryer on the Devices page, then import its token.", Foreground = Brushes.Silver, Margin = new(0, 24, 0, 24) });
         var grid = new CardGrid { Margin = new(0, 16, 0, 0) }; root.Children.Add(grid);
         foreach (var appliance in model.Appliances)
@@ -41,10 +43,11 @@ public sealed class AppliancesWorkspace : UserControl
             settingControls[appliance.Id] = new();
             panel.Children.Add(new DeviceNameEditor { DeviceId = appliance.Id, DisplayName = appliance.Name, Client = model.Client });
             var status = new TextBlock { Foreground = Brushes.WhiteSmoke, FontSize = 18, TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 12) }; panel.Children.Add(status);
-            var ring = new RingGauge { Width = 210, Height = 210, Maximum = appliance.TargetMinutes ?? 1 }; panel.Children.Add(ring);
+            var ring = new RingGauge { Width = 170, Height = 170, Maximum = appliance.TargetMinutes ?? 1 }; panel.Children.Add(ring);
             var remaining = new TextBlock { Foreground = Brushes.Silver, HorizontalAlignment = HorizontalAlignment.Center }; panel.Children.Add(remaining);
             displays[appliance.Id] = (status, ring, remaining);
             var details = new StackPanel();
+            var targets = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             foreach (var p in appliance.Properties)
             {
                 var line = new StackPanel { Margin = new(0, 8, 0, 8) };
@@ -81,13 +84,14 @@ public sealed class AppliancesWorkspace : UserControl
                     line.Children.Add(slider); line.Children.Add(number);
                 }
                 foreach (var control in line.Children.OfType<Control>()) settingControls[appliance.Id].Add(control);
-                if (p.Name is "target-temperature" or "target-time" or "mode") panel.Children.Add(line); else details.Children.Add(line);
+                if (p.Name is "target-temperature" or "target-time") targets.Children.Add(line); else details.Children.Add(line);
             }
             panel.Children.Add(new Expander { Header = "Device details", Content = details, Foreground = Brushes.Silver, Margin = new(0, 12, 0, 0) });
             var actions = new WrapPanel();
             foreach (var action in appliance.Actions.Where(a => a.Name is "start-cook" or "resume-cook" or "resume-cooking" or "pause" or "cancel-cooking"))
             {
-                var button = new Button { Content = FriendlyLabelConverter.Label(action.Name), Margin = new(0, 8, 12, 8), IsEnabled = appliance.Connected || action.Name == "cancel-cooking" };
+                var button = new Button { Content = action.Name == "start-cook" ? "Start cooking" : FriendlyLabelConverter.Label(action.Name), Margin = new(0, 8, 12, 8), IsEnabled = appliance.Connected || action.Name == "cancel-cooking" };
+                if (action.Name == "start-cook") button.SetResourceReference(StyleProperty, "PrimaryPillButton");
                 button.Click += async (_, _) => {
                     var current = model.Appliances.FirstOrDefault(a => a.Id == appliance.Id) ?? appliance;
                     if (action.Name is "cancel-cooking" or "pause") { await model.ActAsync(current, action); return; }
@@ -97,13 +101,18 @@ public sealed class AppliancesWorkspace : UserControl
                 };
                 actions.Children.Add(button);
             }
-            panel.Children.Add(actions); grid.Children.Add(new GlassCard { Span = 7, Content = panel });
+            panel.Children.Remove(ring); panel.Children.Remove(remaining);
+            var cook = new DockPanel { Margin = new(0, 8, 0, 12) };
+            var timer = new StackPanel { Width = 220 }; timer.Children.Add(ring); timer.Children.Add(remaining);
+            DockPanel.SetDock(timer, Dock.Left); cook.Children.Add(timer); cook.Children.Add(targets); panel.Children.Insert(2, cook);
+            panel.Children.Add(actions); grid.Children.Add(new GlassCard { Span = 7, Content = panel, MinHeight = 360 });
             var aside = new StackPanel(); CardGrid.SetSpan(aside, 5);
             StackPanel Info(string title, string copy) { var body = new StackPanel(); body.Children.Add(new TextBlock { Text = title, FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 12) }); body.Children.Add(new TextBlock { Text = copy, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Silver }); return body; }
-            aside.Children.Add(new GlassCard { Content = Info("Presets", "Unavailable ? Saved cooking presets are not supplied by the service."), Margin = new(0, 0, 0, 16) });
-            aside.Children.Add(new GlassCard { Content = Info("Safety", "Second tap to start\nConfirm the basket is safe and ready.\n\nSettings lock while cooking\nPause or cancel stays within reach.\n\nScenes cannot start cooking\nEvery heating action needs your confirmation here.") });
+            aside.Children.Add(new GlassCard { Content = Info("Presets", "Unavailable · Saved cooking presets are not supplied by the service."), MinHeight = 360, Margin = new(0, 0, 0, 0) });
+            var safetyCard = new GlassCard { Span = 5, MinHeight = 240, Content = Info("Safety", "Second tap to start\nConfirm the basket is safe and ready.\n\nSettings lock while cooking\nPause or cancel stays within reach.\n\nScenes cannot start cooking\nEvery heating action needs your confirmation here.") };
             grid.Children.Add(aside);
-            grid.Children.Add(new GlassCard { Span = 12, Content = Info("Recent cooks", "Unavailable ? Cooking history is not supplied by the service.") });
+            grid.Children.Add(safetyCard);
+            grid.Children.Add(new GlassCard { Span = 7, MinHeight = 240, Content = Info("Recent cooks", "Unavailable · Cooking history is not supplied by the service.") });
         }
         UpdateReadings();
     }
@@ -114,7 +123,9 @@ public sealed class AppliancesWorkspace : UserControl
             if (displays.TryGetValue(a.Id, out var d))
             {
                 d.Status.Text = $"{a.Status} · {(a.Connected ? "connected" : "offline")}\nCurrent temperature: {(a.Temperature is { } temp ? $"{temp:0}°C" : "not reported by this model")}\n{a.Warning}{(a.TurnBasket ? " · Turn basket" : "")}";
-                d.Ring.Maximum = Math.Max(1, a.TargetMinutes ?? 1); d.Ring.Value = a.RemainingMinutes ?? 0;
+                d.Ring.ValueFormat = "00':00'";
+                d.Ring.RingColor = a.Status == "idle" ? Color.FromRgb(37, 39, 46) : Color.FromRgb(255, 77, 26);
+                d.Ring.Maximum = Math.Max(1, a.TargetMinutes ?? 1); d.Ring.Value = a.Status == "idle" ? a.TargetMinutes ?? double.NaN : a.RemainingMinutes ?? double.NaN;
                 d.Remaining.Text = $"{a.RemainingMinutes:0} minutes remaining · {a.TargetTemperature:0}°C target";
                 if (settingControls.TryGetValue(a.Id, out var controls))
                     foreach (var control in controls) control.IsEnabled = AppliancesViewModel.CanEdit(a);

@@ -58,7 +58,14 @@ public sealed class DashboardViewModel : PageViewModel
         }
     }
 
-    public string MachineLine => "ROG STRIX B850-F · Ryzen 7 9800X3D · RX 9070 XT Taichi";
+    public string MachineLine => $"{Environment.MachineName} · {State?.Lighting.Devices.Count ?? 0} lighting devices · {LampRows.Count} lamps";
+    public string GreetingLabel => $"{Greeting}, {Environment.UserName}".ToUpperInvariant();
+    public string Headline => State is null ? "Waiting for your system" : State.Health.Warnings.Count > 0 ? "Your system needs attention" :
+        State.System.CpuTemp is null && State.System.GpuTemp is null ? "Waiting for live readings" :
+        State.System.CpuTemp >= 85 || State.System.GpuTemp >= 85 ? "Your system is running hot" : "Everything is running cool";
+    public string FryerStatus => State?.Appliances?.FirstOrDefault()?.Status ?? "Not connected";
+    public string FryerDetail => State?.Appliances?.FirstOrDefault() is { } fryer
+        ? $"{fryer.TargetTemperature:0} °C · {fryer.RemainingMinutes:0} min remaining" : "Add your air fryer in Devices";
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
     public string ActiveScene { get => _activeScene; private set => Set(ref _activeScene, value); }
 
@@ -139,15 +146,14 @@ public sealed class DashboardViewModel : PageViewModel
         Push(GpuHistory, system.GpuLoad ?? double.NaN);
 
 
-        var ramPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : double.NaN;
-        SetGauge(0, new GaugeItem("CPU usage", Format.Percent(system.CpuLoad), "8 cores · 16 threads",
+        SetGauge(0, new GaugeItem("CPU load", Format.Percent(system.CpuLoad), "8 cores · 16 threads",
             ColorUtil.ToHex(Controls.Thresholds.Color(Controls.Thresholds.Level(system.CpuLoad ?? double.NaN, Controls.SensorKind.Load))), Math.Clamp(system.CpuLoad ?? double.NaN, 0, 100)));
         SetGauge(1, new GaugeItem("CPU temp", Format.Temp(system.CpuTemp), "Tctl / Tdie",
             ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp)), Math.Clamp(system.CpuTemp ?? double.NaN, 0, 100)));
-        SetGauge(2, new GaugeItem("GPU temp", Format.Temp(system.GpuTemp), "RX 9070 XT",
+        SetGauge(2, new GaugeItem("GPU load", Format.Percent(system.GpuLoad), "Graphics processor",
+            ColorUtil.ToHex(Controls.Thresholds.Color(Controls.Thresholds.Level(system.GpuLoad ?? double.NaN, Controls.SensorKind.Load))), Math.Clamp(system.GpuLoad ?? double.NaN, 0, 100)));
+        SetGauge(3, new GaugeItem("GPU temp", Format.Temp(system.GpuTemp), "Graphics temperature",
             ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp)), Math.Clamp(system.GpuTemp ?? double.NaN, 0, 100)));
-        SetGauge(3, new GaugeItem("RAM used", Format.Percent(ramPercent), Format.GbPair(system.RamUsedGb, system.RamTotalGb),
-            "#36D6FF", Math.Clamp(ramPercent, 0, 100)));
 
         Fans.Clear();
         foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
@@ -197,10 +203,10 @@ public sealed class DashboardViewModel : PageViewModel
     private void BuildEmptyGauges()
     {
         if (Gauges.Count > 0) return;
-        Gauges.Add(new GaugeItem("CPU usage", Format.Dash, "8 cores · 16 threads", ColorUtil.ToHex(ColorUtil.TextPrimary), 0));
-        Gauges.Add(new GaugeItem("CPU temp", Format.Dash, "Tctl / Tdie", ColorUtil.ToHex(ColorUtil.TextTertiary), 0));
-        Gauges.Add(new GaugeItem("GPU temp", Format.Dash, "RX 9070 XT", ColorUtil.ToHex(ColorUtil.TextTertiary), 0));
-        Gauges.Add(new GaugeItem("RAM used", Format.Dash, "— / 32 GB", ColorUtil.ToHex(ColorUtil.Accent), 0));
+        Gauges.Add(new GaugeItem("CPU load", Format.Dash, "8 cores · 16 threads", ColorUtil.ToHex(ColorUtil.TextPrimary), 0));
+        Gauges.Add(new GaugeItem("CPU temp", Format.Dash, "Tctl / Tdie", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
+        Gauges.Add(new GaugeItem("GPU load", Format.Dash, "Graphics processor", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
+        Gauges.Add(new GaugeItem("GPU temp", Format.Dash, "Graphics temperature", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
     }
 
     private static void Push(ObservableCollection<double> history, double value)

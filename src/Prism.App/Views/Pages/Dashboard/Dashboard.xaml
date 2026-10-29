@@ -1,2 +1,160 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:v="clr-namespace:Prism.App.Views">
-<DataTemplate DataType="{x:Type vm:DashboardViewModel}"><StackPanel><DockPanel Margin="0,0,0,16"><StackPanel><TextBlock Text="{Binding GreetingLabel}" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" /><TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" TextWrapping="Wrap" /><TextBlock Text="{Binding MachineLine}" Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" /></StackPanel></DockPanel><ItemsControl ItemsSource="{Binding Scenes}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Button Command="{Binding DataContext.ApplySceneCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Margin="0,0,12,0" Padding="16" Height="88" HorizontalContentAlignment="Stretch"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource BaseButton}"><Setter Property="Background" Value="{Binding ColorHex, Converter={StaticResource HexToBrush}}"/><Style.Triggers><DataTrigger Binding="{Binding IsActive}" Value="True"><Setter Property="BorderBrush" Value="#FF4D1A"/><Setter Property="BorderThickness" Value="2"/></DataTrigger></Style.Triggers></Style></Button.Style><StackPanel><TextBlock Text="{Binding Name}" Style="{StaticResource CardTitle}" TextWrapping="Wrap" FontSize="17"/><TextBlock Text="{Binding Description}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="#C9CBD1"/></StackPanel></Button></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Border Height="16"/><ItemsControl ItemsSource="{Binding Gauges}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><c:GlassCard Padding="16" Margin="0,0,12,0"><DockPanel><c:RingGauge DockPanel.Dock="Left" Width="86" Height="86" Value="{Binding Percent}" ShowValue="True" Suffix="{Binding Suffix}" RingColor="{Binding ColorHex, Converter={StaticResource HexToColor}}" Margin="0,0,14,0"/><StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding Label}" Style="{StaticResource CardTitle}" TextWrapping="Wrap" /><TextBlock Text="{Binding Sub}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,7,0,0"/></StackPanel></DockPanel></c:GlassCard></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Border Height="16"/><c:CardGrid><c:GlassCard Span="6" ><StackPanel><TextBlock Text="Lighting" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><TextBlock Text="{Binding LightingSubtitle}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" /><c:CaseMapPreview DataContext="{Binding DataContext.Lighting, RelativeSource={RelativeSource AncestorType=Window}}" Height="160" Margin="0,12"/><Button Content="Open Lighting →" Command="{Binding OpenPageCommand}" CommandParameter="Lighting" Style="{StaticResource PillButton}" Margin="0,4,8,4"/></StackPanel></c:GlassCard><c:GlassCard Span="6" ><StackPanel><TextBlock Text="Fans" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><c:SegmentedControl ItemsSource="{Binding FanModes}" SelectedItem="{Binding SelectedFanMode, Mode=TwoWay}" Margin="0,4,0,12"/><ItemsControl ItemsSource="{Binding Fans}"><ItemsControl.ItemTemplate><DataTemplate><DockPanel Margin="0,9"><c:FanRotor DockPanel.Dock="Left" Width="32" Height="32" Margin="0,0,12,0" Color="#36D6FF"/><StackPanel DockPanel.Dock="Right"><TextBlock Text="{Binding RpmText}" Style="{StaticResource Number}" TextWrapping="Wrap" FontSize="20" Foreground="{StaticResource DataBrush}"/></StackPanel><StackPanel><TextBlock Text="{Binding Name}" Style="{StaticResource CardTitle}" TextWrapping="Wrap" /><TextBlock Text="{Binding Sub}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" /><c:GlowProgressBar Value="{Binding Percent}" Height="8" Margin="0,8,12,0" BarColor="#36D6FF"/></StackPanel></DockPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Button Content="Curves →" Command="{Binding OpenPageCommand}" CommandParameter="Fans" Style="{StaticResource PillButton}" Margin="0,4,8,4"/></StackPanel></c:GlassCard><c:GlassCard Span="4" ><StackPanel><TextBlock Text="Lamps" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><ItemsControl ItemsSource="{Binding LampRows}"><ItemsControl.ItemTemplate><DataTemplate><DockPanel Margin="0,6"><Ellipse DockPanel.Dock="Left" Width="34" Height="34" Fill="{Binding Color}" Margin="0,0,12,0"/><StackPanel><TextBlock Text="{Binding Name}" Style="{StaticResource CardTitle}" TextWrapping="Wrap" /><TextBlock Text="{Binding Status}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" /></StackPanel></DockPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><DockPanel Margin="0,10"><c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding LampOn, Mode=TwoWay}" AutomationProperties.Name="Both lamps"/><TextBlock Text="Both lamps" Style="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"/></DockPanel><StackPanel Margin="0,8"><TextBlock Text="Brightness" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" /><c:ThickSlider Minimum="1" Maximum="100" Value="{Binding LampBrightness, Mode=TwoWay}" AutomationProperties.Name="Brightness" Margin="0,8,0,0"/></StackPanel><Button Content="Open →" Command="{Binding OpenPageCommand}" CommandParameter="Lamp" Style="{StaticResource PillButton}" Margin="0,4,8,4"/></StackPanel></c:GlassCard><c:GlassCard Span="4" ><StackPanel><TextBlock Text="Internet" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><TextBlock Text="{Binding State.Router.Network}" Style="{StaticResource CardTitle}" TextWrapping="Wrap" /><TextBlock Text="{Binding State.Router.Verdict}" Style="{StaticResource NumberLarge}" TextWrapping="Wrap" Foreground="{StaticResource DataBrush}"/><TextBlock Text="{Binding State.Router.Sentence}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" /><TextBlock Text="{Binding State.Router.Band}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8"/><Button Content="Details →" Command="{Binding OpenPageCommand}" CommandParameter="Modem" Style="{StaticResource PillButton}" Margin="0,4,8,4"/></StackPanel></c:GlassCard><c:GlassCard Span="4" ><StackPanel><TextBlock Text="Air fryer" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><TextBlock Text="{Binding FryerStatus}" Style="{StaticResource Number}" TextWrapping="Wrap" Foreground="{StaticResource DataBrush}"/><TextBlock Text="{Binding FryerDetail}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,12"/><Button Content="Open →" Command="{Binding OpenPageCommand}" CommandParameter="Appliances" Style="{StaticResource PillButton}" Margin="0,4,8,4"/></StackPanel></c:GlassCard></c:CardGrid><TextBlock Text="{Binding LastError}" Style="{StaticResource Muted}" TextWrapping="Wrap" Foreground="#FF8A8A" Margin="0,12"/></StackPanel></DataTemplate></ResourceDictionary>
+<ResourceDictionary xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:c="clr-namespace:Prism.App.Controls">
+  <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+    <StackPanel>
+      <DockPanel Margin="0,0,0,16">
+        <StackPanel>
+          <TextBlock Text="{Binding GreetingLabel}" Style="{StaticResource PageEyebrow}" />
+          <TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" />
+          <TextBlock Text="{Binding MachineLine}" Style="{StaticResource PageSubtitle}" />
+        </StackPanel>
+      </DockPanel>
+      <ItemsControl ItemsSource="{Binding Scenes}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="4" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button Command="{Binding DataContext.ApplySceneCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Margin="0,0,12,0" Padding="17" Height="105" HorizontalContentAlignment="Stretch">
+              <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource BaseButton}">
+                  <Setter Property="Background" Value="{Binding Background}" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                      <Setter Property="BorderBrush" Value="#FF6B3C" />
+                      <Setter Property="BorderThickness" Value="2" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Button.Style>
+              <StackPanel>
+                <DockPanel>
+                  <Border DockPanel.Dock="Right" CornerRadius="12" Background="#44FFFFFF" Padding="10,3">
+                    <TextBlock Text="{Binding StateText}" Style="{StaticResource SmallMuted}" Foreground="White" />
+                  </Border>
+                  <TextBlock Text="{Binding Name}" Style="{StaticResource CardTitle}" FontSize="17" />
+                </DockPanel>
+                <TextBlock Text="{Binding Description}" Style="{StaticResource SmallMuted}" Margin="0,30,0,0" Foreground="#C9CBD1" TextWrapping="Wrap" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Border Height="18" />
+      <ItemsControl ItemsSource="{Binding Gauges}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="4" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <c:GlassCard Padding="16" Margin="0,0,12,0" Height="114">
+              <DockPanel>
+                <c:RingGauge DockPanel.Dock="Left" Width="90" Height="90" SweepAngle="270" Value="{Binding Percent}" Suffix="{Binding Suffix}" RingColor="{Binding ColorHex, Converter={StaticResource HexToColor}}" Margin="0,0,14,0" />
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Label}" Style="{StaticResource SmallMuted}" />
+                  <TextBlock Text="{Binding LevelText}" Style="{StaticResource SmallMuted}" Foreground="{Binding ColorHex, Converter={StaticResource HexToBrush}}" Margin="0,2,0,8" />
+                  <c:LineChart Values="{Binding History}" MinHeight="0" ShowGrid="False" Height="32" Color="{Binding ColorHex, Converter={StaticResource HexToColor}}" />
+                </StackPanel>
+              </DockPanel>
+            </c:GlassCard>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Border Height="16" />
+      <c:CardGrid>
+        <c:GlassCard Span="6" Height="208">
+          <StackPanel>
+            <DockPanel Margin="0,0,0,12">
+              <Button Content="Open Lighting →" Command="{Binding OpenPageCommand}" CommandParameter="Lighting" Style="{StaticResource TextAction}" DockPanel.Dock="Right" />
+              <TextBlock Text="Lighting" Style="{StaticResource CardTitle}" />
+            </DockPanel>
+            <TextBlock Text="{Binding LightingTitle}" Style="{StaticResource SmallMuted}" />
+            <c:LedStrip EffectKind="{Binding LightingEffect}" ColorHex="{Binding LightingColorHex}" Brightness="{Binding LightingBrightness}" Speed="{Binding LightingSpeed}" Temperature="{Binding CpuTemp}" LedCount="28" Height="55" Margin="0,16,0,16" />
+            <Button Content="Open controls →" Command="{Binding OpenPageCommand}" CommandParameter="Lighting" Style="{StaticResource PillButton}" HorizontalAlignment="Left" MinHeight="32" />
+          </StackPanel>
+        </c:GlassCard>
+        <c:GlassCard Span="6" Height="208">
+          <StackPanel>
+            <DockPanel Margin="0,0,0,12">
+              <Button Content="Curves →" Command="{Binding OpenPageCommand}" CommandParameter="Fans" Style="{StaticResource TextAction}" DockPanel.Dock="Right" />
+              <TextBlock Text="Fans" Style="{StaticResource CardTitle}" />
+            </DockPanel>
+            <c:SegmentedControl ItemsSource="{Binding FanModes}" SelectedItem="{Binding SelectedFanMode, Mode=TwoWay}" Margin="0,12,0,14" />
+            <ItemsControl ItemsSource="{Binding Fans}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <UniformGrid Columns="3" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="#17181D" CornerRadius="12" Padding="12" Margin="0,0,10,0">
+                    <DockPanel>
+                      <c:FanRotor DockPanel.Dock="Left" Width="26" Height="26" Margin="0,0,10,0" Color="#36D6FF" />
+                      <StackPanel>
+                        <TextBlock Text="{Binding RpmText}" Style="{StaticResource Number}" FontSize="17" />
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource SmallMuted}" />
+                      </StackPanel>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </c:GlassCard>
+        <c:GlassCard Span="4" Height="180">
+          <StackPanel>
+            <DockPanel Margin="0,0,0,12">
+              <Button Content="Open →" Command="{Binding OpenPageCommand}" CommandParameter="Lamp" Style="{StaticResource TextAction}" DockPanel.Dock="Right" />
+              <TextBlock Text="Lamps" Style="{StaticResource CardTitle}" />
+            </DockPanel>
+            <ItemsControl ItemsSource="{Binding LampRows}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <UniformGrid Columns="2" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel HorizontalAlignment="Center">
+                    <c:LampOrb Width="100" Height="100" ColorHex="{Binding Color}" Margin="0,-6,0,0" />
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource SmallMuted}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </c:GlassCard>
+        <c:GlassCard Span="4" Height="180">
+          <StackPanel>
+            <DockPanel Margin="0,0,0,12">
+              <Button Content="Details →" Command="{Binding OpenPageCommand}" CommandParameter="Modem" Style="{StaticResource TextAction}" DockPanel.Dock="Right" />
+              <TextBlock Text="Internet" Style="{StaticResource CardTitle}" />
+            </DockPanel>
+            <TextBlock Text="{Binding State.Router.Verdict}" Style="{StaticResource NumberLarge}" Foreground="{StaticResource StatusWarmBrush}" />
+            <TextBlock Text="{Binding State.Router.Network}" Style="{StaticResource SmallMuted}" Margin="0,6" />
+            <TextBlock Text="{Binding State.Router.Sentence}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
+            <c:LineChart Values="{Binding CpuHistory}" Height="35" MinHeight="0" ShowGrid="False" Color="#36D6FF" Margin="0,8,0,0" />
+          </StackPanel>
+        </c:GlassCard>
+        <c:GlassCard Span="4" Height="180">
+          <StackPanel>
+            <DockPanel VerticalAlignment="Center" Margin="0,26,0,0">
+              <c:RingGauge Width="82" Height="82" DockPanel.Dock="Left" Value="0" Caption="Ready" Margin="0,0,18,0" />
+              <StackPanel>
+                <TextBlock Text="Air fryer" Style="{StaticResource CardTitle}" />
+                <TextBlock Text="{Binding FryerStatus}" Style="{StaticResource SmallMuted}" Margin="0,8" />
+                <TextBlock Text="{Binding FryerDetail}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
+                <Button Content="Set up a cook →" Command="{Binding OpenPageCommand}" CommandParameter="Appliances" Style="{StaticResource TextAction}" HorizontalAlignment="Left" Margin="0,6,0,0" />
+              </StackPanel>
+            </DockPanel>
+          </StackPanel>
+        </c:GlassCard>
+      </c:CardGrid>
+      <TextBlock Text="{Binding LastError}" Style="{StaticResource Muted}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12" />
+    </StackPanel>
+  </DataTemplate>
+</ResourceDictionary>

@@ -29,7 +29,7 @@ public sealed class DevicesViewModel : PageViewModel
     }
     protected override void Refresh()
     {
-        Groups = (State?.Devices ?? []).GroupBy(d => d.Kind).OrderBy(g => g.Key).Select(g => new DeviceGroup(g.Key.ToString(), g.OrderBy(d => d.Name).ToArray())).ToArray();
+        Groups = (State?.Devices ?? []).GroupBy(d => d.Kind switch { DeviceKind.RgbController or DeviceKind.FanHeader => "PC", DeviceKind.Lamp => "Lamps", DeviceKind.Router or DeviceKind.NetworkDevice => "Network", DeviceKind.Appliance => "Appliances", _ => "Other" }).OrderBy(g => g.Key == "PC" ? 0 : g.Key == "Lamps" ? 1 : g.Key == "Network" ? 2 : 3).Select(g => new DeviceGroup(g.Key, g.OrderBy(d => d.Kind).ThenBy(d => d.Name).ToArray())).ToArray();
         NewDevices = State?.NewDevices ?? []; NotifyAll();
     }
 }

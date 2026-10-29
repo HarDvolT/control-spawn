@@ -35,7 +35,12 @@ public sealed class CardGrid : Panel
     }
     protected override Size ArrangeOverride(Size finalSize)
     {
-        foreach (var (child, rect) in slots) child.Arrange(rect);
+        foreach (var row in slots.GroupBy(slot => slot.Value.Y))
+        {
+            var height = row.Max(slot => slot.Value.Height);
+            foreach (var (child, rect) in row)
+                child.Arrange(new Rect(rect.X, rect.Y, rect.Width, height));
+        }
         return finalSize;
     }
 }

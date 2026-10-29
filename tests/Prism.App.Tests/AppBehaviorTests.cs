@@ -134,7 +134,15 @@ public sealed class AppBehaviorTests : IDisposable
         var client = new RecordingClient();
         var dashboard = new DashboardViewModel(client); dashboard.Apply(state);
         Assert.Equal(Format.Dash,dashboard.CpuNowText);
-        Assert.Equal(Format.Dash,dashboard.Gauges.Single(g => g.Label == "RAM used").Value);
+        Assert.Equal(4, dashboard.Gauges.Count);
+        Assert.All(dashboard.Gauges, gauge => {
+            Assert.Equal(Format.Dash, gauge.Value);
+            Assert.True(double.IsNaN(gauge.Percent));
+            Assert.Equal("Unavailable", gauge.LevelText);
+            Assert.Empty(gauge.History);
+        });
+        var monitor = new MonitorViewModel(client); monitor.Apply(state);
+        Assert.StartsWith(Format.Dash, monitor.RamText);
         Assert.Empty(dashboard.CpuHistory);
         var widget = new WidgetViewModel(new WidgetLayout(),client); widget.Apply(state);
         Assert.Equal(Format.Dash,widget.CpuText); Assert.Equal(Format.Dash,widget.CpuTempText);

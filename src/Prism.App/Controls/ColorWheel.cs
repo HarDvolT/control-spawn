@@ -11,6 +11,9 @@ public sealed class ColorWheel : FrameworkElement
     public static readonly DependencyProperty ColorHexProperty = DependencyProperty.Register(nameof(ColorHex), typeof(string), typeof(ColorWheel),
         new FrameworkPropertyMetadata("#FF4D1A", FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
     public string ColorHex { get => (string)GetValue(ColorHexProperty); set => SetValue(ColorHexProperty, value); }
+    public static readonly DependencyProperty RingModeProperty = DependencyProperty.Register(nameof(RingMode), typeof(bool), typeof(ColorWheel),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+    public bool RingMode { get => (bool)GetValue(RingModeProperty); set => SetValue(RingModeProperty, value); }
     public event EventHandler? ColorCommitted;
     public event Action<string>? ColorPicked;
     private static readonly BitmapSource Wheel = CreateWheel();
@@ -20,11 +23,23 @@ public sealed class ColorWheel : FrameworkElement
     {
         double diameter = Math.Max(0, Math.Min(ActualWidth, ActualHeight) - 8);
         var rect = new Rect((ActualWidth - diameter) / 2, (ActualHeight - diameter) / 2, diameter, diameter);
+        var center = new Point(ActualWidth / 2, ActualHeight / 2);
+        if (RingMode) dc.PushClip(new CombinedGeometry(GeometryCombineMode.Exclude,
+            new EllipseGeometry(center, diameter / 2, diameter / 2), new EllipseGeometry(center, diameter / 2 - 16, diameter / 2 - 16)));
         dc.DrawImage(Wheel, rect);
+        if (RingMode) dc.Pop();
         if (ColorConverter.ConvertFromString(ColorHex) is not Color c) return;
+        if (RingMode)
+        {
+            dc.DrawEllipse(new RadialGradientBrush(c, Color.FromArgb(20, c.R, c.G, c.B)), null, center, diameter * .23, diameter * .23);
+            var text = new FormattedText(ColorHex, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                new Typeface("Segoe UI"), 11, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            dc.DrawText(text, new Point(center.X - text.Width / 2, center.Y + diameter * .27));
+        }
         double max = Math.Max(c.R, Math.Max(c.G, c.B)), min = Math.Min(c.R, Math.Min(c.G, c.B)), delta = max - min;
         double hue = delta == 0 ? 0 : max == c.R ? ((c.G - c.B) / delta + 6) % 6 : max == c.G ? (c.B - c.R) / delta + 2 : (c.R - c.G) / delta + 4;
         double angle = hue * Math.PI / 3, radius = max == 0 ? 0 : delta / max * diameter / 2;
+        if (RingMode) radius = diameter / 2 - 8;
         var marker = new Point(ActualWidth / 2 + Math.Cos(angle) * radius, ActualHeight / 2 + Math.Sin(angle) * radius);
         dc.DrawEllipse(null, new Pen(Brushes.Black, 5), marker, 6, 6);
         dc.DrawEllipse(null, new Pen(Brushes.White, 2), marker, 6, 6);
@@ -32,7 +47,7 @@ public sealed class ColorWheel : FrameworkElement
     private void Pick(Point p)
     {
         double x = p.X - ActualWidth / 2, y = p.Y - ActualHeight / 2, r = Math.Max(1, (Math.Min(ActualWidth, ActualHeight) - 8) / 2);
-        var c = Hsv((Math.Atan2(y, x) * 180 / Math.PI + 360) % 360, Math.Min(1, Math.Sqrt(x * x + y * y) / r));
+        var c = Hsv((Math.Atan2(y, x) * 180 / Math.PI + 360) % 360, RingMode ? 1 : Math.Min(1, Math.Sqrt(x * x + y * y) / r));
         SetCurrentValue(ColorHexProperty, $"#{c.R:X2}{c.G:X2}{c.B:X2}");
         ColorPicked?.Invoke(ColorHex);
     }

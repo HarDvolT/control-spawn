@@ -1,52 +1,165 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:v="clr-namespace:Prism.App.Views">
-<DataTemplate DataType="{x:Type vm:FansViewModel}"><StackPanel><DockPanel Margin="0,0,0,16"><StackPanel DockPanel.Dock="Right" VerticalAlignment="Bottom"><c:SegmentedControl ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedModeName, Mode=TwoWay}" Margin="0,4,0,12"/></StackPanel><StackPanel><TextBlock Text="FANS" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" /><TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" TextWrapping="Wrap" /><TextBlock Text="Cool hardware. Quiet room." Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" /></StackPanel></DockPanel><ItemsControl ItemsSource="{Binding Fans}" Margin="0,0,0,16">
-        <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate><DataTemplate>
-          <Button Command="{Binding DataContext.SelectFanCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Margin="0,0,12,0" Padding="16" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Name}">
-            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource BaseButton}">
-              <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
-                <Border x:Name="Card" Background="{StaticResource PanelGradientBrush}" CornerRadius="18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="{TemplateBinding Padding}"><ContentPresenter /></Border>
-                <ControlTemplate.Triggers>
-                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" /></Trigger>
-                  <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" /></Trigger>
-                  <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                    <Setter TargetName="Card" Property="Background" Value="{StaticResource PanelAltBrush}" />
-                    <Setter TargetName="Card" Property="Effect"><Setter.Value><DropShadowEffect Color="#FF4D1A" BlurRadius="24" ShadowDepth="0" Opacity="0.2" /></Setter.Value></Setter>
-                  </DataTrigger>
-                </ControlTemplate.Triggers>
-              </ControlTemplate></Setter.Value></Setter>
-            </Style></Button.Style>
-            <StackPanel>
-              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                <c:FanRotor SpinSeconds="{Binding SpinSeconds}" Margin="0,0,12,0">
-                  <c:FanRotor.Style><Style TargetType="c:FanRotor"><Setter Property="Color" Value="#A1A1AA" /><Style.Triggers><DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Color" Value="#FF4D1A" /></DataTrigger></Style.Triggers></Style></c:FanRotor.Style>
-                </c:FanRotor>
-                <StackPanel Grid.Column="1"><c:DeviceNameEditor DeviceId="{Binding Id}" DisplayName="{Binding Name}" Client="{Binding DataContext.Client, RelativeSource={RelativeSource AncestorType=ItemsControl}}" /><TextBlock Text="{Binding Sub}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,4,6,0" /></StackPanel>
-                <TextBlock Grid.Column="2" Text="{Binding RpmText}" Style="{StaticResource Number}" VerticalAlignment="Center" ToolTip="Live RPM" />
-              </Grid>
-              <c:ArcSpeedometer Value="{Binding Percent}" Height="110" Suffix="%" /><Border Background="{StaticResource TrackBrush}" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left" Margin="0,10,0,0" Visibility="{Binding IsPump, Converter={StaticResource BoolToVisibility}}"><StackPanel Orientation="Horizontal"><Path Data="M2 6 L2 3 A3 3 0 0 1 8 3 L8 6 M1 6 L9 6 L9 12 L1 12 Z" Stroke="{StaticResource TextSecondaryBrush}" StrokeThickness="1.2" Width="10" Height="13" Margin="0,0,5,0" /><TextBlock Text="Fixed 100%" FontSize="11" /></StackPanel></Border>
-              <c:GlowProgressBar Value="{Binding Percent}" Height="14" Margin="0,12,0,0" />
-            </StackPanel>
-          </Button>
-        </DataTemplate></ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <c:CardGrid><c:GlassCard StaggerIndex="0" Span="8">
-        <StackPanel>
-          <c:DeviceNameEditor DeviceId="{Binding SelectedFanId}" DisplayName="{Binding SelectedFanName}" Client="{Binding Client}" />
-          <TextBlock Text="Fan curve" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
-          <TextBlock Text="Follows" Style="{StaticResource Muted}" Margin="0,10,0,0" /><ComboBox IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" AutomationProperties.Name="Follows temperature" ItemsSource="{Binding Sources}" SelectedItem="{Binding SourceName}" Margin="0,10" />
-          <c:FanCurveEditor Height="300" Points="{Binding Curve}" NowTemperature="{Binding NowTemp}" NowPercent="{Binding NowPercent}" IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" />
-          <StackPanel Margin="0,8">
-            <TextBlock Text="Minimum speed" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
-            <DockPanel>
-              <TextBlock DockPanel.Dock="Right" Width="60" Text="{Binding MinSpeedText}" TextAlignment="Right" />
-              <c:ThickSlider IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" Minimum="0" Maximum="100" Value="{Binding MinSpeed, Mode=TwoWay}" AutomationProperties.Name="Minimum speed" VerticalAlignment="Center" />
-            </DockPanel>
-          </StackPanel>
-          <TextBlock Text="Minimum is applied when sending the curve. Fan smoothing is managed by the service." Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
-          <Button IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" Content="Apply curve" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding ApplyCurveCommand}" />
-          <TextBlock Text="{Binding MeasureText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
+<ResourceDictionary xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <DataTemplate DataType="{x:Type vm:FansViewModel}">
+    <StackPanel>
+      <DockPanel Margin="0,0,0,16">
+        <StackPanel DockPanel.Dock="Right" VerticalAlignment="Bottom">
+          <c:SegmentedControl ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedModeName, Mode=TwoWay}" Margin="0,4,0,12" />
         </StackPanel>
-      </c:GlassCard>
-      <StackPanel c:CardGrid.Span="4"><c:GlassCard Span="4" ><StackPanel><TextBlock Text="Safety" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><c:StatusChip Text="Pump locked at 100%" Margin="0,0,0,12"/><TextBlock Text="Pump always runs at full speed." Style="{StaticResource Muted}" TextWrapping="Wrap" /><TextBlock Text="BIOS hand-back" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,14,0,4"/><TextBlock Text="{Binding SafetyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" /><TextBlock Text="If Prism stops responding, control returns to the BIOS." Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,8"/></StackPanel></c:GlassCard><Border Height="16"/><c:GlassCard Span="4" ><StackPanel><TextBlock Text="Smoothing" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><TextBlock Text="Ramp-up and hysteresis are managed by the service." Style="{StaticResource Muted}" TextWrapping="Wrap" /><TextBlock Text="Unavailable · Smoothing controls are not exposed by the service." Style="{StaticResource Placeholder}" TextWrapping="Wrap" /></StackPanel></c:GlassCard></StackPanel><c:GlassCard Span="12" ><StackPanel><TextBlock Text="Fan headers" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><ItemsControl ItemsSource="{Binding HeaderRows}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Background="#17181D" CornerRadius="12" Padding="12" Margin="0,0,8,0"><StackPanel><TextBlock Text="{Binding Sub}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" /><c:DeviceNameEditor DeviceId="{Binding Id}" DisplayName="{Binding Name}" Client="{Binding DataContext.Client, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/><TextBlock Text="{Binding RpmText}" Style="{StaticResource Number}" TextWrapping="Wrap" FontSize="13" Margin="0,8,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></c:GlassCard></c:CardGrid><TextBlock Text="{Binding LastError}" Style="{StaticResource Muted}" TextWrapping="Wrap" Foreground="#FF8A8A" Margin="0,12"/></StackPanel></DataTemplate></ResourceDictionary>
+        <StackPanel>
+          <TextBlock Text="FANS" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" TextWrapping="Wrap" />
+          <TextBlock Text="Barely audible · pump locked at 100% · BIOS hand-back armed" Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" />
+        </StackPanel>
+      </DockPanel>
+      <ItemsControl ItemsSource="{Binding Fans}" Margin="0,0,0,16">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="3" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button Command="{Binding DataContext.SelectFanCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Margin="0,0,12,0" Padding="16" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Name}">
+              <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource BaseButton}">
+                  <Setter Property="Template">
+                    <Setter.Value>
+                      <ControlTemplate TargetType="Button">
+                        <Border x:Name="Card" Background="{StaticResource PanelGradientBrush}" CornerRadius="18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                          <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+                          </Trigger>
+                          <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+                          </Trigger>
+                          <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="Card" Property="Background" Value="{StaticResource PanelAltBrush}" />
+                            <Setter TargetName="Card" Property="Effect">
+                              <Setter.Value>
+                                <DropShadowEffect Color="#FF4D1A" BlurRadius="24" ShadowDepth="0" Opacity="0.2" />
+                              </Setter.Value>
+                            </Setter>
+                          </DataTrigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Setter.Value>
+                  </Setter>
+                </Style>
+              </Button.Style>
+              <StackPanel>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="1">
+                    <c:DeviceNameEditor DeviceId="{Binding Id}" DisplayName="{Binding Name}" Client="{Binding DataContext.Client, RelativeSource={RelativeSource AncestorType=ItemsControl}}" FontSize="16" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Sub}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,4,6,0" />
+                  </StackPanel>
+                </Grid>
+                <DockPanel Margin="0,12,0,8">
+                  <Grid DockPanel.Dock="Left" Width="100" Height="100" Margin="0,0,12,0">
+                    <c:RingGauge Value="{Binding Percent}" ShowValue="False" SweepAngle="270" RingColor="#36D6FF" />
+                    <c:FanRotor SpinSeconds="{Binding SpinSeconds}" Margin="0" Width="40" Height="40">
+                      <c:FanRotor.Style>
+                        <Style TargetType="c:FanRotor">
+                          <Setter Property="Color" Value="#A1A1AA" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                              <Setter Property="Color" Value="#FF4D1A" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </c:FanRotor.Style>
+                    </c:FanRotor>
+                  </Grid>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding RpmText}" Style="{StaticResource Number}" VerticalAlignment="Center" ToolTip="Live RPM" FontSize="32" />
+                    <TextBlock Text="{Binding Percent, StringFormat={}{0:0}% duty}" Style="{StaticResource SmallMuted}" Foreground="#36D6FF" Margin="0,6" />
+                  </StackPanel>
+                </DockPanel>
+                <Border Background="{StaticResource TrackBrush}" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left" Margin="0,10,0,0" Visibility="{Binding IsPump, Converter={StaticResource BoolToVisibility}}">
+                  <StackPanel Orientation="Horizontal">
+                    <Path Data="M2 6 L2 3 A3 3 0 0 1 8 3 L8 6 M1 6 L9 6 L9 12 L1 12 Z" Stroke="{StaticResource TextSecondaryBrush}" StrokeThickness="1.2" Width="10" Height="13" Margin="0,0,5,0" />
+                    <TextBlock Text="Fixed 100%" FontSize="11" />
+                  </StackPanel>
+                </Border>
+                <c:GlowProgressBar Value="{Binding Percent}" Height="6" Margin="0,12,0,0" BarColor="#36D6FF" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <c:CardGrid>
+        <c:GlassCard StaggerIndex="0" Span="8">
+          <StackPanel>
+            <DockPanel Margin="0,0,0,12">
+              <ComboBox IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" AutomationProperties.Name="Follows temperature" ItemsSource="{Binding Sources}" SelectedItem="{Binding SourceName}" Margin="0" MinHeight="32" Width="180" DockPanel.Dock="Right" />
+              <TextBlock Text="Fan curve" Style="{StaticResource CardTitle}" VerticalAlignment="Center" />
+            </DockPanel>
+            <c:FanCurveEditor Height="225" Points="{Binding Curve}" NowTemperature="{Binding NowTemp}" NowPercent="{Binding NowPercent}" IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" />
+            <StackPanel Margin="0,8">
+              <TextBlock Text="Minimum speed" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Width="60" Text="{Binding MinSpeedText}" TextAlignment="Right" />
+                <c:ThickSlider IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" Minimum="0" Maximum="100" Value="{Binding MinSpeed, Mode=TwoWay}" AutomationProperties.Name="Minimum speed" VerticalAlignment="Center" />
+              </DockPanel>
+            </StackPanel>
+            <TextBlock Text="Minimum is applied when sending the curve. Fan smoothing is managed by the service." Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2" FontSize="11" />
+            <Button IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" Content="Apply curve" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding ApplyCurveCommand}" />
+            <TextBlock Text="{Binding MeasureText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
+          </StackPanel>
+        </c:GlassCard>
+        <StackPanel c:CardGrid.Span="4">
+          <c:GlassCard Span="4">
+            <StackPanel>
+              <TextBlock Text="Safety" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+              <c:StatusChip Text="Pump locked at 100%" Margin="0,0,0,12" />
+              <TextBlock Text="Pump always runs at full speed." Style="{StaticResource Muted}" TextWrapping="Wrap" />
+              <TextBlock Text="BIOS hand-back" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,14,0,4" />
+              <TextBlock Text="{Binding SafetyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
+              <TextBlock Text="If Prism stops responding, control returns to the BIOS." Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,8" />
+            </StackPanel>
+          </c:GlassCard>
+          <Border Height="16" />
+          <c:GlassCard Span="4">
+            <StackPanel>
+              <TextBlock Text="Smoothing" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+              <TextBlock Text="Ramp-up and hysteresis are managed by the service." Style="{StaticResource Muted}" TextWrapping="Wrap" />
+              <TextBlock Text="Unavailable · Smoothing controls are not exposed by the service." Style="{StaticResource Placeholder}" TextWrapping="Wrap" />
+            </StackPanel>
+          </c:GlassCard>
+        </StackPanel>
+        <c:GlassCard Span="12">
+          <StackPanel>
+            <TextBlock Text="Fan headers" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+            <ItemsControl ItemsSource="{Binding HeaderRows}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <UniformGrid Columns="7" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="#17181D" CornerRadius="12" Padding="12" Margin="0,0,8,0">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Sub}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
+                      <c:DeviceNameEditor DeviceId="{Binding Id}" DisplayName="{Binding Name}" Client="{Binding DataContext.Client, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                      <TextBlock Text="{Binding RpmText}" Style="{StaticResource Number}" TextWrapping="Wrap" FontSize="13" Margin="0,8,0,0" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </c:GlassCard>
+      </c:CardGrid>
+      <TextBlock Text="{Binding LastError}" Style="{StaticResource Muted}" TextWrapping="Wrap" Foreground="#FF8A8A" Margin="0,12" />
+    </StackPanel>
+  </DataTemplate>
+</ResourceDictionary>

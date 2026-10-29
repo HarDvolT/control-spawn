@@ -178,7 +178,7 @@ public sealed class LightingWorkspace : UserControl
         DockPanel.SetDock(modes, Dock.Right); heading.Children.Add(modes);
         var titles = new StackPanel();
         var eyebrow = new TextBlock { Text = "LIGHTING" }; eyebrow.SetResourceReference(StyleProperty, "PageEyebrow"); titles.Children.Add(eyebrow);
-        var title = new TextBlock { Text = "Your whole room, in colour" }; title.SetResourceReference(StyleProperty, "H1"); titles.Children.Add(title);
+        var title = new TextBlock { Text = "Your whole setup, one colour" }; title.SetResourceReference(StyleProperty, "H1"); titles.Children.Add(title);
         heading.Children.Add(titles); host.Children.Add(heading);
         host.Children.Add(canvasChildren.OfType<CaseLightingSetup>().Single()); host.Children.Add(root);
         var previewBody = new StackPanel();
@@ -203,20 +203,21 @@ public sealed class LightingWorkspace : UserControl
         };
         edit.Content = "Paint LEDs"; map.Content = "Arrange case";
         var effectsBody = new StackPanel(); Header(effectsBody, "Effects", 15);
-        var effectScroll = (ScrollViewer)inspectorChildren[1]; effectScroll.MaxHeight = 320; effectsBody.Children.Add(effectScroll);
-        canvasPanel.Children.Add(new GlassCard { Content = effectsBody, Margin = new(0, 16, 0, 0) });
+        var effectScroll = (ScrollViewer)inspectorChildren[1]; effectScroll.MaxHeight = 300; effectsBody.Children.Add(effectScroll);
+
         var controlBody = new StackPanel(); Header(controlBody, "Colour", 15);
-        var wheel = new ColorWheel { Width = 220, Height = 220, HorizontalAlignment = HorizontalAlignment.Center };
+        var wheel = new ColorWheel { Width = 160, Height = 160, RingMode = true, HorizontalAlignment = HorizontalAlignment.Center };
         wheel.SetBinding(ColorWheel.ColorHexProperty, new Binding("ColorEntry") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
         controlBody.Children.Add(wheel);
         var advanced = new StackPanel();
         foreach (var child in inspectorChildren.Skip(2))
         {
             if (ReferenceEquals(child, devices)) continue;
-            if (ReferenceEquals(child, brightness) || ReferenceEquals(child, speed) || ReferenceEquals(child, palettes) || ReferenceEquals(child, palette) || ReferenceEquals(child, stopTools) || ReferenceEquals(child, baseColors)) controlBody.Children.Add(child);
-            else if (child is TextBlock label && (label.Text.StartsWith("Brightness") || label.Text.StartsWith("Speed") || label.Text == "Palette")) controlBody.Children.Add(child);
+            if (ReferenceEquals(child, brightness) || ReferenceEquals(child, speed) || ReferenceEquals(child, baseColors)) controlBody.Children.Add(child);
+            else if (child is TextBlock label && (label.Text.StartsWith("Brightness") || label.Text.StartsWith("Speed"))) controlBody.Children.Add(child);
             else advanced.Children.Add(child);
         }
+        controlBody.Children.Add(effectsBody);
         controlBody.Children.Add(wholeCase);
         controlBody.Children.Add(new Expander { Header = "Advanced", Content = advanced, Margin = new(0, 16, 0, 0) });
         inspector.Children.Add(new GlassCard { Content = controlBody });
@@ -228,7 +229,7 @@ public sealed class LightingWorkspace : UserControl
         root.ColumnDefinitions[1].Width = narrow ? new(0) : new(5, GridUnitType.Star);
         Grid.SetColumn(inspector, narrow ? 0 : 1); Grid.SetRow(inspector, narrow ? 1 : 0);
         canvasPanel.Margin = narrow ? new(0, 0, 0, 24) : new(0, 0, 20, 0);
-        preview.Height = narrow ? 300 : 350;
+        preview.Height = narrow ? 300 : 440;
     }
     private static void Header(Panel panel, string text, double size) => panel.Children.Add(new TextBlock { Text = text, FontSize = size, FontWeight = FontWeights.SemiBold, Margin = new(0, 12, 0, 4) });
     private static void Button(Panel panel, string text, Action action)
@@ -249,7 +250,9 @@ public sealed class LightingWorkspace : UserControl
         foreach (var effect in model.Effects)
         {
             var content = new StackPanel();
-            content.Children.Add(new CaseMapPreview(effect.Effect) { Height = 72, Width = 96 });
+            var strip = new LedStrip { EffectKind = effect.Effect, Height = 28, Width = 96, LedCount = 12 };
+            strip.SetBinding(LedStrip.ColorHexProperty, new Binding("ColorEntry"));
+            content.Children.Add(strip);
             content.Children.Add(new TextBlock { Text = effect.Name, FontWeight = FontWeights.SemiBold, Margin = new(4, 8, 0, 2), TextWrapping = TextWrapping.Wrap });
             var button = new Button { Content = content, Width = 116, Padding = new(6), Margin = new(0, 0, 8, 8), ToolTip = effect.Subtitle, Tag = effect };
             button.Click += (_, _) => model?.SelectEffectCommand.Execute(effect);

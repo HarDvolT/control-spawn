@@ -1,0 +1,59 @@
+# v2 pages status
+
+Updated 2026-10-29 on `ui/v2-pages`. The previously committed shell and eleven pages have been refined, the pending view-model changes completed, and `.v2-pages.py` removed. No push or main-branch changes.
+
+All eleven pages were rendered and visually compared with their corresponding `docs/design-v2/V2*.png`. This is **not a pixel-exact design sign-off**: the remaining visual and service gaps are recorded below. Sample readings, device identities, histories and unsupported actions have not been copied into the production UI to make a screenshot look complete.
+
+## Shared work
+
+- Kept the graphite shell, sectioned navigation, command search, notifications, bundled Inter/Space Grotesk resources and reduced-motion support. Corrected search width, navigation spacing, service device count and normal-status copy.
+- Completed gradient scene backgrounds, live gauge status/history, GPU load/temperature dashboard readings, machine identity and appliance summaries.
+- Added configurable 270-degree gauge arcs, a hue-ring option and shaded lamp orbs. Corrected button content alignment, selected mode colours, card backgrounds and equal-height rows.
+- Removed blank rename-error space while preserving rename/reset, draft editing and command handling.
+- Restored the missing Lamps list styles that previously caused a runtime XAML exception.
+
+## Page comparison and remaining gaps
+
+All dimensions below are the actual reference PNG dimensions, rather than a common assumed viewport height.
+
+| Page / reference | Size | Built and corrected | Remaining differences and reasons |
+| --- | --- | --- | --- |
+| Dashboard / V2Dashboard | 1440 x 900 | Gradient scene buttons and state badges; four partial-arc sensor cards; compact lighting and fan controls; lower lamp, internet and fryer cards. | No fabricated sparklines before enough service samples arrive. Hardware summary uses machine identity and actual device counts because processor/board marketing names are not supplied as a complete machine summary. Lighting swatch row and top thermal chips are not reproduced exactly. |
+| Monitor / V2Monitor | 1440 x 1040 | Processor and graphics gauge pairs; live stats and threads; memory/temperature rails; fans, network, disks, internet and lower summary cards. | Top-process list, uptime and throttling events remain explicitly unavailable. Stats use native rows and bars rather than the reference's exact mini-card, segmented-meter and needle-dial treatments. |
+| Devices / V2Devices | 1440 x 1160 | Four-column cards, grouped PC/home/network/appliance inventory, live counts, discovery/import actions, setup/dismiss and renaming. | Inventory is the actual registry, including unresolved devices. Discovery uses a summary and per-device actions rather than the reference's large featured discovery banner. Icons, status placement and per-device sensor footer composition still differ. |
+| Lighting / V2Lighting | 1440 x 940 | Whole-case/per-device/sensor modes, larger live case map, hue ring, effect gallery beside the colour controls, ARGB setup and advanced controls. | The existing interactive spatial renderer retains its case illustration and saved device placements; it does not reproduce the reference illustration exactly. The service supports more effects, retained in a scrollable gallery. Setup remains an expander rather than the reference's amber banner. |
+| Lamps / V2Lamps | 1440 x 1000 | Shared power/brightness bar; independent shaded orbs, brightness presets, colour swatches and follow selectors; compact custom-colour disclosure; setup/token editor retained. | Saved moods and schedules remain explicitly unavailable. Shared-bar composition, white-temperature presets and tile labels differ; the fourth map-follow mode is preserved. Names, colours and brightness come from connected lamps. |
+| Fans / V2Fans | 1440 x 1130 | Prominent live RPM/ring cards, mode switch, editable curve, compact source selector, safety/smoothing panels and numerically ordered headers. | Historical min/max, fan counts and smoothing controls are not supplied as equivalent service controls. Native curve editing, minimum-speed slider and explicit apply remain instead of the mockup's point-nudge toolbar. Safety stays enforced rather than appearing as cosmetic switches. |
+| Scenes / V2Scenes | 1440 x 1000 | Gradient scene cards with LED previews, real apply commands, automation availability explanation and saved LED-layout references. | Four service scenes are available; Focus/Away, custom scene creation/import, automation editing and the three-part scene editor are not implemented by the existing contract. The layout-reference form remains in their place; exact card/editor parity is outstanding. |
+| Air fryer / V2Fryer | 1440 x 940 | Side-by-side timer and target settings, primary start action, separate presets/safety/history regions, firmware details and pause/cancel/resume retained. | Saved presets and cooking history are explicitly unavailable. Numeric controls use the device's supported ranges rather than the reference's stepper layout. Current temperature is labelled unavailable when absent. Start uses a second confirmation dialog; no scene or automation starts heating. |
+| Internet / V2Modem | 1440 x 1180 | Partial signal-score arc, live 5G/LTE metric groups, ping/spike inspection, speed-test action, serving-cell details and collapsed password entry. | RSSI, connected-client inventory, throughput test results, router uptime/traffic totals and nearby-cell data are unavailable where not supplied. Both radio generations remain visible together rather than the reference's generation tab and four-metric grid. Graph and router-summary layouts still differ. |
+| Widgets / V2Widgets | 1440 x 1050 | Tall gradient desktop preview; existing-widget selector; collapsed add gallery and metric controls; size, opacity, interaction and startup/service footer controls. | Preview uses actual saved widget positions and current native widget contents, so its arrangement differs from the sample desktop. Background presets and per-widget enable switches are not implemented; existing add/remove, opacity and global visibility remain. |
+| Settings / V2Settings | 1440 x 900 | Wider section navigation, health summary, display/notification panels, one motion setting, collapsed event effects, existing access/startup/safety/about controls. | Temperature-unit selection, configurable accent, backup and per-event notification/update preferences remain unsupported. The Celsius-only label and unavailable explanations remain instead of inactive-looking controls. Event-effect and startup settings are preserved beyond the reference's general page. |
+
+WPF text rasterization, shadows, chart interpolation and icon strokes also differ from browser rendering. These differences and the UI compositions identified above need further design work before claiming exact visual parity. Expanded power tools can require scrolling; they remain accessible.
+
+## Data and safety
+
+Production pages continue to bind to their existing IPC clients and view models. Offline sensor values remain unavailable, not zero; dashboard gauge tests now cover all four v2 readings. The preview uses `MockPrismClient` only, with no hardware, network, registry or tray interaction. A single initial preview sample does not invent a history.
+
+Per-LED painting, layers/presets, case arrangement/rotation/flips, sensor bindings, ARGB sizing, token import and device renaming remain accessible. Pump selection cannot send a curve or mode command; BIOS hand-back remains wired. Appliance start still requires prepare plus explicit confirmation, settings lock while cooking, and pause/cancel remain accessible. Tests and offscreen previews cover these existing behavior paths; no physical-hardware interaction was performed.
+
+## Validation
+
+- `dotnet build Prism.sln -c Release -m:1 -nodeReuse:false -p:UseSharedCompilation=false`: **0 warnings, 0 errors**.
+- `dotnet test Prism.sln -m:1 -nodeReuse:false -p:UseSharedCompilation=false`: **472 passed, 0 failed, 0 skipped** across all five test projects (34 hardware, 141 lighting, 68 router, 115 service, 114 app).
+- Full-shell `--v2` preview: all eleven pages rendered at the dimensions above; **no WPF binding warnings**.
+- Existing full preview: controls, modem modes, widget kinds, lamp/device variants, idle/cooking/offline fryer states, fan selections, effects, sensor-related lighting and LED editor variants rendered with **no binding warnings**. Linear curve geometry and six slider fill cases pass.
+- `git diff --check`: passed.
+
+The extra MSBuild flags avoid the environment's failing default parallel build and compiler-server behavior; they do not disable warnings or skip projects.
+
+Regenerate local render evidence from the repository root:
+
+```powershell
+dotnet build tests/Prism.App.Tests/Preview/Prism.App.Preview.csproj -c Release --no-restore -m:1 -nodeReuse:false -p:UseSharedCompilation=false
+dotnet tests/Prism.App.Tests/Preview/bin/Release/net8.0-windows/Prism.App.Preview.dll tests/Prism.App.Tests/obj/v2-preview --v2
+dotnet tests/Prism.App.Tests/Preview/bin/Release/net8.0-windows/Prism.App.Preview.dll tests/Prism.App.Tests/obj/v2-power-preview
+```
+
+PNG files and `bindings.log` live in those ignored `obj` directories. The pre-existing untracked `docs/codex-v2-pages.log` is preserved and excluded from the implementation commit.

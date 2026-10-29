@@ -91,6 +91,9 @@ public sealed class GaugeItem : ObservableObject
     public string Sub { get; private set; }
     public string ColorHex { get; private set; }
     public double Percent { get; private set; }
+    public System.Collections.ObjectModel.ObservableCollection<double> History { get; } = new();
+    public string LevelText => !double.IsFinite(Percent) ? "Unavailable" : ColorHex switch
+    { "#36D6FF" => "Cool", "#3DDC84" => "Normal", "#F5A524" => "Warm", "#FF4D4F" => "Hot", _ => "Live" };
     public string Suffix => Label.Contains("temp") ? "\u00b0" : "%";
     public string ValueFormat => Label.Contains("temp") ? "F1" : "F0";
     public double NumericValue => double.TryParse(Value.TrimEnd('%', '\u00b0'), System.Globalization.NumberStyles.Float,
@@ -98,6 +101,7 @@ public sealed class GaugeItem : ObservableObject
     public void Update(GaugeItem item)
     {
         Label = item.Label; Value = item.Value; Sub = item.Sub; ColorHex = item.ColorHex; Percent = item.Percent;
+        if (double.IsFinite(Percent)) { History.Add(Percent); while (History.Count > 24) History.RemoveAt(0); }
         OnPropertyChanged(string.Empty);
     }
 }
@@ -144,12 +148,22 @@ public sealed class SceneOption : ObservableObject
 
     public string Name { get; }
     public string ColorHex { get; }
-    public string Description => Name switch { "Gaming" => "Smart lighting ? Turbo fans", "Work" => "Static white ? Balanced", "Night" => "Dim breathing ? Silent", "Movie" => "Screen ambient ? Silent", _ => Name };
+    public System.Windows.Media.Brush Background
+    {
+        get
+        {
+            var colors = Name switch { "Gaming" => ("#4D180F", "#A83617"), "Work" => ("#14213F", "#4051B5"), "Night" => ("#160F33", "#5038A8"), _ => ("#3A2405", "#A57417") };
+            return new System.Windows.Media.LinearGradientBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colors.Item1),
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colors.Item2), 0);
+        }
+    }
+    public string StateText => IsActive ? "Active" : "Apply";
+    public string Description => Name switch { "Gaming" => "Smart lighting · Turbo fans", "Work" => "Static white · Balanced", "Night" => "Dim breathing · Silent", "Movie" => "Screen ambient · Silent", _ => Name };
 
     public bool IsActive
     {
         get => _isActive;
-        set => Set(ref _isActive, value);
+        set { if (Set(ref _isActive, value)) OnPropertyChanged(nameof(StateText)); }
     }
 }
 
@@ -289,6 +303,7 @@ public sealed class SceneCardItem : ObservableObject
     public Models.SceneDefinition Definition { get; }
     public string Name => Definition.Name;
     public string ColorHex => Definition.Color;
+    public System.Windows.Media.Brush Background => new SceneOption(Name, ColorHex).Background;
     public string Trigger => Definition.Trigger;
     public string LightingText => Definition.LightingText;
     public string FansText => Definition.FansText;

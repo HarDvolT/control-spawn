@@ -46,6 +46,11 @@ public class RingGauge : FrameworkElement
         nameof(ShowValue), typeof(bool), typeof(RingGauge),
         new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty SweepAngleProperty = DependencyProperty.Register(
+        nameof(SweepAngle), typeof(double), typeof(RingGauge),
+        new FrameworkPropertyMetadata(360d, FrameworkPropertyMetadataOptions.AffectsRender));
+    public double SweepAngle { get => (double)GetValue(SweepAngleProperty); set => SetValue(SweepAngleProperty, value); }
+
     private static readonly DependencyProperty DisplayValueProperty = DependencyProperty.Register(
         nameof(DisplayValue), typeof(double), typeof(RingGauge),
         new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -115,16 +120,32 @@ public class RingGauge : FrameworkElement
         if (radius <= 0) return;
         var center = new Point(ActualWidth / 2, ActualHeight / 2);
 
-        dc.DrawEllipse(null, new Pen(ColorUtil.Brush(TrackColor), thickness), center, radius, radius);
+        var angle = Math.Clamp(SweepAngle, 1, 360);
+        var startAngle = angle < 360 ? 90 + (360 - angle) / 2 : -90;
+        if (angle >= 360) dc.DrawEllipse(null, new Pen(ColorUtil.Brush(TrackColor), thickness), center, radius, radius);
+        else DrawArc(TrackColor, angle);
+
+        void DrawArc(Color color, double degrees)
+        {
+            var arc = new StreamGeometry();
+            using (var context = arc.Open())
+            {
+                context.BeginFigure(PointOnCircle(center, radius, startAngle), false, false);
+                context.ArcTo(PointOnCircle(center, radius, startAngle + degrees), new Size(radius, radius), 0,
+                    degrees > 180, SweepDirection.Clockwise, true, false);
+            }
+            arc.Freeze();
+            dc.DrawGeometry(null, new Pen(ColorUtil.Brush(color), thickness) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, arc);
+        }
 
         var maximum = Maximum <= 0 ? 100 : Maximum;
         var ratio = Math.Clamp(DisplayValue / maximum, 0, 1);
-        var sweep = ratio * 360;
+        var sweep = ratio * angle;
         if (sweep > 0.4)
         {
             sweep = Math.Min(sweep, 359.9);
-            var start = PointOnCircle(center, radius, -90);
-            var end = PointOnCircle(center, radius, -90 + sweep);
+            var start = PointOnCircle(center, radius, startAngle);
+            var end = PointOnCircle(center, radius, startAngle + sweep);
             var geometry = new StreamGeometry();
             using (var context = geometry.Open())
             {

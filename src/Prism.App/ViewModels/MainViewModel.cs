@@ -204,10 +204,10 @@ public sealed class MainViewModel : ObservableObject
         foreach (var page in _pages.Values) page.Apply(state);
         IsConnected = true;
         ServiceDot = ColorUtil.ToHex(ColorUtil.Good);
-        ServiceStatusText = state.Health.Mock ? "Service · mock data" : "Service · live";
+        ServiceStatusText = $"Service {(state.Health.Mock ? "mock" : "live")} · {state.Devices?.Count ?? 0} devices";
         StatusText = state.Health.Warnings.Count > 0
             ? state.Health.Warnings[0]
-            : state.Health.FanFailsafeActive ? "Fan failsafe active · BIOS control" : "All systems normal · live";
+            : state.Health.FanFailsafeActive ? "Fan failsafe active · BIOS control" : "All systems normal";
         OnPropertiesChanged(nameof(ShowBanner), nameof(IsMock), nameof(ModeBadge));
     }
 

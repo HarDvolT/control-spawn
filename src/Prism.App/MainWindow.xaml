@@ -13,7 +13,7 @@
           <StackPanel Orientation="Horizontal"><c:LiveIndicator Width="8" Height="8" Color="{Binding ServiceDot, Converter={StaticResource HexToColor}}" Margin="0,0,8,0"/><TextBlock Text="{Binding ServiceStatusText}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" ToolTip="{Binding ModeBadge}"/></StackPanel>
         </Border>
         <ItemsControl ItemsSource="{Binding NavigationGroups}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel>
-          <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}" Margin="12,14,0,6"/>
+          <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}" Margin="12,16,0,6"/>
           <ItemsControl ItemsSource="{Binding Items}"><ItemsControl.ItemTemplate><DataTemplate>
             <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Definition.Key}" Margin="0,1" Style="{StaticResource ShellNav}">
               <StackPanel Orientation="Horizontal"><Path Data="{Binding Icon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="18" Height="18" Stretch="Uniform" Margin="0,0,12,0"/><TextBlock Text="{Binding Title}" FontSize="14"/></StackPanel>
@@ -25,10 +25,10 @@
     <Grid Grid.Column="1">
       <Grid.RowDefinitions><RowDefinition Height="76"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
       <Grid Margin="26,20,26,16" MouseLeftButtonDown="TitleDrag">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="360"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="384"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="Prism" Foreground="#7C808A"/><TextBlock Text=" / " Foreground="#3A3C44" Margin="5,0"/><TextBlock Text="{Binding BreadcrumbTitle}" Foreground="#C9CBD1"/></StackPanel>
         <Button Grid.Column="1" Style="{StaticResource PillButton}" Command="{Binding OpenSearchCommand}" Padding="14,0,8,0" MinHeight="40" Height="40" HorizontalContentAlignment="Stretch">
-          <DockPanel Width="330"><Border DockPanel.Dock="Right" Background="#1E2026" CornerRadius="6" Padding="8,3"><TextBlock Text="Ctrl Space" FontSize="11" Foreground="#A3A6AE"/></Border><Path DockPanel.Dock="Left" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M16 16 L21 21" Stroke="#7C808A" StrokeThickness="2" Width="15" Height="15" Stretch="Uniform" Margin="0,0,10,0"/><TextBlock Text="Search or type a command" FontWeight="Normal" Foreground="#7C808A" VerticalAlignment="Center"/></DockPanel>
+          <DockPanel Width="354"><Border DockPanel.Dock="Right" Background="#1E2026" CornerRadius="6" Padding="8,3"><TextBlock Text="Ctrl Space" FontSize="11" Foreground="#A3A6AE"/></Border><Path DockPanel.Dock="Left" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M16 16 L21 21" Stroke="#7C808A" StrokeThickness="2" Width="15" Height="15" Stretch="Uniform" Margin="0,0,10,0"/><TextBlock Text="Search or type a command" FontWeight="Normal" Foreground="#7C808A" VerticalAlignment="Center"/></DockPanel>
         </Button>
         <Border Grid.Column="2" Margin="12,0" CornerRadius="20" Background="#143DDC84" BorderBrush="#4D3DDC84" BorderThickness="1" Padding="14,0" Height="40"><StackPanel Orientation="Horizontal"><c:LiveIndicator Width="7" Height="7" Margin="0,0,8,0" Color="{Binding ServiceDot, Converter={StaticResource HexToColor}}"/><TextBlock Text="{Binding StatusText}" Foreground="#9BEFC2" FontSize="12" VerticalAlignment="Center" MaxWidth="220" TextTrimming="CharacterEllipsis"/></StackPanel></Border>
         <Button Grid.Column="3" Style="{StaticResource PillButton}" Width="40" Height="40" MinHeight="40" Padding="0" AutomationProperties.Name="Notifications" Click="NotificationsClick"><Path Data="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4" Stroke="#C9CBD1" StrokeThickness="1.8" Width="17" Height="20" Stretch="Uniform"/></Button>

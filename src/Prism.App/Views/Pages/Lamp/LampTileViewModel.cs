@@ -9,12 +9,15 @@ public sealed class LampTileViewModel : PageViewModel
     private bool on, connected, suppress;
     private double brightness;
     private string color = "#FFFFFF", follow = "pc", name = "Lamp";
-    public LampTileViewModel(IPrismClient client, string id) : base(client) { Id = id; ToggleCommand = new RelayCommand(() => On = !On); }
+    public LampTileViewModel(IPrismClient client, string id) : base(client) { Id = id; ToggleCommand = new RelayCommand(() => On = !On); SelectColorCommand = new RelayCommand<string>(hex => { if (hex is not null) ColorEntry = hex; }); SetBrightnessCommand = new RelayCommand<string>(value => { if (double.TryParse(value, out var level)) Brightness = level; }); }
     public string Id { get; }
     public string Name => name;
     public bool Connected => connected;
     public string ConnectionText => connected ? "Connected" : "Offline";
     public RelayCommand ToggleCommand { get; }
+    public RelayCommand<string> SelectColorCommand { get; }
+    public RelayCommand<string> SetBrightnessCommand { get; }
+    public IReadOnlyList<string> Swatches { get; } = ["#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF"];
     public IReadOnlyList<string> FollowModes { get; } = ["pc", "average", "own", "map"];
     public bool On { get => on; set { if (Set(ref on, value) && !suppress) _ = PushAsync(); } }
     public double Brightness { get => brightness; set { if (Set(ref brightness, Math.Clamp(Math.Round(value), 1, 100)) && !suppress) _ = PushAsync(); } }

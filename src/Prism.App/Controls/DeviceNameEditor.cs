@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Data;
 using System.Windows.Media;
 using Prism.App.Services;
 using Prism.Core.Ipc;
@@ -18,9 +19,11 @@ public sealed class DeviceNameEditor : UserControl
     public IPrismClient? Client { get => (IPrismClient?)GetValue(ClientProperty); set => SetValue(ClientProperty, value); }
     private readonly TextBlock label = new() { VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.WhiteSmoke, TextWrapping = TextWrapping.Wrap };
     private readonly TextBox edit = new() { MaxLength = 40, MinWidth = 100, Visibility = Visibility.Collapsed };
-    private readonly TextBlock error = new() { Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock error = new() { Visibility = Visibility.Collapsed, Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap };
     public DeviceNameEditor()
     {
+        label.SetBinding(TextBlock.FontSizeProperty, new Binding("FontSize") { Source = this });
+        label.SetBinding(TextBlock.FontWeightProperty, new Binding("FontWeight") { Source = this });
         var root = new StackPanel(); var row = new StackPanel { Orientation = Orientation.Horizontal };
         var pencil = new Button { Content = "✎", ToolTip = "Rename", Margin = new(8, 0, 4, 0), Padding = new(4), MinWidth = 28, MinHeight = 28 };
         var reset = new Button { Content = "↶", ToolTip = "Reset to detected name", Padding = new(4), MinWidth = 28, MinHeight = 28 };
@@ -30,16 +33,16 @@ public sealed class DeviceNameEditor : UserControl
         row.Children.Add(label); row.Children.Add(edit); row.Children.Add(pencil); row.Children.Add(reset); root.Children.Add(row); root.Children.Add(error); Content = root;
     }
     private static void Changed(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((DeviceNameEditor)d).label.Text = (string)e.NewValue;
-    private void Cancel() { edit.Text = ""; edit.Visibility = Visibility.Collapsed; label.Visibility = Visibility.Visible; error.Text = ""; }
+    private void Cancel() { edit.Text = ""; edit.Visibility = Visibility.Collapsed; label.Visibility = Visibility.Visible; error.Text = ""; error.Visibility = Visibility.Collapsed; }
     private async Task SaveAsync(bool reset)
     {
         if (Client is null) return;
         try
         {
             var response = await Client.SendAsync(Commands.RenameDevice, new { id = DeviceId, name = edit.Text, reset });
-            if (!response.Ok) { error.Text = response.Error; return; }
+            if (!response.Ok) { error.Text = response.Error; error.Visibility = Visibility.Visible; return; }
             Cancel();
         }
-        catch { error.Text = "Name could not be saved."; }
+        catch { error.Text = "Name could not be saved."; error.Visibility = Visibility.Visible; }
     }
 }
