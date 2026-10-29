@@ -18,7 +18,7 @@ All dimensions below are the actual reference PNG dimensions, rather than a comm
 
 | Page / reference | Size | Built and corrected | Remaining differences and reasons |
 | --- | --- | --- | --- |
-| Dashboard / V2Dashboard | 1440 x 900 | Gradient scene buttons and state badges; four partial-arc sensor cards; compact lighting and fan controls; lower lamp, internet and fryer cards. | No fabricated sparklines before enough service samples arrive. Hardware summary uses machine identity and actual device counts because processor/board marketing names are not supplied as a complete machine summary. Lighting swatch row and top thermal chips are not reproduced exactly. |
+| Dashboard / V2Dashboard | 1440 x 900 | Gradient scene buttons and state badges; four partial-arc sensor cards; compact lighting and fan controls; lower lamp, internet and fryer cards. | No fabricated sparklines before enough service samples arrive. Hardware summary uses machine identity and actual device counts because processor/board marketing names are not supplied as a complete machine summary. Lighting swatches and top thermal chips now use the reference treatments and live commands/readings. Service sample history is available over IPC; Internet uses ping history rather than CPU history. Further gauge, LED/orb, signal-bar and typography matching is in progress. |
 | Monitor / V2Monitor | 1440 x 1040 | Processor and graphics gauge pairs; live stats and threads; memory/temperature rails; fans, network, disks, internet and lower summary cards. | Top-process list, uptime and throttling events remain explicitly unavailable. Stats use native rows and bars rather than the reference's exact mini-card, segmented-meter and needle-dial treatments. |
 | Devices / V2Devices | 1440 x 1160 | Four-column cards, grouped PC/home/network/appliance inventory, live counts, discovery/import actions, setup/dismiss and renaming. | Inventory is the actual registry, including unresolved devices. Discovery uses a summary and per-device actions rather than the reference's large featured discovery banner. Icons, status placement and per-device sensor footer composition still differ. |
 | Lighting / V2Lighting | 1440 x 940 | Whole-case/per-device/sensor modes, larger live case map, hue ring, effect gallery beside the colour controls, ARGB setup and advanced controls. | The existing interactive spatial renderer retains its case illustration and saved device placements; it does not reproduce the reference illustration exactly. The service supports more effects, retained in a scrollable gallery. Setup remains an expander rather than the reference's amber banner. |
@@ -57,3 +57,9 @@ dotnet tests/Prism.App.Tests/Preview/bin/Release/net8.0-windows/Prism.App.Previe
 ```
 
 PNG files and `bindings.log` live in those ignored `obj` directories. The pre-existing untracked `docs/codex-v2-pages.log` is preserved and excluded from the implementation commit.
+
+## Current refinement pass
+
+- Dashboard: restored seven colour swatches, lights-off command, thermal chips, equal gutters, caption-only appliance ring and correct router sparkline source. Removed the empty error row that caused a scrollbar and narrowed the page. Rendered and compared at 1440 x 900; remaining treatment differences are still recorded above.
+- Added bounded, timestamped service history, process CPU deltas and OS uptime to the additive IPC contract. Mock telemetry does not sample host processes or invent uptime.
+- Baseline after shared/Dashboard changes: Release solution build has 0 warnings/errors; all 472 existing tests pass. No hardware writes performed.

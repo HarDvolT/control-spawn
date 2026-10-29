@@ -41,6 +41,15 @@ public sealed class DashboardViewModel : PageViewModel
 
     public ObservableCollection<double> CpuHistory { get; } = new();
     public ObservableCollection<double> GpuHistory { get; } = new();
+    public ObservableCollection<double> PingHistory { get; } = new();
+    public IReadOnlyList<string> Swatches { get; } = ["#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF"];
+    public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp);
+    public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot);
+    public string InternetScore => $"{State?.Router?.Verdict ?? "Unavailable"} · {State?.Router?.Score?.ToString() ?? Format.Dash}";
+    public string InternetDetail => "Ping " + Format.Number(State?.Router?.PingMs) + " ms · ↓ " + Format.Mbps(State?.System.NetDownMbps);
+    public string FanSubtitle => SelectedFanMode switch { "Silent" => "Quiet · you will barely hear it", "Turbo" => "Performance cooling", _ => "Automatic temperature control" };
+    public RelayCommand<string> PickColorCommand => new(color => { if (color is not null) _ = RunAsync(() => Client.SetLightingAsync(LightingEffect.Static, color, LightingBrightness, LightingSpeed)); });
+    public RelayCommand LightsOffCommand => new(() => _ = RunAsync(() => Client.SetLightingAsync(LightingEffect, LightingColorHex, LightingBrightness > 0 ? 0 : 0.8, LightingSpeed)));
     public ObservableCollection<GaugeItem> Gauges { get; } = new();
     public ObservableCollection<FanRow> Fans { get; } = new();
     public ObservableCollection<SceneOption> Scenes { get; } = new();
@@ -154,6 +163,20 @@ public sealed class DashboardViewModel : PageViewModel
             ColorUtil.ToHex(Controls.Thresholds.Color(Controls.Thresholds.Level(system.GpuLoad ?? double.NaN, Controls.SensorKind.Load))), Math.Clamp(system.GpuLoad ?? double.NaN, 0, 100)));
         SetGauge(3, new GaugeItem("GPU temp", Format.Temp(system.GpuTemp), "Graphics temperature",
             ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp)), Math.Clamp(system.GpuTemp ?? double.NaN, 0, 100)));
+
+        if (state.History is { } history)
+        {
+            Func<TelemetrySample, double?>[] readings = [s => s.CpuLoad, s => s.CpuTemp, s => s.GpuLoad, s => s.GpuTemp];
+            for (var i = 0; i < readings.Length; i++)
+            {
+                Gauges[i].History.Clear();
+                foreach (var sample in history.TakeLast(24))
+                    if (readings[i](sample) is { } v && double.IsFinite(v)) Gauges[i].History.Add(v);
+            }
+            PingHistory.Clear();
+            foreach (var sample in history.TakeLast(24))
+                if (sample.PingMs is { } ping && double.IsFinite(ping)) PingHistory.Add(ping);
+        }
 
         Fans.Clear();
         foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))

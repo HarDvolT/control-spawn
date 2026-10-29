@@ -30,6 +30,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private readonly OpenRgbProcess rgbProcess = new();
     private readonly object stateGate = new();
     private HardwareSnapshot snapshot = new(DateTimeOffset.UtcNow, []);
+    private readonly Queue<TelemetrySample> sampleHistory = new();
+    private readonly ProcessTelemetry processTelemetry = new();
+    private IReadOnlyList<ProcessLoad>? processLoads;
     private ServiceSettings settings = new();
     private IRgbBackend rgb;
     private ILampClient? lamp;
@@ -157,7 +160,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 CustomEnabled = value.LedLayers.GetValueOrDefault(d.Id)?.CustomEnabled == true }).ToArray();
             var health = new ServiceHealth(mock, elevated, warnings.Values.Order().ToArray(), failsafe);
             var lamps = value.ConfiguredLamps.Select(c => (lampStates.TryGetValue(c.Id, out var liveLamp) ? liveLamp with { On = c.On, Brightness = c.Brightness, Follow = c.Follow, Color = c.Color, Name = c.Name } : null) ?? new LampState("yeelink.light.color5", false, c.On, c.Brightness, c.Color, c.Follow, "not configured", c.Id, c.Name, c.DeviceId, c.LastHost ?? c.Host)).ToArray();
-            var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lamps.FirstOrDefault(), routerState, health) with { Lamps = lamps };
+            var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lamps.FirstOrDefault(), routerState, health) with { Lamps = lamps, History = sampleHistory.ToArray() };
+            state = state with { System = state.System with { TopProcesses = processLoads, UptimeSeconds = mock ? null : Environment.TickCount64 / 1000d } };
             var frame = FrameInputs();
             static string Hex(RgbColor? color) { var c = color ?? RgbColor.Black; return $"#{c.R:X2}{c.G:X2}{c.B:X2}"; }
             return DeviceNames.Apply(state with { Appliances = appliances.States, Lighting = state.Lighting with { IdentifyingZones = identification.Where(p => clock.Elapsed < p.Value.Until).Select(p => new ZoneIdentification(p.Key, p.Value.Zone, p.Value.Size, p.Value.Size == 0 ? 0 : (int)(clock.Elapsed.TotalSeconds * 6) % p.Value.Size + 1)).ToArray(), BindingReadings = sensorLighting.Readings(value.Bindings), Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
@@ -210,6 +214,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         var previous = clock.Elapsed;
         void OnSnapshot(object? sender, HardwareSnapshot next)
         {
+            var nextProcesses = mock ? null : processTelemetry.Sample();
             if (next.Success) warnings.TryRemove("sensors", out _); else warnings["sensors"] = "Sensor read failed.";
             var value = Volatile.Read(ref settings);
             foreach (var group in value.Fans)
@@ -224,11 +229,18 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             lock (stateGate)
             {
                 snapshot = next;
+                processLoads = nextProcesses;
                 bool nextFailsafe = safety.Observe(next, required);
                 if (nextFailsafe) TriggerLightingEvent(LightingEventKind.FanFailsafe);
                 failsafe = nextFailsafe;
                 inputs.Temperature = next.Temperature(SensorCategory.Cpu) ?? double.NaN;
                 var system = StateAssembler.Assemble(next, value, controls.Headers, [], null, null, new(mock, false, [], failsafe)).System;
+                if (next.Success && (sampleHistory.Count == 0 || sampleHistory.Last().Timestamp < next.Timestamp))
+                {
+                    sampleHistory.Enqueue(new(next.Timestamp, system.CpuLoad, system.CpuTemp, system.GpuLoad,
+                        system.GpuTemp, routerState?.PingMs, system.NetDownMbps, system.NetUpMbps));
+                    while (sampleHistory.Count > 3600) sampleHistory.Dequeue();
+                }
                 Volatile.Write(ref reactive, new(system.CpuLoad ?? 0, system.GpuLoad ?? 0,
                     system.RamTotalGb > 0 ? (system.RamUsedGb ?? 0) / system.RamTotalGb.Value : 0,
                     system.CpuTemp ?? double.NaN, system.GpuTemp ?? double.NaN));

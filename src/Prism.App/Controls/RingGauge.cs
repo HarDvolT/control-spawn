@@ -161,11 +161,21 @@ public class RingGauge : FrameworkElement
             dc.DrawGeometry(null, pen, geometry);
         }
 
-        if (!ShowValue) return;
+        if (!ShowValue)
+        {
+            if (!string.IsNullOrWhiteSpace(Caption))
+            {
+                var label = new FormattedText(Caption, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                    new Typeface(new FontFamily("pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal),
+                    size * .18, ColorUtil.Brush(ColorUtil.TextPrimary), VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                dc.DrawText(label, new Point(center.X - label.Width / 2, center.Y - label.Height / 2));
+            }
+            return;
+        }
         var valueText = double.IsFinite(Value) ? FormatValue() + Suffix : "\u2014";
-        var valueSize = Math.Max(10, size * 0.22);
+        var valueSize = Math.Max(10, size * 0.25);
         var valueBrush = ColorUtil.Brush(ColorUtil.TextPrimary);
-        var typeface = new Typeface(new FontFamily("Space Grotesk, Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+        var typeface = new Typeface(new FontFamily("pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
         var formatted = new FormattedText(valueText, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             typeface, valueSize, valueBrush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
         var y = center.Y - formatted.Height / 2;

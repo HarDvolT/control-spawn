@@ -81,7 +81,12 @@ public sealed record StateMessage(
     ServiceHealth Health,
     string Type = "state", IReadOnlyList<LampState>? Lamps = null,
     IReadOnlyList<DeviceState>? Devices = null, IReadOnlyList<DeviceState>? NewDevices = null,
-    IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null);
+    IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null,
+    IReadOnlyList<TelemetrySample>? History = null);
+
+/// <summary>Real service samples; null measurements remain gaps rather than invented readings.</summary>
+public sealed record TelemetrySample(DateTimeOffset Timestamp, double? CpuLoad, double? CpuTemp,
+    double? GpuLoad, double? GpuTemp, double? PingMs, double? NetDownMbps, double? NetUpMbps);
 
 public sealed record SystemState(
     double? CpuLoad, IReadOnlyList<double?> CpuCoreLoads, double? CpuClockMhz, double? CpuTemp, double? CpuPowerW,
@@ -90,7 +95,10 @@ public sealed record SystemState(
     double? RamUsedGb, double? RamTotalGb, IReadOnlyList<double?> DimmTemps,
     double? BoardTemp,
     IReadOnlyList<DiskState> Disks,
-    double? NetDownMbps, double? NetUpMbps, double? GpuMemoryJunction = null);
+    double? NetDownMbps, double? NetUpMbps, double? GpuMemoryJunction = null,
+    double? UptimeSeconds = null, IReadOnlyList<ProcessLoad>? TopProcesses = null, bool? ThermalThrottling = null);
+
+public sealed record ProcessLoad(int Id, string Name, double CpuPercent);
 
 public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent, double? ActivityPercent = null);
 public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve);
