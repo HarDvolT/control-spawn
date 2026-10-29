@@ -50,6 +50,11 @@ public class RingGauge : FrameworkElement
         nameof(SweepAngle), typeof(double), typeof(RingGauge),
         new FrameworkPropertyMetadata(360d, FrameworkPropertyMetadataOptions.AffectsRender));
     public double SweepAngle { get => (double)GetValue(SweepAngleProperty); set => SetValue(SweepAngleProperty, value); }
+    public static readonly DependencyProperty TickCountProperty = DependencyProperty.Register(nameof(TickCount), typeof(int), typeof(RingGauge), new FrameworkPropertyMetadata(0, FrameworkPropertyMetadataOptions.AffectsRender));
+    public int TickCount { get => (int)GetValue(TickCountProperty); set => SetValue(TickCountProperty, value); }
+    public bool TickOnFill { get; set; }
+    public static readonly DependencyProperty ValueFontSizeProperty = DependencyProperty.Register(nameof(ValueFontSize), typeof(double), typeof(RingGauge), new FrameworkPropertyMetadata(double.NaN, FrameworkPropertyMetadataOptions.AffectsRender));
+    public double ValueFontSize { get => (double)GetValue(ValueFontSizeProperty); set => SetValue(ValueFontSizeProperty, value); }
 
     private static readonly DependencyProperty DisplayValueProperty = DependencyProperty.Register(
         nameof(DisplayValue), typeof(double), typeof(RingGauge),
@@ -161,6 +166,14 @@ public class RingGauge : FrameworkElement
             dc.DrawGeometry(null, pen, geometry);
         }
 
+        if (TickCount > 0)
+            for (int i = 0; i < TickCount; i++)
+            {
+                if (!TickOnFill && double.IsFinite(Value) && i / (double)TickCount < Math.Clamp(Value / Maximum, 0, 1)) continue;
+                var degrees = startAngle + angle * i / TickCount;
+                dc.DrawLine(new Pen(ColorUtil.Brush(TickOnFill ? Color.FromArgb(70, 7, 8, 10) : Color.FromArgb(18, 255, 255, 255)), 1),
+                    PointOnCircle(center, radius - thickness / 2, degrees), PointOnCircle(center, radius + thickness / 2, degrees));
+            }
         if (!ShowValue)
         {
             if (!string.IsNullOrWhiteSpace(Caption))
@@ -173,7 +186,7 @@ public class RingGauge : FrameworkElement
             return;
         }
         var valueText = double.IsFinite(Value) ? FormatValue() + Suffix : "\u2014";
-        var valueSize = Math.Max(10, size * 0.25);
+        var valueSize = double.IsFinite(ValueFontSize) ? ValueFontSize : Math.Max(10, size * 0.25);
         var valueBrush = ColorUtil.Brush(ColorUtil.TextPrimary);
         var typeface = new Typeface(new FontFamily("pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
         var formatted = new FormattedText(valueText, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
