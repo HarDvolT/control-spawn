@@ -1,0 +1,16 @@
+{
+  "openrgb": {
+    "version": "1.1",
+    "file": "OpenRGB_1.1_Windows_64_8e16de2.zip",
+    "url": "https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_1.1/OpenRGB_1.1_Windows_64_8e16de2.zip",
+    "sha256": "63291726c6fc84eb479ef2ee752e97e1187f6ce9c49fd27eee40ded588a8172a",
+    "hashSource": "https://github.com/CalcProgrammer1/OpenRGB/releases/expanded_assets/release_1.1"
+  },
+  "pawnio": {
+    "version": "2.2.0",
+    "file": "PawnIO_setup.exe",
+    "url": "https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe",
+    "sha256": "1f519a22e47187f70a1379a48ca604981c4fcf694f4e65b734aaa74a9fba3032",
+    "hashSource": "https://github.com/namazso/PawnIO.Setup/releases/expanded_assets/2.2.0"
+  }
+}
