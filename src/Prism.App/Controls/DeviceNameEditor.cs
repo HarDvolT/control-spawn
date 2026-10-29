@@ -27,6 +27,13 @@ public sealed class DeviceNameEditor : UserControl
         var root = new StackPanel(); var row = new StackPanel { Orientation = Orientation.Horizontal };
         var pencil = new Button { Content = "✎", ToolTip = "Rename", Margin = new(8, 0, 4, 0), Padding = new(4), MinWidth = 28, MinHeight = 28 };
         var reset = new Button { Content = "↶", ToolTip = "Reset to detected name", Padding = new(4), MinWidth = 28, MinHeight = 28 };
+        pencil.SetResourceReference(StyleProperty, "TextAction");
+        pencil.MinWidth = 16; pencil.MinHeight = 20; pencil.Padding = new Thickness(0); pencil.FontSize = 12;
+        pencil.Foreground = new SolidColorBrush(Color.FromRgb(124, 128, 138));
+        reset.Visibility = Visibility.Collapsed;
+        var menu = new ContextMenu();
+        var resetItem = new MenuItem { Header = "Reset to detected name" }; resetItem.Click += async (_, _) => await SaveAsync(true);
+        menu.Items.Add(resetItem); pencil.ContextMenu = menu;
         pencil.Click += (_, _) => { edit.Text = DisplayName; label.Visibility = Visibility.Collapsed; edit.Visibility = Visibility.Visible; edit.Focus(); edit.SelectAll(); };
         reset.Click += async (_, _) => await SaveAsync(true);
         edit.KeyDown += async (_, e) => { if (e.Key == Key.Escape) Cancel(); if (e.Key == Key.Enter) { e.Handled = true; await SaveAsync(false); } };
