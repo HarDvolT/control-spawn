@@ -11,6 +11,11 @@ public interface ISensorSource : IDisposable
 /// <summary>Opening LHM is explicit and occurs only on the first Read, never in a constructor.</summary>
 public sealed class LhmSensorSource : ISensorSource, IFanControlPort
 {
+    /// <summary>
+    /// GPU sensor reads share the card's I2C/ADL bus with OpenRGB's lighting writes. Set PRISM_NO_GPU_SENSORS=1
+    /// (the service's --no-gpu-sensors flag) to skip them, e.g. to check whether reads disturb the GPU LEDs.
+    /// </summary>
+    public static bool GpuSensorsEnabled => Environment.GetEnvironmentVariable("PRISM_NO_GPU_SENSORS") != "1";
     private readonly object gate = new();
     private Computer? computer;
     private readonly Dictionary<int, IControl> controls = new();
@@ -23,7 +28,7 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
             ObjectDisposedException.ThrowIf(disposed, this);
             if (computer is null)
             {
-                computer = new Computer { IsCpuEnabled = true, IsGpuEnabled = true, IsMemoryEnabled = true,
+                computer = new Computer { IsCpuEnabled = true, IsGpuEnabled = GpuSensorsEnabled, IsMemoryEnabled = true,
                     IsMotherboardEnabled = true, IsStorageEnabled = true, IsNetworkEnabled = true };
                 try { computer.Open(); }
                 catch

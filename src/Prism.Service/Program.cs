@@ -9,6 +9,7 @@ public static class Program
     {
         bool mock = args.Contains("--mock", StringComparer.OrdinalIgnoreCase);
         bool observe = args.Contains("--observe", StringComparer.OrdinalIgnoreCase);
+        if (args.Contains("--no-gpu-sensors", StringComparer.OrdinalIgnoreCase)) Environment.SetEnvironmentVariable("PRISM_NO_GPU_SENSORS", "1");
         bool console = mock || observe || args.Contains("--console", StringComparer.OrdinalIgnoreCase) || Environment.UserInteractive;
         // Don't pass the standalone flags to the host's key/value command-line parser.
         var builder = Host.CreateDefaultBuilder([]);
