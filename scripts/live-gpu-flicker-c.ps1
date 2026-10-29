@@ -35,21 +35,27 @@ function Round($label, $extraArgs) {
 }
 
 $stopped = @()
-foreach ($name in 'LightingService', 'CorsairDeviceControlService', 'ArmouryCrateService') {
-  $svc = Get-Service $name -ErrorAction SilentlyContinue
-  if ($svc -and $svc.Status -eq 'Running') { Stop-Service $name -Force; $stopped += $name; Log "Stopped $name (will restart at the end)" }
-}
-foreach ($proc in 'RadeonSoftware', 'AMDRSServ', 'AMDRSSrcExt', 'ArmouryCrate', 'ArmouryCrate.UserSessionHelper', 'ArmourySocketServer', 'ArmourySwAgent', 'asus_framework') {
-  Get-Process $proc -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue; Log "Closed $($_.Name) for the test" }
-}
 $orgb = $null
 try {
+  foreach ($name in 'LightingService', 'CorsairDeviceControlService', 'ArmouryCrateService') {
+    $svc = Get-Service $name -ErrorAction SilentlyContinue
+    if ($svc -and $svc.Status -eq 'Running') {
+      try { Stop-Service $name -Force -ErrorAction Stop; $stopped += $name; Log "Stopped $name (will restart at the end)" }
+      catch { Log "Could not stop $name ($($_.Exception.Message)); continuing with it running" }
+    }
+  }
+  foreach ($proc in 'RadeonSoftware', 'AMDRSServ', 'AMDRSSrcExt', 'ArmouryCrate', 'ArmouryCrate.UserSessionHelper', 'ArmourySocketServer', 'ArmourySwAgent', 'asus_framework') {
+    Get-Process $proc -ErrorAction SilentlyContinue | ForEach-Object {
+      try { Stop-Process -Id $_.Id -Force -ErrorAction Stop; Log "Closed $($_.Name) for the test" } catch { Log "Could not close $($_.Name)" }
+    }
+  }
+
   $orgb = Start-Process $openrgb -ArgumentList '--server', '--noautoconnect' -WorkingDirectory (Split-Path $openrgb) -PassThru -WindowStyle Minimized
   Log "OpenRGB server starting..."; Start-Sleep -Seconds 18
   Round 'C' @()
   Log ("Other GPU/RGB software running during the test: " + ((Get-Process | Where-Object { $_.Name -match 'Armoury|asus_framework|AMDRSServ|RadeonSoftware|Polychrome|iCUE|SignalRgb' } | Select-Object -Expand Name -Unique) -join ', '))
 } finally {
   if ($orgb) { Stop-Process -Id $orgb.Id -Force -ErrorAction SilentlyContinue; Log "OpenRGB stopped." }
-  foreach ($name in $stopped) { Start-Service $name -ErrorAction SilentlyContinue; Log "Restarted $name" }
+  foreach ($name in ($stopped + @('LightingService', 'CorsairDeviceControlService', 'ArmouryCrateService') | Select-Object -Unique)) { $svc = Get-Service $name -ErrorAction SilentlyContinue; if ($svc -and $svc.Status -ne 'Running') { Start-Service $name -ErrorAction SilentlyContinue; Log "Restarted $name" } }
   Write-Host "Done. Fans are back on the BIOS." -ForegroundColor Green
 }
