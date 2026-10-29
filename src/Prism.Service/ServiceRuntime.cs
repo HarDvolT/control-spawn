@@ -205,6 +205,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     {
         if (Observe) { warnings["observe"] = "Observe mode: fans, RGB and lamp are not controlled."; await Task.Delay(Timeout.Infinite, token); }
         TimeSpan reconnect = TimeSpan.Zero;
+        var pacer = new DeviceFramePacer();
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1d / 30));
         do
         {
@@ -244,15 +245,19 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     discovered = discovered.Select(d => LedLayers.Project(d.Id, client.Controllers[(int)indices[d.Id]])).ToArray();
                     for (uint i = 0; i < client.Controllers.Count; i++) await client.SetDirectModeAsync(i, timeout.Token);
                     lock (stateGate) { devices = discovered; rgbIndices = indices; }
+                    pacer.Reset();
                     rgbConnected = true;
                 }
                 if (!rgbConnected) continue;
                 RgbDeviceState[] current; lock (stateGate) current = devices;
                 foreach (var device in current.Where(d => (failsafe && value.Events.FanFailsafe) || value.SyncedDevices.GetValueOrDefault(d.Id, true) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false))
                 {
+                    var now = clock.Elapsed;
+                    var colors = RenderDevice(value, device, current, now.TotalSeconds);
+                    if (!pacer.ShouldSend(device.Id, device.Kind, colors, now)) continue;
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
-                    var colors = RenderDevice(value, device, current, clock.Elapsed.TotalSeconds);
                     await rgb.SetColorsAsync(rgbIndices[device.Id], colors, timeout.Token);
+                    pacer.Sent(device.Id, colors, now);
                 }
                 warnings.TryRemove("rgb", out _);
             }
