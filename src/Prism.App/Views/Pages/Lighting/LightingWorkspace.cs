@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -87,7 +88,8 @@ public sealed class LightingWorkspace : UserControl
     private readonly CaseMapPreview preview = new() { Height = 350, LedEditing = false };
     private readonly LedEditor editor = new() { SharedCanvas = true };
     private readonly PaletteStrip palette = new();
-    private readonly WrapPanel gallery = new(), devices = new();
+    private readonly SpacedGrid gallery = new() { Columns = 3, Gap = 10 };
+    private readonly WrapPanel extraEffects = new(), devices = new();
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 0) };
     private readonly ComboBox palettes = new() { ItemsSource = Palettes.BuiltIn.Keys, Margin = new(0, 4, 0, 4) };
     private readonly TextBox hex = new() { Text = "#FF4D1A", Width = 110, Background = new SolidColorBrush(Color.FromRgb(37, 37, 41)), Foreground = Brushes.WhiteSmoke, BorderBrush = Brushes.DimGray, BorderThickness = new(1), Padding = new(8) };
@@ -180,9 +182,19 @@ public sealed class LightingWorkspace : UserControl
         var eyebrow = new TextBlock { Text = "LIGHTING" }; eyebrow.SetResourceReference(StyleProperty, "PageEyebrow"); titles.Children.Add(eyebrow);
         var title = new TextBlock { Text = "Your whole setup, one colour" }; title.SetResourceReference(StyleProperty, "H1"); titles.Children.Add(title);
         heading.Children.Add(titles); host.Children.Add(heading);
-        host.Children.Add(canvasChildren.OfType<CaseLightingSetup>().Single()); host.Children.Add(root);
+        var setup = canvasChildren.OfType<CaseLightingSetup>().Single();
+        setup.Visibility = Visibility.Collapsed;
+        var setupRow = new DockPanel();
+        var setupButton = new Button { Content = "Set up case lighting", Padding = new(18, 0, 18, 0), MinHeight = 40, Background = new SolidColorBrush(Color.FromRgb(245, 165, 36)), Foreground = Brushes.Black };
+        setupButton.Click += (_, _) => { setup.Visibility = setup.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; setup.IsExpanded = true; };
+        DockPanel.SetDock(setupButton, Dock.Right); setupRow.Children.Add(setupButton);
+        setupRow.Children.Add(new TextBlock { Text = "ARGB headers start at 0 LEDs. Set the exact LED count to light your case fans and strip, down to the last LED.", TextWrapping = TextWrapping.Wrap, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 18, 0) });
+        host.Children.Add(new Border { Child = setupRow, Padding = new(18, 14, 18, 14), CornerRadius = new(16), Margin = new(0, 0, 0, 16), BorderThickness = new(1), BorderBrush = new SolidColorBrush(Color.FromArgb(85, 245, 165, 36)), Background = new LinearGradientBrush(Color.FromArgb(40, 245, 165, 36), Color.FromArgb(5, 245, 165, 36), 0) });
+        host.Children.Add(setup); host.Children.Add(root);
         var previewBody = new StackPanel();
-        Header(previewBody, "LIVE PREVIEW", 11); previewBody.Children.Add(stage);
+        Header(previewBody, "LIVE PREVIEW", 11);
+        var illustration = new CaseIllustration(); previewBody.Children.Add(illustration);
+        stage.Visibility = Visibility.Collapsed; previewBody.Children.Add(stage);
         previewBody.Children.Add(devices);
         canvasPanel.Children.Add(new GlassCard { Content = previewBody });
         var tools = new StackPanel { Visibility = Visibility.Collapsed, Margin = new(0, 12, 0, 0) };
@@ -196,6 +208,8 @@ public sealed class LightingWorkspace : UserControl
         map.Click += (_, _) => stage.Children[1].Visibility = Visibility.Collapsed;
         modes.SelectionChanged += (_, _) => {
             bool perDevice = modes.SelectedIndex == 1;
+            illustration.Visibility = perDevice ? Visibility.Collapsed : Visibility.Visible;
+            stage.Visibility = perDevice ? Visibility.Visible : Visibility.Collapsed;
             tools.Visibility = perDevice ? Visibility.Visible : Visibility.Collapsed;
             sensor.Visibility = modes.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
             if (!perDevice) { preview.LedEditing = preview.MapEditing = false; stage.Children[1].Visibility = Visibility.Collapsed; }
@@ -203,22 +217,36 @@ public sealed class LightingWorkspace : UserControl
         };
         edit.Content = "Paint LEDs"; map.Content = "Arrange case";
         var effectsBody = new StackPanel(); Header(effectsBody, "Effects", 15);
-        var effectScroll = (ScrollViewer)inspectorChildren[1]; effectScroll.MaxHeight = 300; effectsBody.Children.Add(effectScroll);
+        var effectScroll = (ScrollViewer)inspectorChildren[1]; effectScroll.MaxHeight = 260; effectsBody.Children.Add(effectScroll);
 
-        var controlBody = new StackPanel(); Header(controlBody, "Colour", 15);
+        var controlBody = new StackPanel();
+        var colourRow = new Grid { Margin = new(0, 0, 0, 18) }; colourRow.ColumnDefinitions.Add(new() { Width = new GridLength(168) }); colourRow.ColumnDefinitions.Add(new());
+        var colourControls = new StackPanel(); Grid.SetColumn(colourControls, 1); colourRow.Children.Add(colourControls);
+        Header(colourControls, "COLOUR \u00b7 EVERYTHING", 11);
+        var swatches = new UniformGrid { Columns = 4, Margin = new(0, 8, 0, 0) };
+        foreach (var colour in new[] { "#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF", "#F4F5F7" })
+        {
+            var button = new Button { Width = 60, Height = 34, MinHeight = 34, Padding = new(0), Margin = new(0, 0, 8, 8), Background = new SolidColorBrush(ColorUtil.Parse(colour, Colors.White)) };
+            button.Click += (_, _) => model?.SelectColorCommand.Execute(colour); swatches.Children.Add(button);
+        }
+        colourControls.Children.Add(swatches);
         var wheel = new ColorWheel { Width = 160, Height = 160, RingMode = true, HorizontalAlignment = HorizontalAlignment.Center };
         wheel.SetBinding(ColorWheel.ColorHexProperty, new Binding("ColorEntry") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
-        controlBody.Children.Add(wheel);
+        colourRow.Children.Add(wheel); controlBody.Children.Add(colourRow);
         var advanced = new StackPanel();
         foreach (var child in inspectorChildren.Skip(2))
         {
-            if (ReferenceEquals(child, devices)) continue;
-            if (ReferenceEquals(child, brightness) || ReferenceEquals(child, speed) || ReferenceEquals(child, baseColors)) controlBody.Children.Add(child);
-            else if (child is TextBlock label && (label.Text.StartsWith("Brightness") || label.Text.StartsWith("Speed"))) controlBody.Children.Add(child);
+            if (ReferenceEquals(child, devices) || ReferenceEquals(child, baseColors)) continue;
+            if (ReferenceEquals(child, brightness)) colourControls.Children.Add(child);
+            else if (child is TextBlock label && label.Text.StartsWith("Brightness")) colourControls.Children.Add(child);
             else advanced.Children.Add(child);
         }
+        var brightnessPresets = new UniformGrid { Columns = 4 };
+        foreach (var amount in new[] { 25, 50, 80, 100 }) { var button = new Button { Content = amount == 100 ? "Max" : amount + "%", Margin = new(0, 0, 6, 0), Padding = new(4), MinHeight = 36 }; button.Click += (_, _) => { if (model is not null) model.BrightnessPercent = amount; }; brightnessPresets.Children.Add(button); }
+        colourControls.Children.Add(brightnessPresets);
         controlBody.Children.Add(effectsBody);
-        controlBody.Children.Add(wholeCase);
+        advanced.Children.Add(wholeCase);
+        advanced.Children.Add(new Expander { Header = "More effects", Content = extraEffects });
         controlBody.Children.Add(new Expander { Header = "Advanced", Content = advanced, Margin = new(0, 16, 0, 0) });
         inspector.Children.Add(new GlassCard { Content = controlBody });
         SizeChanged += (_, _) => Responsive();
@@ -245,18 +273,29 @@ public sealed class LightingWorkspace : UserControl
     }
     private void BuildGallery()
     {
-        gallery.Children.Clear();
+        gallery.Children.Clear(); extraEffects.Children.Clear();
         if (model is null) return;
-        foreach (var effect in model.Effects)
+        string[] preferred = ["Static", "Breathing", "RainbowWave", "Aurora", "Comet", "Fire", "OceanRipple", "Rain", "Strobing"];
+        foreach (var effect in model.Effects.OrderBy(e => Array.IndexOf(preferred, e.Effect.ToString()) is var index && index >= 0 ? index : 99))
         {
             var content = new StackPanel();
-            var strip = new LedStrip { EffectKind = effect.Effect, Height = 28, Width = 96, LedCount = 12 };
-            strip.SetBinding(LedStrip.ColorHexProperty, new Binding("ColorEntry"));
-            content.Children.Add(strip);
-            content.Children.Add(new TextBlock { Text = effect.Name, FontWeight = FontWeights.SemiBold, Margin = new(4, 8, 0, 2), TextWrapping = TextWrapping.Wrap });
-            var button = new Button { Content = content, Width = 116, Padding = new(6), Margin = new(0, 0, 8, 8), ToolTip = effect.Subtitle, Tag = effect };
+            var treatment = new Border { Height = 34, CornerRadius = new(9), Margin = new(0, 0, 0, 8) };
+            string[] colours = effect.Effect.ToString() switch
+            {
+                "Breathing" => ["#167184", "#36D6FF", "#167184"], "RainbowWave" => ["#F5A524", "#3DDC84", "#36D6FF", "#B26BFF"],
+                "Aurora" => ["#36D6FF", "#6A85FF", "#B26BFF"], "Comet" => ["#0D0E12", "#0D0E12", "#36D6FF"],
+                "Fire" => ["#F5A524", "#FFE96A", "#FF4D1A"], "OceanRipple" => ["#36D6FF", "#12354A", "#244F9C"],
+                "Rain" => ["#36D6FF", "#12303B", "#36D6FF"], _ => [model.ColorHex, model.ColorHex]
+            };
+            var gradient = new LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(1, 0) };
+            for (int i = 0; i < colours.Length; i++) gradient.GradientStops.Add(new(ColorUtil.Parse(colours[i], Colors.White), i / (double)(colours.Length - 1)));
+            treatment.Background = gradient;
+            content.Children.Add(treatment);
+            content.Children.Add(new TextBlock { Text = effect.Effect.ToString() switch { "Strobing" => "Strobe", "Fire" => "Fire", "Rain" => "Rain", "OceanRipple" => "Ocean", _ => effect.Name }, FontSize = 13, FontWeight = FontWeights.SemiBold });
+            var button = new Button { Content = content, Height = 80, Padding = new(10), HorizontalContentAlignment = HorizontalAlignment.Stretch, ToolTip = effect.Subtitle, Tag = effect };
             button.Click += (_, _) => model?.SelectEffectCommand.Execute(effect);
-            gallery.Children.Add(button);
+            if (preferred.Contains(effect.Effect.ToString())) gallery.Children.Add(button);
+            else { button.Width = 130; button.Margin = new(0, 0, 8, 8); extraEffects.Children.Add(button); }
         }
     }
     private void Changed(object? sender, PropertyChangedEventArgs args) => Refresh();
