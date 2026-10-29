@@ -34,6 +34,16 @@ public static class Commands
     public const string SetLamp = "setLamp";             // args: { "on": true, "brightness": 1..100, "follow": "pc|average|own", "color": "#RRGGBB" }
     public const string ApplyScene = "applyScene";       // args: { "name": "Gaming" }
     public const string StartSpeedTest = "startSpeedTest";
+
+    // --- Added 2026-10-29 (protocol 1, additive) ---
+    public const string SetLedColors = "setLedColors";   // args: { "device": "<id>", "colors": ["#RRGGBB", ... one per LED], "layer": "custom|overlay" }
+                                                         //   custom  = the device shows exactly these colours (effect "Custom")
+                                                         //   overlay = colours with alpha "#RRGGBBAA" painted over the running effect; "#00000000" = untouched
+    public const string ClearLedColors = "clearLedColors"; // args: { "device": "<id>" }  removes custom/overlay colours for that device
+    public const string ResizeZone = "resizeZone";       // args: { "device": "<id>", "zone": 0, "size": 30 }  ARGB headers start at 0 LEDs
+    public const string SetLampToken = "setLampToken";   // args: { "host": "192.168.x.x", "token": "<32 hex>" }  stored DPAPI-encrypted by the service, never echoed back
+    public const string SetRouterPassword = "setRouterPassword"; // args: { "password": "..." }  stored DPAPI-encrypted, never echoed back
+    public const string SetServiceOptions = "setServiceOptions"; // args: { "openRgbPath": "...", "launchOpenRgb": true, "routerEnabled": true, "routerHost": "192.168.0.1" }
 }
 
 public sealed record Request(int Id, string Command, JsonElement? Args = null);
@@ -63,7 +73,15 @@ public sealed record SystemState(
 public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent);
 public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve);
 public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices);
-public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Connected, bool Synced, int LedCount);
+public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Connected, bool Synced, int LedCount,
+    IReadOnlyList<RgbZoneState>? Zones = null,
+    IReadOnlyList<string>? CustomColors = null,     // "#RRGGBB" per LED when the device is in Custom, else null
+    IReadOnlyList<string>? OverlayColors = null);   // "#RRGGBBAA" per LED painted over the effect, else null
+
+/// <summary>One OpenRGB zone. LED indexes are device-wide: this zone covers [FirstLed, FirstLed + LedCount).</summary>
+public sealed record RgbZoneState(string Name, string Type, int FirstLed, int LedCount, int MinLeds, int MaxLeds,
+    IReadOnlyList<string>? LedNames = null,
+    int MatrixWidth = 0, int MatrixHeight = 0, IReadOnlyList<int>? Matrix = null); // Matrix: LED index per cell, -1 = empty
 public sealed record LampState(string Model, bool Connected, bool On, int Brightness, string Color, string Follow, string Transport);
 public sealed record RouterState(
     bool Connected, string? Network, string? Band, int? Score, int? Bars, string? Verdict, string? Sentence,
