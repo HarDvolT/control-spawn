@@ -19,6 +19,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private readonly IHealthProbe healthProbe;
     private readonly ConcurrentDictionary<string, string> warnings = new();
     private readonly FakeInputs inputs = new();
+    private readonly SensorLighting sensorLighting = new();
     private readonly EventEffects eventEffects = new();
     private readonly IAudioLevels? audioLevels;
     private readonly IScreenZones? screenZones;
@@ -155,7 +156,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lamps.FirstOrDefault(), routerState, health) with { Lamps = lamps };
             var frame = FrameInputs();
             static string Hex(RgbColor? color) { var c = color ?? RgbColor.Black; return $"#{c.R:X2}{c.G:X2}{c.B:X2}"; }
-            return DeviceNames.Apply(state with { Appliances = appliances.States, Lighting = state.Lighting with { Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
+            return DeviceNames.Apply(state with { Appliances = appliances.States, Lighting = state.Lighting with { BindingReadings = sensorLighting.Readings(value.Bindings), Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
                 Hex(frame.ScreenLeft), Hex(frame.ScreenCentre), Hex(frame.ScreenRight)) } }, value.Devices, value.Discovery);
         }
     }
@@ -310,7 +311,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     continue;
                 }
                 RgbDeviceState[] current; lock (stateGate) current = devices;
-                foreach (var device in current.Where(d => (failsafe && value.Events.FanFailsafe) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false))
+                foreach (var device in current.Where(d => (failsafe && value.Events.FanFailsafe) || value.Bindings.Keys.Any(k => k == d.Id || k.StartsWith(d.Id + "/zone/", StringComparison.Ordinal)) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false))
                 {
                     if (!mock && !directModes.Contains(device.Id))
                     { using var directTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); directTimeout.CancelAfter(TimeSpan.FromSeconds(2)); await ((OpenRgbClient)rgb).SetDirectModeAsync(rgbIndices[device.Id], directTimeout.Token); directModes.Add(device.Id); }
@@ -352,7 +353,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         var positions = CaseMap.Positions(device, CaseMap.Placement(value.Map, device, current), value.Map);
         var rendered = SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, positions, device.Id, device.Kind, FrameInputs());
         var colors = LedLayers.Composite(rendered, layer?.Custom, layer?.Overlay, layer?.CustomEnabled == true || value.Lighting.Effect == LightingEffect.Custom);
-        return eventEffects.Composite(colors, positions, time, value.Events);
+        var sensorState = GetState(value);
+        colors = sensorLighting.Composite(device, value.Bindings, sensorState, time, colors, value.Lighting.Brightness);
+        return eventEffects.Composite(colors, positions, time, value.Events, SensorLighting.AlertLeds(device, value.Bindings, sensorState));
     }
 
     private async Task LampAsync(CancellationToken token)
@@ -392,6 +395,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         if (Observe) await Task.Delay(Timeout.Infinite, token);
         ILampClient? lamp = initial;
         int credentials = Volatile.Read(ref lampCredentials), revision = lampRevisions.GetValueOrDefault(lampId); string? connectedHost = null;
+        SensorBinding? appliedSensorBinding = null;
+        bool sensorDriving = false;
         LampConfiguration? applied = null; string transport = mock ? "mock" : "not configured";
         LampSync? sync = lamp is null ? null : new(lamp, clock);
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
@@ -458,7 +463,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     }
                     if (lamp is null) continue;
                     if (mock) connectedHost = config.Host;
-                    if (config != applied)
+                    var currentSensorBinding = value.Bindings.GetValueOrDefault(lampId);
+                    bool driveSensor = currentSensorBinding is not null && SensorSources.Read(GetState(value), currentSensorBinding.Source).HasValue;
+                    if (config != applied || appliedSensorBinding != currentSensorBinding || sensorDriving != driveSensor)
                     {
                         await lamp.SetPowerAsync(config.On, token);
                         if (lamp is MiioLampClient m)
@@ -466,14 +473,15 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         if (lamp is YeelightClient y)
                         { await y.SetBrightnessAsync(config.Brightness, token); if (config.Kelvin is { } k) await y.SetColorTemperatureAsync(k, token); }
                         if (config.Follow == "own" && config.Kelvin is null) await lamp.SetColorAsync(LightingConfiguration.ParseColor(config.Color), token);
-                        applied = config;
+                        applied = config; appliedSensorBinding = currentSensorBinding; sensorDriving = driveSensor;
                     }
-                    if (config.On && config.Follow != "own")
+                    if (config.On && (config.Follow != "own" || driveSensor))
                     {
                         RgbDeviceState[] current; lock (stateGate) current = devices;
                         double time = clock.Elapsed.TotalSeconds;
                         IReadOnlyList<RgbColor> colors;
-                        if (config.Follow is "pc" or "map")
+                        if (config.Follow == "own") colors = [LightingConfiguration.ParseColor(config.Color)];
+                        else if (config.Follow is "pc" or "map")
                         {
                             MapPoint[] point = [value.Map.Lamps?.GetValueOrDefault(lampId) ?? config.MapPoint ?? CaseMap.LampPoint(value.Map, current, lampId, value.ConfiguredLamps.ToList().FindIndex(l => l.Id == lampId))];
                             var rendered = SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, point, kind: "strip", input: FrameInputs());
@@ -481,6 +489,14 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         }
                         else colors = current.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false)
                             .SelectMany(d => RenderDevice(value, d, current, time)).ToArray();
+                        if (value.Bindings.ContainsKey(lampId))
+                        {
+                            var sensorDevice = new RgbDeviceState(lampId, config.Name, "Lamp", true, true, 1);
+                            var sensorState = GetState(value);
+                            IReadOnlyList<RgbColor> normal = [colors.Count > 0 ? new RgbColor((byte)colors.Average(c => c.R), (byte)colors.Average(c => c.G), (byte)colors.Average(c => c.B)) : RgbColor.Black];
+                            colors = sensorLighting.Composite(sensorDevice, value.Bindings, sensorState, time, normal, value.Lighting.Brightness);
+                            colors = eventEffects.Composite(colors, [new(0.5, 0.5)], time, value.Events, SensorLighting.AlertLeds(sensorDevice, value.Bindings, sensorState));
+                        }
                         await sync!.PushAsync(colors, LampColorSelection.Average, cancellationToken: token);
                     }
                     if (lamp is MiioLampClient poll && clock.Elapsed >= nextPoll)

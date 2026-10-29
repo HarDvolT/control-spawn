@@ -38,6 +38,7 @@ public sealed partial class MockPrismClient : PrismClientBase
     private FanMode _fanMode = FanMode.Standard;
     private EffectParameters _parameters = new();
     private LightingMap _map = new([]);
+    private readonly Dictionary<string, SensorBinding> _bindings = new();
     private EventEffectOptions _events = new();
     private readonly Dictionary<string, (LightingEffect Effect, string Color, double Brightness, double Speed, EffectParameters Parameters)> _lightingScenes = new();
     private LightingEffect _effect = LightingEffect.Smart;
@@ -168,7 +169,8 @@ public sealed partial class MockPrismClient : PrismClientBase
                 Zone("Board", 0, 2), Zone("LED strip / ARGB header", 2, _stripSize, 120))
         };
 
-        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events);
+        system = system with { Disks = system.Disks.Select(d => d with { ActivityPercent = 50 + 40 * Math.Sin(t) }).ToArray(), GpuMemoryJunction = 65 + 10 * Math.Sin(t * 0.3) };
+        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events, Bindings: new Dictionary<string, SensorBinding>(_bindings));
         var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "miio", "lamp:470875761", firstLampName, 470875761, "192.0.2.1");
 
         var rsrp5 = Math.Round(-97 + Math.Sin(t * 0.11) * 3);
@@ -247,6 +249,22 @@ public sealed partial class MockPrismClient : PrismClientBase
                 case Commands.GetState:
                     response = new Response(0, true, null,
                         JsonSerializer.SerializeToElement(_last ?? BuildState(), PipeContract.Json));
+                    break;
+                case Commands.SetSensorBinding:
+                    try
+                    {
+                        if (element is not { } a) throw new ArgumentException("Missing binding.");
+                        var sensorTarget = a.GetProperty("target").GetString() ?? "";
+                        var state = BuildState();
+                        if (!SensorSources.ValidTarget(sensorTarget, state.Lighting.Devices, (state.Lamps ?? []).Select(l => l.Id ?? ""))) throw new ArgumentException("Unknown sensor target.");
+                        if (a.TryGetProperty("source", out var source) && source.ValueKind != JsonValueKind.Null)
+                        {
+                            var binding = a.Deserialize<SensorBinding>(PipeContract.Json)!; SensorSources.Validate(binding); _bindings[sensorTarget] = binding;
+                        }
+                        else _bindings.Remove(sensorTarget);
+                        publish = BuildState(); response = new(0, true);
+                    }
+                    catch (Exception e) when (e is ArgumentException or JsonException or KeyNotFoundException or InvalidOperationException) { response = new(0, false, "Invalid sensor binding."); }
                     break;
                 case Commands.SetEffectParams:
                 case Commands.SetLightingMap:

@@ -39,6 +39,7 @@ public static class Commands
     public const string GetState = "getState";           // one StateMessage in Response.Data
     public const string SetFanMode = "setFanMode";       // args: { "group": "Radiator|Case fans", "mode": "Silent|Standard|Turbo|Full|Custom" }
     public const string SetFanCurve = "setFanCurve";     // args: { "group": "...", "points": [[t,%] x8], "source": "Cpu|Motherboard|Gpu|Maximum" }
+    public const string SetSensorBinding = "setSensorBinding";
     public const string SetLighting = "setLighting";     // args: { "effect": "Static|...", "color": "#RRGGBB", "brightness": 0..1, "speed": 0..2 }
     public const string SetDeviceSync = "setDeviceSync"; // args: { "device": "<id>", "enabled": true }
     public const string SetLamp = "setLamp";             // args: { "lamp"?: id (default first), "on"?: true, "brightness"?: 1..100, "follow"?: "pc|average|own|map", "color"?: "#RRGGBB", "name"?: string }
@@ -87,12 +88,12 @@ public sealed record SystemState(
     double? RamUsedGb, double? RamTotalGb, IReadOnlyList<double?> DimmTemps,
     double? BoardTemp,
     IReadOnlyList<DiskState> Disks,
-    double? NetDownMbps, double? NetUpMbps);
+    double? NetDownMbps, double? NetUpMbps, double? GpuMemoryJunction = null);
 
-public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent);
+public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent, double? ActivityPercent = null);
 public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve);
 public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices,
-    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null);
+    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null);
 public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Connected, bool Synced, int LedCount,
     IReadOnlyList<RgbZoneState>? Zones = null,
     IReadOnlyList<string>? CustomColors = null,     // "#RRGGBB" per LED when the device is in Custom, else null
@@ -142,3 +143,11 @@ public sealed record EventEffectOptions(bool PingSpike = true, bool PoorSignal =
 // Optional capture telemetry for the app preview; never contains captured pixels or audio samples.
 public sealed record ReactiveInputState(IReadOnlyList<double> AudioBands, double Beat,
     string ScreenLeft, string ScreenCentre, string ScreenRight);
+
+public enum SensorStyle { ColourGradient, FillBar, BreathingSpeed, Brightness, Threshold }
+public sealed record SensorAlert(double Threshold);
+public sealed record SensorBinding(string Source, double Min, double Max,
+    SensorStyle Style = SensorStyle.ColourGradient, IReadOnlyList<PaletteStop>? Palette = null,
+    double Smoothing = 0.5, SensorAlert? Alert = null, bool AutoLearn = false, double Hysteresis = 2);
+
+public sealed record SensorBindingReading(double? Value, double Min, double Max, double Normalized, bool Alert, string? Reason);

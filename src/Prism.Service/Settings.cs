@@ -34,6 +34,7 @@ public sealed record ServiceSettings
     public Dictionary<int, FanConfiguration> HeaderFans { get; init; } = new();
     public Dictionary<string, FanConfiguration> Fans { get; init; } = new() { ["Radiator"] = new(), ["Case fans"] = new() };
     public LightingConfiguration Lighting { get; init; } = new();
+    public Dictionary<string, SensorBinding> Bindings { get; init; } = new();
     public LightingMap Map { get; init; } = new([]);
     public EventEffectOptions Events { get; init; } = new();
     public Dictionary<string, bool> SyncedDevices { get; init; } = new();
@@ -85,6 +86,8 @@ public sealed record ServiceSettings
         if (ZoneSizes.Any(d => string.IsNullOrWhiteSpace(d.Key) || d.Value is null || d.Value.Any(z => z.Key < 0 || z.Value < 0 || z.Value > ushort.MaxValue)))
             throw new ArgumentException("Invalid zone size.");
         ValidateOptions(OpenRgbPath, LaunchOpenRgb, RouterHost);
+        if (Bindings is null) throw new ArgumentException("Missing sensor bindings.");
+        foreach (var binding in Bindings) { if (string.IsNullOrWhiteSpace(binding.Key) || binding.Value is null) throw new ArgumentException("Invalid sensor target."); SensorSources.Validate(binding.Value); }
         LightingValidation.Map(Map);
         if (Events is null) throw new ArgumentException("Missing event options.");
         ValidateLighting(Lighting); ValidateLamp(Lamp);

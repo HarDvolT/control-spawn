@@ -36,6 +36,30 @@ internal static class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         foreach (var file in new[] { "Themes/Prism.xaml", "Views/PageTemplates.xaml" })
             app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/Prism.App;component/" + file, UriKind.Relative) });
+        if (args.Contains("--sensor"))
+        {
+            var sensorClient = new MockPrismClient();
+            sensorClient.SendAsync(Prism.Core.Ipc.Commands.SetSensorBinding, new { target = "gpu", source = "gpu.temperature", min = 35, max = 85, smoothing = 0.5 }).GetAwaiter().GetResult();
+            sensorClient.SendAsync(Prism.Core.Ipc.Commands.SetSensorBinding, new { target = "ram", source = "cpu.load", min = 0, max = 100, style = "FillBar" }).GetAwaiter().GetResult();
+            var sensorModel = new LightingViewModel(sensorClient); sensorModel.Apply(sensorClient.CurrentState);
+            var sensorPanel = new SensorBindingPanel { DataContext = sensorModel };
+            Render(sensorPanel, Path.Combine(output, "Sensor-panel.png"), 370);
+            var sourcePicker = sensorPanel.Children.OfType<ComboBox>().Last();
+            var sourcePopup = (Popup)sourcePicker.Template.FindName("PART_Popup", sourcePicker);
+            Render((FrameworkElement)sourcePopup.Child, Path.Combine(output, "Sensor-sources.png"), 370);
+            Render(new LightingWorkspace { DataContext = sensorModel }, Path.Combine(output, "Sensor-wide.png"), 1100);
+            Render(new LightingWorkspace { DataContext = sensorModel }, Path.Combine(output, "Sensor-narrow.png"), 700);
+            Render(new CaseMapPreview { DataContext = sensorModel, Height = 500, PreviewTime = 1 }, Path.Combine(output, "Sensor-case-map.png"), 700);
+            sensorModel.Apply(sensorClient.CurrentState with { System = sensorClient.CurrentState.System with { CpuLoad = null } });
+            Render(new SensorBindingPanel { DataContext = sensorModel }, Path.Combine(output, "Sensor-missing.png"), 370);
+            Render(new CaseMapPreview { DataContext = sensorModel, Height = 500, PreviewTime = 1 }, Path.Combine(output, "Sensor-fallback.png"), 700);
+            sensorClient.SendAsync(Prism.Core.Ipc.Commands.SetSensorBinding, new { target = "gpu", source = "gpu.temperature", min = 35, max = 85, alert = new { threshold = 40 } }).GetAwaiter().GetResult();
+            sensorModel.Apply(sensorClient.CurrentState);
+            Render(new CaseMapPreview { DataContext = sensorModel, Height = 500, PreviewTime = 1.25 }, Path.Combine(output, "Sensor-alert.png"), 700);
+            File.WriteAllText(Path.Combine(output, "bindings.log"), errors.ToString());
+            sensorClient.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            return errors.Length == 0 ? 0 : 2;
+        }
         VerifyControls(output);
         var client = new MockPrismClient();
         var settings = new AppSettings { ReduceAnimations = true };

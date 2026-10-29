@@ -16,6 +16,7 @@ namespace Prism.App.Controls;
 /// <summary>Shared spatial renderer for gallery cards, the whole-PC preview and LED painting.</summary>
 public sealed class CaseMapPreview : FrameworkElement
 {
+    private readonly SensorLighting sensorLighting = new();
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1d / 30) };
     private LightingViewModel? model;
@@ -110,6 +111,8 @@ public sealed class CaseMapPreview : FrameworkElement
                 // Paint drafts are visible immediately on the shared canvas.
                 colors = LedLayers.Composite(colors, custom, overlay, device.CustomEnabled || editor?.Device?.Id == device.Id && editor.Layer == "custom" && editor.HasCustomLayer || scene.Effect == LightingEffect.Custom).ToArray();
             }
+            if (!mini && model?.State is { } sensorState)
+                colors = sensorLighting.Composite(device, sensorState.Lighting.Bindings, sensorState, time, colors, scene.Brightness).ToArray();
             if (!mini && device.Zones is not null)
                 for (int z = 0; z < device.Zones.Count; z++)
                 {
@@ -158,7 +161,13 @@ public sealed class CaseMapPreview : FrameworkElement
             {
                 var lp = Pixel(CaseMap.LampPoint(map, devices, item.Id ?? "unresolved", lampHits.Count));
                 lampHits.Add((lp, item.Id ?? "unresolved"));
-                dc.DrawEllipse(Brush(item.Color), new Pen(Brush("#E4E4E7"), 1.5), lp, 10, 10);
+                var lampColor = Palettes.Parse(item.Color);
+                if (model?.State is { } lampState && item.Id is { } lampId)
+                {
+                    var lampDevice = new RgbDeviceState(lampId, item.Name ?? "Lamp", "Lamp", true, true, 1);
+                    lampColor = sensorLighting.Composite(lampDevice, lampState.Lighting.Bindings, lampState, time, [lampColor], scene.Brightness)[0];
+                }
+                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(lampColor.R, lampColor.G, lampColor.B)), new Pen(Brush("#E4E4E7"), 1.5), lp, 10, 10);
                 Label(dc, item.Name ?? "Lamp", new(lp.X > ActualWidth * 0.7 ? lp.X - 76 : lp.X + 14, lp.Y - 22), 10, Brush("#E4E4E7"));
             }
             var point = Pixel(CaseMap.LampPoint(map, devices));

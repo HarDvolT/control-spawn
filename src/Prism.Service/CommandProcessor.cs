@@ -159,6 +159,19 @@ public sealed partial class CommandProcessor
                 }
                 case Commands.ApplianceProperties:
                     await runtime.SetApplianceAsync(RegistryDevice(a), a.GetProperty("values"), cancellationToken); return new(request.Id, true);
+                case Commands.SetSensorBinding:
+                {
+                    var target = Text(a, "target"); var state = runtime.GetState(Settings);
+                    if (!SensorSources.ValidTarget(target, state.Lighting.Devices, Settings.ConfiguredLamps.Select(l => l.Id))) throw new ArgumentException("Unknown sensor target.");
+                    var bindings = new Dictionary<string, SensorBinding>(Settings.Bindings);
+                    if (a.TryGetProperty("source", out var source) && source.ValueKind != JsonValueKind.Null)
+                    {
+                        var binding = a.Deserialize<SensorBinding>(PipeContract.Json) ?? throw new ArgumentException("Missing binding.");
+                        SensorSources.Validate(binding); bindings[target] = binding;
+                    }
+                    else bindings.Remove(target);
+                    next = Settings with { Bindings = bindings }; break;
+                }
                 case Commands.SetEffectParams:
                     next = Settings with { Lighting = Settings.Lighting with { Parameters = a.GetProperty("parameters").Deserialize<EffectParameters>(PipeContract.Json) ?? throw new ArgumentException("Missing parameters.") } }; break;
                 case Commands.SetLightingMap:

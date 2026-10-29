@@ -122,6 +122,7 @@ public sealed class LightingWorkspace : UserControl
         Button(transform, "Flip", () => { if (preview.SelectedPlacement is { } p) _ = preview.TransformSelectionAsync(p.Rotation, !p.Flip); });
         Button(transform, "Reset map", () => { if (model is not null) _ = model.SetMapAsync(CaseMap.Default(model.State?.Lighting.Devices ?? CaseMapPreview.DemoDevices)); });
         preview.SelectionChanged += () => { suppress = true; rotation.Value = preview.SelectedPlacement?.Rotation ?? 0; suppress = false; };
+        canvasPanel.Children.Add(new SensorBindingPanel());
         canvasPanel.Children.Add(editor);
         Header(inspector, "Effect gallery", 20);
         inspector.Children.Add(new ScrollViewer { Content = gallery, MaxHeight = 380, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Margin = new(0, 12, 0, 12) });

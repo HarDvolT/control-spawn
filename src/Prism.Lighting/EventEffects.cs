@@ -8,7 +8,7 @@ public sealed class EventEffects
     private readonly object gate = new();
     private readonly Dictionary<LightingEventKind, double> started = new();
     public void Trigger(LightingEventKind kind, double time) { lock (gate) started[kind] = time; }
-    public RgbColor[] Composite(IReadOnlyList<RgbColor> source, IReadOnlyList<MapPoint> positions, double time, EventEffectOptions options)
+    public RgbColor[] Composite(IReadOnlyList<RgbColor> source, IReadOnlyList<MapPoint> positions, double time, EventEffectOptions options, IReadOnlySet<int>? sensorAlerts = null)
     {
         KeyValuePair<LightingEventKind, double>? active;
         lock (gate)
@@ -22,6 +22,7 @@ public sealed class EventEffects
         var result = source.ToArray();
         for (int i = 0; i < result.Length; i++)
         {
+            if (selected.Key != LightingEventKind.FanFailsafe && sensorAlerts?.Contains(i) == true) continue;
             double radius = Math.Sqrt(Math.Pow(positions[i].X - 0.5, 2) + Math.Pow(positions[i].Y - 0.5, 2));
             double amount = selected.Key switch {
                 LightingEventKind.FanFailsafe => (int)(age * 10) % 2 == 0 ? 1 : 0.1,
