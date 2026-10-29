@@ -57,3 +57,14 @@ Motion
 ## 4. Copy
 Plain words, sentence case, no developer values. Devices get friendly default names: "RAM stick 1", "Graphics card",
 "Motherboard", "Case fans & strip", "Desk lamp", "Bedside lamp", "Air fryer". Units always shown (°C, %, rpm, W, GHz).
+
+## 5. Must-keep power features (user, 2026-10-29)
+The v2 Lighting page is simpler on the surface, but nothing from v1 is removed:
+- **Per-LED painting** (brush, fill, gradient, eyedropper, eraser, range, Exact/Overlay layers, presets) lives under
+  Lighting → "Per device" → pick a device → "Paint LEDs". The case twin becomes the canvas.
+- **Arrange the case map** (drag, **rotate**, flip every device and ARGB zone, move the lamps' sample points) lives under
+  Lighting → "Per device" → "Arrange case", so spatial effects (Aurora, Comet, Rain, Ocean, waves…) flow in the right
+  direction across the real case. Rotation in 15° steps plus free angle; snap to the case outline; live preview while
+  dragging; Reset to default layout.
+- Sensor-driven lighting lives under the "Sensor" mode chip.
+Page agents must carry these over with the new components, not drop them.
