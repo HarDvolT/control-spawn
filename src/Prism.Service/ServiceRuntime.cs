@@ -238,7 +238,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 if (next.Success && (sampleHistory.Count == 0 || sampleHistory.Last().Timestamp < next.Timestamp))
                 {
                     sampleHistory.Enqueue(new(next.Timestamp, system.CpuLoad, system.CpuTemp, system.GpuLoad,
-                        system.GpuTemp, routerState?.PingMs, system.NetDownMbps, system.NetUpMbps));
+                        system.GpuTemp, routerState?.PingMs, system.NetDownMbps, system.NetUpMbps,
+                        FanMap.Discover(next.Sensors, controls.Headers).ToDictionary(f => f.Header,
+                            f => next.Sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{f.Header - 1}"))?.Value)));
                     while (sampleHistory.Count > 3600) sampleHistory.Dequeue();
                 }
                 Volatile.Write(ref reactive, new(system.CpuLoad ?? 0, system.GpuLoad ?? 0,

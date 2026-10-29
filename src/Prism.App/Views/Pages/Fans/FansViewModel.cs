@@ -46,6 +46,25 @@ public sealed class FansViewModel : PageViewModel
         Refresh();
     }
 
+    private int selectedCurvePoint = 2;
+    public int SelectedCurvePoint { get => selectedCurvePoint; set { if (Set(ref selectedCurvePoint, value)) OnPropertyChanged(nameof(PointLabel)); } }
+    public string PointLabel => $"Point {SelectedCurvePoint + 1} of {Curve.Count}";
+    public RelayCommand<string> NudgePointCommand => new(direction =>
+    {
+        if (IsPumpSelected || SelectedCurvePoint < 0 || SelectedCurvePoint >= Curve.Count) return;
+        var point = Curve[SelectedCurvePoint];
+        double low = SelectedCurvePoint == 0 ? 0 : Curve[SelectedCurvePoint - 1].Temperature + 1;
+        double high = SelectedCurvePoint == Curve.Count - 1 ? 100 : Curve[SelectedCurvePoint + 1].Temperature - 1;
+        Curve[SelectedCurvePoint] = direction switch
+        {
+            "up" => point with { Percent = Math.Clamp(point.Percent + 5, 0, 100) },
+            "down" => point with { Percent = Math.Clamp(point.Percent - 5, 0, 100) },
+            "cooler" => point with { Temperature = Math.Clamp(point.Temperature - 5, low, high) },
+            "hotter" => point with { Temperature = Math.Clamp(point.Temperature + 5, low, high) }, _ => point
+        };
+        OnCurveEdited();
+    });
+
     public string Headline => State is null ? "Waiting for your fans" : State.Health.FanFailsafeActive ? "BIOS is keeping things safe" : "Quiet and cool";
     public string SafetyText => State?.Health.FanFailsafeActive == true ? "Failsafe active · BIOS control" : "BIOS hand-back is armed";
     public IReadOnlyList<FanGroupItem> HeaderRows => State?.Fans.OrderBy(f => f.Header).Select(f => new FanGroupItem(f.Name, $"HEADER {f.Header}", Format.Rpm(f.Rpm), f.IsPump ? 100 : f.Percent ?? 0, f.IsPump, 1, f.Header)).ToArray() ?? [];
@@ -149,6 +168,7 @@ public sealed class FansViewModel : PageViewModel
                 Format.RpmShort(fan.Rpm), percent, fan.IsPump, spin, fan.Header);
             var existing = Fans.FirstOrDefault(f => f.Id == next.Id);
             if (existing is null) { Fans.Add(next); existing = next; } else existing.Update(next);
+            existing.SetHistory((state.History ?? []).Select(s => s.FanRpms?.GetValueOrDefault(fan.Header)).Where(v => v.HasValue && double.IsFinite(v.Value)).Select(v => v!.Value));
             currentFans.Add(existing);
         }
         foreach (var removed in Fans.Where(f => !currentFans.Contains(f)).ToArray()) Fans.Remove(removed);

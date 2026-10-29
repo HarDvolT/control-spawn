@@ -37,6 +37,8 @@ public class FanCurveEditor : FrameworkElement
     ];
 
     private int _dragIndex = -1;
+    public static readonly DependencyProperty SelectedIndexProperty = DependencyProperty.Register(nameof(SelectedIndex), typeof(int), typeof(FanCurveEditor), new FrameworkPropertyMetadata(2, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+    public int SelectedIndex { get => (int)GetValue(SelectedIndexProperty); set => SetValue(SelectedIndexProperty, value); }
     private const double Pad = 12;
 
     public FanCurveEditor()
@@ -109,6 +111,7 @@ public class FanCurveEditor : FrameworkElement
         }
         if (best < 0) return;
         _dragIndex = best;
+        SelectedIndex = best;
         CaptureMouse();
         e.Handled = true;
     }
@@ -152,14 +155,17 @@ public class FanCurveEditor : FrameworkElement
         var height = ActualHeight;
         if (width <= 4 || height <= 4) return;
 
-        var grid = ColorUtil.Brush(Color.FromArgb(30, 255, 255, 255));
-        for (var gridX = Pad; gridX < width - Pad; gridX += 18)
-            for (var y = Pad; y < height - Pad; y += 18)
-                dc.DrawEllipse(grid, null, new Point(gridX, y), 0.8, 0.8);
-
+        dc.DrawRoundedRectangle(ColorUtil.Brush(Color.FromRgb(13, 14, 18)), null, new Rect(Pad, Pad, Math.Max(0, width - Pad * 2), Math.Max(0, height - Pad * 2)), 12, 12);
+        var grid = new Pen(ColorUtil.Brush(Color.FromArgb(12, 255, 255, 255)), 1);
+        for (int i = 0; i <= 4; i++)
+        {
+            double gridX = Pad + i / 4d * (width - Pad * 2), y = Pad + i / 4d * (height - Pad * 2);
+            dc.DrawLine(grid, new Point(Pad, y), new Point(width - Pad, y));
+            dc.DrawLine(grid, new Point(gridX, Pad), new Point(gridX, height - Pad));
+        }
         var points = Current;
         var geometry = BuildCurve(points, width, height, out var area);
-        dc.DrawGeometry(ColorUtil.Brush(ColorUtil.WithAlpha(AccentColor, 0.07)), null, area);
+        dc.DrawGeometry(ColorUtil.Brush(ColorUtil.WithAlpha(AccentColor, 0.18)), null, area);
         dc.DrawGeometry(null, new Pen(ColorUtil.Brush(ColorUtil.WithAlpha(AccentColor, 0.22)), 8)
         {
             LineJoin = PenLineJoin.Round,
@@ -178,6 +184,7 @@ public class FanCurveEditor : FrameworkElement
             var p = Position(point, width, height);
             dc.DrawEllipse(ColorUtil.Brush(ColorUtil.WithAlpha(AccentColor, 0.28)), null, p, 10, 10);
             dc.DrawEllipse(ColorUtil.Brush(Color.FromRgb(10, 10, 11)), new Pen(ColorUtil.Brush(AccentColor), 2.5), p, 6.5, 6.5);
+            if (SelectedIndex >= 0 && SelectedIndex < points.Count && points[SelectedIndex] == point) dc.DrawEllipse(null, new Pen(Brushes.WhiteSmoke, 3), p, 8, 8);
         }
 
         if (!double.IsFinite(NowTemperature)) return;

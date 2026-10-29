@@ -86,7 +86,8 @@ public sealed record StateMessage(
 
 /// <summary>Real service samples; null measurements remain gaps rather than invented readings.</summary>
 public sealed record TelemetrySample(DateTimeOffset Timestamp, double? CpuLoad, double? CpuTemp,
-    double? GpuLoad, double? GpuTemp, double? PingMs, double? NetDownMbps, double? NetUpMbps);
+    double? GpuLoad, double? GpuTemp, double? PingMs, double? NetDownMbps, double? NetUpMbps,
+    IReadOnlyDictionary<int, double?>? FanRpms = null);
 
 public sealed record SystemState(
     double? CpuLoad, IReadOnlyList<double?> CpuCoreLoads, double? CpuClockMhz, double? CpuTemp, double? CpuPowerW,

@@ -1,4 +1,5 @@
 using Prism.App.Navigation;
+using Prism.App.Common;
 using Prism.App.Services;
 using Prism.Core;
 using Prism.Core.Ipc;
@@ -236,6 +237,11 @@ public sealed class FanGroupItem : ObservableObject
     public bool IsPump { get; private set; }
     public double SpinSeconds { get; private set; }
     public string Id { get; private set; }
+
+    public IReadOnlyList<double> History { get; private set; } = [];
+    public string MinimumText => History.Count > 0 ? History.Min().ToString("N0") : Format.Dash;
+    public string MaximumText => History.Count > 0 ? History.Max().ToString("N0") : Format.Dash;
+    public void SetHistory(IEnumerable<double> values) { History = values.ToArray(); OnPropertyChanged(string.Empty); }
 
     public void Update(FanGroupItem item)
     { Name = item.Name; Sub = item.Sub; RpmText = item.RpmText; Percent = item.Percent; IsPump = item.IsPump; SpinSeconds = item.SpinSeconds; OnPropertyChanged(string.Empty); }
