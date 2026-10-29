@@ -10,7 +10,9 @@ public enum PageKey
     Lamp,
     Scenes,
     Modem,
-    Settings
+    Settings,
+    Devices,
+    Appliances
 }
 
 public sealed record PageDefinition(PageKey Key, string Title, string Group, string Glyph, string Subtitle);
@@ -21,6 +23,8 @@ public static class Pages
     [
         new(PageKey.Dashboard, "Dashboard", "GENERAL", "▦", "Overview of everything"),
         new(PageKey.Monitor, "Monitor", "GENERAL", "⌁", "CPU, GPU, memory, storage and network"),
+        new(PageKey.Devices, "Devices", "GENERAL", "\u25C7", "Find and set up devices"),
+        new(PageKey.Appliances, "Air fryer", "TOOLS", "\u25F4", "Cooking status and controls"),
         new(PageKey.Widgets, "Widgets", "GENERAL", "▤", "Desktop widgets and startup"),
         new(PageKey.Lighting, "Lighting", "TOOLS", "◐", "RGB effects and devices"),
         new(PageKey.Fans, "Fans", "TOOLS", "❋", "Fan modes and curves"),

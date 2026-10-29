@@ -11,7 +11,9 @@ public enum SearchAction
     LightsOff,
     ToggleWidgets,
     StartSpeedTest,
-    MeasureFans
+    MeasureFans,
+    FindDevices,
+    ImportTokens
 }
 
 /// <summary>One thing the command search can do.</summary>
@@ -35,6 +37,8 @@ public sealed class CommandSearch
 
     public CommandSearch()
     {
+        _entries.Add(new SearchEntry("Find devices", "Discover new hardware", "COMMAND", SearchAction.FindDevices, "find", "discover detect lamps rgb fans network"));
+        _entries.Add(new SearchEntry("Import tokens", "Paste or drop extractor output", "COMMAND", SearchAction.ImportTokens, "import", "xiaomi token file json csv"));
         foreach (var page in Pages.All)
             _entries.Add(new SearchEntry(page.Title, page.Subtitle, page.Group, SearchAction.Navigate,
                 page.Key.ToString(), page.Group + " page open " + page.Title));

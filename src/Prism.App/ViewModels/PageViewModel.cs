@@ -180,7 +180,7 @@ public sealed class FanGroupItem : ObservableObject
 {
     private bool _isSelected;
 
-    public FanGroupItem(string name, string sub, string rpmText, double percent, bool isPump, double spinSeconds)
+    public FanGroupItem(string name, string sub, string rpmText, double percent, bool isPump, double spinSeconds, int header = 0)
     {
         Name = name;
         Sub = sub;
@@ -188,14 +188,19 @@ public sealed class FanGroupItem : ObservableObject
         Percent = percent;
         IsPump = isPump;
         SpinSeconds = spinSeconds;
+        Id = $"fan:{header}";
     }
 
-    public string Name { get; }
-    public string Sub { get; }
-    public string RpmText { get; }
-    public double Percent { get; }
-    public bool IsPump { get; }
-    public double SpinSeconds { get; }
+    public string Name { get; private set; }
+    public string Sub { get; private set; }
+    public string RpmText { get; private set; }
+    public double Percent { get; private set; }
+    public bool IsPump { get; private set; }
+    public double SpinSeconds { get; private set; }
+    public string Id { get; private set; }
+
+    public void Update(FanGroupItem item)
+    { Name = item.Name; Sub = item.Sub; RpmText = item.RpmText; Percent = item.Percent; IsPump = item.IsPump; SpinSeconds = item.SpinSeconds; OnPropertyChanged(string.Empty); }
 
     public bool IsSelected
     {

@@ -21,6 +21,7 @@ public sealed class FansViewModel : PageViewModel
     private FanMode _mode = FanMode.Standard;
     private string _selectedModeName = "Standard";
     private string _selectedFanName = "Radiator";
+    private int selectedHeader = 2;
     private bool _suppressMode;
     private double _nowTemp = 48;
     private double _nowPercent = 45;
@@ -36,7 +37,7 @@ public sealed class FansViewModel : PageViewModel
         PageTitle = "Fans";
         foreach (var pair in DefaultCurves) _curves[pair.Key] = new List<FanPoint>(pair.Value);
 
-        SelectFanCommand = new RelayCommand<FanGroupItem>(item => SelectFan(item?.Name ?? "Radiator"));
+        SelectFanCommand = new RelayCommand<FanGroupItem>(item => SelectFan(item));
         SelectModeCommand = new RelayCommand<string>(name => SelectedModeName = name ?? "Standard");
         ApplyCurveCommand = new RelayCommand(() => _ = ApplyCurveAsync());
         MeasureCommand = new RelayCommand(() => _ = MeasureAsync());
@@ -76,14 +77,17 @@ public sealed class FansViewModel : PageViewModel
 
     public string ModeName => _mode == FanMode.Full ? "Full speed" : _mode.ToString();
 
+    public string SelectedFanId => $"fan:{selectedHeader}";
+    private string SelectedFanGroup => selectedHeader == 2 ? "Radiator" : selectedHeader == 6 ? "Case fans" : SelectedFanId;
+
     public string SelectedFanName
     {
         get => _selectedFanName;
         private set
         {
             if (!Set(ref _selectedFanName, value)) return;
-            foreach (var fan in Fans) fan.IsSelected = fan.Name == value;
-            IsPumpSelected = string.Equals(value, "AIO pump", StringComparison.OrdinalIgnoreCase);
+            foreach (var fan in Fans) fan.IsSelected = fan.Id == SelectedFanId;
+            IsPumpSelected = selectedHeader == 7;
             LoadCurve(_mode);
             UpdateNow();
         }
@@ -131,19 +135,24 @@ public sealed class FansViewModel : PageViewModel
             return;
         }
 
-        var selected = _selectedFanName;
-        Fans.Clear();
+        _selectedFanName = state.Fans.FirstOrDefault(f => f.Header == selectedHeader)?.Name ?? _selectedFanName;
+        var currentFans = new List<FanGroupItem>();
         foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
         {
             var percent = fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? 0, 0, 100);
             var spin = Math.Max(0.3, 3000.0 / Math.Max(fan.Rpm ?? 300, 300));
-            Fans.Add(new FanGroupItem(fan.Name,
+            var next = new FanGroupItem(fan.Name,
                 $"Header {fan.Header} · {fan.Name}",
-                Format.RpmShort(fan.Rpm), percent, fan.IsPump, spin));
+                Format.RpmShort(fan.Rpm), percent, fan.IsPump, spin, fan.Header);
+            var existing = Fans.FirstOrDefault(f => f.Id == next.Id);
+            if (existing is null) { Fans.Add(next); existing = next; } else existing.Update(next);
+            currentFans.Add(existing);
         }
-        foreach (var fan in Fans) fan.IsSelected = fan.Name == selected;
-        if (Fans.Count > 0 && Fans.All(f => !f.IsSelected)) _selectedFanName = Fans[0].Name;
-        IsPumpSelected = string.Equals(_selectedFanName, "AIO pump", StringComparison.OrdinalIgnoreCase);
+        foreach (var removed in Fans.Where(f => !currentFans.Contains(f)).ToArray()) Fans.Remove(removed);
+        foreach (var fan in Fans) fan.IsSelected = fan.Id == SelectedFanId;
+        if (Fans.Count > 0 && Fans.All(f => !f.IsSelected))
+        { _selectedFanName = Fans[0].Name; selectedHeader = int.Parse(Fans[0].Id.AsSpan(4)); Fans[0].IsSelected = true; }
+        IsPumpSelected = selectedHeader == 7;
 
         if (state.FanMode != _mode)
         {
@@ -169,11 +178,16 @@ public sealed class FansViewModel : PageViewModel
         OnPropertyChanged(nameof(NowPercentText));
     }
 
-    private void SelectFan(string name)
+    private void SelectFan(FanGroupItem? item)
     {
-        if (string.IsNullOrWhiteSpace(name)) return;
+        if (item is null) return;
+        string name = item.Name;
         SaveCurve();
+        selectedHeader = int.TryParse(item.Id.AsSpan(4), out var header) && header > 0 ? header : State?.Fans.FirstOrDefault(f => f.Name == name)?.Header ?? selectedHeader;
+        foreach (var fan in Fans) fan.IsSelected = fan.Id == SelectedFanId;
+        IsPumpSelected = selectedHeader == 7;
         SelectedFanName = name;
+        OnPropertyChanged(nameof(SelectedFanId));
         OnPropertyChanged(nameof(CurveSubtitle));
     }
 
@@ -233,7 +247,7 @@ public sealed class FansViewModel : PageViewModel
     private async Task SetFanModeAsync(FanMode mode)
     {
         if (IsPumpSelected) return;
-        await RunAsync(() => Client.SetFanModeAsync(SelectedFanName, mode));
+        await RunAsync(() => Client.SetFanModeAsync(SelectedFanGroup, mode));
     }
 
     private async Task ApplyCurveAsync()
@@ -248,7 +262,7 @@ public sealed class FansViewModel : PageViewModel
             _ => TemperatureSource.Cpu
         };
         var points = Curve.Select(p => new FanPoint(p.Temperature, Math.Clamp(p.Percent, MinSpeed, 100))).ToList();
-        await RunAsync(() => Client.SetFanCurveAsync(SelectedFanName, points, source));
+        await RunAsync(() => Client.SetFanCurveAsync(SelectedFanGroup, points, source));
         MeasureText = HasError ? LastError! : "Curve applied";
     }
 

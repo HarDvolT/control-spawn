@@ -161,7 +161,7 @@ public static class FanMap
             double rpm = readings.Where(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" &&
                 s.Id.EndsWith($"/fan/{n - 1}", StringComparison.Ordinal)).Select(s => s.Value ?? 0).DefaultIfEmpty().Max();
             if (n is 2 or 6 or 7 || rpm > 0)
-                groups.Add(new(n, n switch { 2 => "Radiator", 6 => "Case fans", 7 => "AIO pump", _ => $"Empty header {n}" },
+                groups.Add(new(n, n switch { 2 => "Radiator", 6 => "Case fans", 7 => "AIO pump", _ => $"Fan header {n}" },
                     rpm, n != 7 && controls.Contains(n), n == 7));
         }
         return groups.AsReadOnly();

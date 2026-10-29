@@ -14,7 +14,8 @@ public enum WidgetKind
     Modem,
     Ping,
     Network,
-    Scenes
+    Scenes,
+    AirFryer
 }
 
 public enum WidgetSize { Small, Medium, Large }
@@ -137,6 +138,7 @@ public static class WidgetNames
         WidgetKind.Ping => "Ping",
         WidgetKind.Network => "Network",
         WidgetKind.Scenes => "Scenes",
+        WidgetKind.AirFryer => "Air fryer",
         _ => kind.ToString()
     };
 
@@ -152,6 +154,7 @@ public static class WidgetNames
         WidgetKind.Ping => "Live latency graph",
         WidgetKind.Network => "Down / up speed",
         WidgetKind.Scenes => "One-tap switcher",
+        WidgetKind.AirFryer => "Status and one-click cancel",
         _ => string.Empty
     };
 }

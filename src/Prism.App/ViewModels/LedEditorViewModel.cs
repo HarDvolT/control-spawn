@@ -6,6 +6,7 @@ namespace Prism.App.ViewModels;
 
 public sealed class LedEditorViewModel(IPrismClient client, LedPresetStore? presets = null) : ObservableObject
 {
+    public IPrismClient Client => client;
     private readonly LedPresetStore presets = presets ?? new();
     private readonly Dictionary<string, string[]> drafts = new();
     private readonly Dictionary<string, int> versions = new();
@@ -66,7 +67,7 @@ public sealed class LedEditorViewModel(IPrismClient client, LedPresetStore? pres
     {
         string? id = Device?.Id;
         var incoming = state.Lighting.Devices;
-        if (Devices.Count == incoming.Count && Devices.Zip(incoming).All(p => p.First.Id == p.Second.Id &&
+        if (Devices.Count == incoming.Count && Devices.Zip(incoming).All(p => p.First.Id == p.Second.Id && p.First.Name == p.Second.Name &&
             p.First.LedCount == p.Second.LedCount && p.First.Connected == p.Second.Connected &&
             (p.First.CustomColors ?? []).SequenceEqual(p.Second.CustomColors ?? []) &&
             (p.First.OverlayColors ?? []).SequenceEqual(p.Second.OverlayColors ?? []))) return;

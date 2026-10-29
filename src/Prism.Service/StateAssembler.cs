@@ -45,7 +45,7 @@ public static class StateAssembler
         var fans = FanMap.Discover(sensors, controls).Select(f => new FanState(f.Header, f.Name,
             sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{f.Header - 1}"))?.Value,
             sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Control" && s.Id.EndsWith($"/control/{f.Header - 1}"))?.Value,
-            f.CanControl, f.IsPump, f.IsPump ? "Fixed 100%" : settings.Fans.GetValueOrDefault(f.Name)?.Mode.ToString() ?? "BIOS")).ToArray();
+            f.CanControl, f.IsPump, f.IsPump ? "Fixed 100%" : (settings.HeaderFans.GetValueOrDefault(f.Header) ?? settings.Fans.GetValueOrDefault(f.Name))?.Mode.ToString() ?? "BIOS")).ToArray();
         return new(snapshot.Timestamp, system, fans, settings.Fans["Radiator"].Mode,
             new(settings.Lighting.Effect, settings.Lighting.Color, settings.Lighting.Brightness, settings.Lighting.Speed, devices, settings.Lighting.GetParameters(), settings.Map, settings.Events), lamp, router, health);
     }

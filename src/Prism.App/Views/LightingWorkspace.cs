@@ -211,15 +211,18 @@ public sealed class LightingWorkspace : UserControl
         palette.InvalidateVisual(); preview.InvalidateVisual();
         status.Text = model.LastError ?? model.SavedText;
         foreach (Button b in gallery.Children) b.BorderBrush = ((EffectOption)b.Tag).Effect == model.Effect ? new SolidColorBrush(ColorUtil.Accent) : new SolidColorBrush(Color.FromRgb(63, 63, 70));
-        var signature = string.Join(";", model.Devices.Select(d => $"{d.Id}:{d.Synced}:{p.Devices?.GetValueOrDefault(d.Id, true) != false}"));
+        var signature = string.Join(";", model.Devices.Select(d => $"{d.Id}:{d.Name}:{d.Synced}:{p.Devices?.GetValueOrDefault(d.Id, true) != false}"));
         if (signature != deviceSignature)
         {
             deviceSignature = signature; devices.Children.Clear();
             foreach (var d in model.Devices)
             {
-                var toggle = new CheckBox { Foreground = Brushes.WhiteSmoke, Content = d.Name, IsChecked = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false, Margin = new(0, 8, 14, 8) };
+                var toggle = new CheckBox { Foreground = Brushes.WhiteSmoke, ToolTip = d.Name, IsChecked = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false, Margin = new(0, 8, 8, 8) };
                 toggle.Click += (_, _) => { d.Synced = toggle.IsChecked == true; model.SetDeviceCommand.Execute(d); _ = model.SetParametersAsync(model.Parameters with { Devices = new Dictionary<string, bool>(model.Parameters.Devices ?? new Dictionary<string, bool>()) { [d.Id] = d.Synced } }); };
-                devices.Children.Add(toggle);
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new(0, 0, 12, 8) };
+                row.Children.Add(toggle);
+                row.Children.Add(new DeviceNameEditor { DeviceId = d.Id, DisplayName = d.Name, Client = model.Client, Margin = new(0, 8, 0, 8) });
+                devices.Children.Add(row);
             }
         }
         suppress = false;
@@ -251,7 +254,7 @@ public sealed class EventOptionsPanel : StackPanel
     public EventOptionsPanel()
     {
         Children.Add(new TextBlock { Text = "Event effects", FontSize = 17, FontWeight = FontWeights.SemiBold, Margin = new(0, 12, 0, 8) });
-        foreach (var label in new[] { "Ping spike · amber ripple", "Poor router signal · red ripple", "Fan failsafe · red strobe", "Scene change · white sweep", "Notifications" })
+        foreach (var label in new[] { "Ping spike Â· amber ripple", "Poor router signal Â· red ripple", "Fan failsafe Â· red strobe", "Scene change Â· white sweep", "Notifications" })
         {
             var toggle = new CheckBox { Foreground = Brushes.WhiteSmoke, Content = label, IsChecked = true, Margin = new(0, 5, 0, 5) }; toggles.Add(toggle); Children.Add(toggle);
             toggle.Click += async (_, _) => {

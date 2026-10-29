@@ -113,6 +113,7 @@ public sealed class LedEditor : UserControl
             AddButton(tabs, d.Name, () => { selectedZone = null; model.Device = d; Build(); });
             var button = (Button)tabs.Children[tabs.Children.Count - 1];
             if (model.Device?.Id == d.Id && selectedZone is null) button.BorderBrush = new SolidColorBrush(ColorUtil.Accent);
+            button.Content = new DeviceNameEditor { DeviceId = d.Id, DisplayName = d.Name, Client = model.Client };
             if (d.Zones is not null)
                 for (int z = 0; z < d.Zones.Count; z++)
                 {

@@ -1,5 +1,7 @@
 <?xml version="1.0" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:v="clr-namespace:Prism.App.Views">
+  <DataTemplate DataType="{x:Type vm:DevicesViewModel}"><v:DevicesWorkspace/></DataTemplate>
+  <DataTemplate DataType="{x:Type vm:AppliancesViewModel}"><v:AppliancesWorkspace/></DataTemplate>
   <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
     <StackPanel>
       <TextBlock Text="{Binding Greeting}" Style="{StaticResource H1}" TextWrapping="Wrap" Margin="0,4"/>
@@ -267,7 +269,7 @@
                 <c:FanRotor SpinSeconds="{Binding SpinSeconds}" Margin="0,0,12,0">
                   <c:FanRotor.Style><Style TargetType="c:FanRotor"><Setter Property="Color" Value="#A1A1AA"/><Style.Triggers><DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Color" Value="#FF4D1A"/></DataTrigger></Style.Triggers></Style></c:FanRotor.Style>
                 </c:FanRotor>
-                <StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" FontWeight="SemiBold"/><TextBlock Text="{Binding Sub}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,4,6,0"/></StackPanel>
+                <StackPanel Grid.Column="1"><c:DeviceNameEditor DeviceId="{Binding Id}" DisplayName="{Binding Name}" Client="{Binding DataContext.Client, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/><TextBlock Text="{Binding Sub}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,4,6,0"/></StackPanel>
                 <TextBlock Grid.Column="2" Text="{Binding RpmText}" Style="{StaticResource Number}" VerticalAlignment="Center" ToolTip="Live RPM"/>
               </Grid>
               <Border Background="{StaticResource TrackBrush}" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left" Margin="0,10,0,0" Visibility="{Binding IsPump, Converter={StaticResource BoolToVisibility}}"><StackPanel Orientation="Horizontal"><Path Data="M2 6 L2 3 A3 3 0 0 1 8 3 L8 6 M1 6 L9 6 L9 12 L1 12 Z" Stroke="{StaticResource TextSecondaryBrush}" StrokeThickness="1.2" Width="10" Height="13" Margin="0,0,5,0"/><TextBlock Text="Fixed 100%" FontSize="11"/></StackPanel></Border>
@@ -278,7 +280,7 @@
       </ItemsControl>
       <c:GlassCard Margin="0,0,0,18" StaggerIndex="0">
         <StackPanel>
-          <TextBlock Text="{Binding SelectedFanName}" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+          <c:DeviceNameEditor DeviceId="{Binding SelectedFanId}" DisplayName="{Binding SelectedFanName}" Client="{Binding Client}"/>
           <TextBlock Text="{Binding CurveSubtitle}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
           <TextBlock Text="Follows" Style="{StaticResource Muted}" Margin="0,10,0,0"/><ComboBox IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}" AutomationProperties.Name="Follows temperature" ItemsSource="{Binding Sources}" SelectedItem="{Binding SourceName}" Margin="0,10"/>
           <c:FanCurveEditor Height="300" Points="{Binding Curve}" NowTemperature="{Binding NowTemp}" NowPercent="{Binding NowPercent}" IsEnabled="{Binding IsPumpSelected, Converter={StaticResource InverseBool}}"/>
@@ -326,9 +328,9 @@
           <TextBlock Text="{Binding Host}"/>
         </StackPanel></DataTemplate></ListBox.ItemTemplate>
       </ListBox>
-      <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding LampName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Lamp name"/>
+      <c:DeviceNameEditor DeviceId="{Binding SelectedLamp.Id}" DisplayName="{Binding SelectedLamp.Name}" Client="{Binding Client}"/>
       <StackPanel Orientation="Horizontal" Margin="0,8">
-        <Button Content="Rename" Command="{Binding RenameCommand}"/>
+
         <Button Content="Remove" Command="{Binding RemoveCommand}" Margin="12,0"/>
       </StackPanel>
       <TextBlock Text="{Binding Host}"/>
@@ -625,6 +627,10 @@
     <StackPanel>
       <c:GlassCard Margin="0,0,0,18" StaggerIndex="3">
         <StackPanel>
+          <TextBlock Text="Device discovery" Style="{StaticResource H2}" Margin="0,4"/>
+          <CheckBox Content="Notify me when new devices are found" IsChecked="{Binding NotifyNewDevices}" Margin="0,6"/>
+          <CheckBox Content="Auto-join new RGB devices to sync" IsChecked="{Binding AutoJoinNewRgb}" Margin="0,6"/>
+          <CheckBox Content="Flash event lights when cooking finishes" IsChecked="{Binding CookingLightFlash}" Margin="0,6"/>
           <TextBlock Text="Startup and background" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
           <DockPanel Margin="0,9">
             <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding StartWithWindows, Mode=TwoWay}" AutomationProperties.Name="Start with Windows"/>

@@ -74,6 +74,8 @@ public sealed class MainViewModel : ObservableObject
         Lighting = new LightingViewModel(client);
         Fans = new FansViewModel(client);
         Lamp = new LampViewModel(client);
+        Devices = new DevicesViewModel(client);
+        Appliances = new AppliancesViewModel(client);
         Scenes = new ScenesViewModel(client, settings, settingsStore);
         Modem = new ModemViewModel(client);
         Settings = new SettingsViewModel(client, settingsStore, startup, settings);
@@ -89,6 +91,8 @@ public sealed class MainViewModel : ObservableObject
             [PageKey.Lamp] = Lamp,
             [PageKey.Scenes] = Scenes,
             [PageKey.Modem] = Modem,
+            [PageKey.Devices] = Devices,
+            [PageKey.Appliances] = Appliances,
             [PageKey.Settings] = Settings
         };
         _currentPage = Dashboard;
@@ -122,6 +126,8 @@ public sealed class MainViewModel : ObservableObject
     public LightingViewModel Lighting { get; }
     public FansViewModel Fans { get; }
     public LampViewModel Lamp { get; }
+    public DevicesViewModel Devices { get; }
+    public AppliancesViewModel Appliances { get; }
     public ScenesViewModel Scenes { get; }
     public ModemViewModel Modem { get; }
     public SettingsViewModel Settings { get; }
@@ -248,6 +254,10 @@ public sealed class MainViewModel : ObservableObject
                 Modem.SelectedView = "Speed";
                 _ = RunCommandAsync(() => _client.StartSpeedTestAsync());
                 break;
+            case SearchAction.FindDevices:
+                Navigate(PageKey.Devices); Devices.FindCommand.Execute(null); break;
+            case SearchAction.ImportTokens:
+                Navigate(PageKey.Devices); Devices.RequestImport(); break;
             case SearchAction.MeasureFans:
                 Navigate(PageKey.Fans);
                 break;

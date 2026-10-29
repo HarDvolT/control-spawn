@@ -24,11 +24,14 @@ public sealed record LightingConfiguration(LightingEffect Effect = LightingEffec
     }
 }
 public sealed record LampConfiguration(string? Host = null, bool On = true, int Brightness = 60,
-    string Color = "#FF4D1A", string Follow = "own", int? Kelvin = null, string Id = "unresolved", string Name = "Lamp", uint? DeviceId = null, string? LastHost = null, MapPoint? MapPoint = null);
+    string Color = "#FF4D1A", string Follow = "own", int? Kelvin = null, string Id = "unresolved", string Name = "Lamp", uint? DeviceId = null, string? LastHost = null, MapPoint? MapPoint = null, string Transport = "miio");
 public sealed record SceneConfiguration(FanMode Fans, LightingConfiguration Lighting, LampConfiguration Lamp);
 public sealed record LedConfiguration(string[]? Custom = null, string[]? Overlay = null, bool CustomEnabled = false);
 public sealed record ServiceSettings
 {
+    public IReadOnlyList<DeviceState> Devices { get; init; } = [];
+    public DiscoveryOptions Discovery { get; init; } = new();
+    public Dictionary<int, FanConfiguration> HeaderFans { get; init; } = new();
     public Dictionary<string, FanConfiguration> Fans { get; init; } = new() { ["Radiator"] = new(), ["Case fans"] = new() };
     public LightingConfiguration Lighting { get; init; } = new();
     public LightingMap Map { get; init; } = new([]);
@@ -54,6 +57,14 @@ public sealed record ServiceSettings
 
     public void Validate()
     {
+        if (Devices is null || Discovery is null || HeaderFans is null || Devices.Select(d => d.Id).Distinct().Count() != Devices.Count) throw new ArgumentException("Invalid device registry.");
+        foreach (var d in Devices) if (d.UserName is not null) _ = DeviceRegistry.Rename(d, d.UserName);
+        foreach (var h in HeaderFans)
+        {
+            if (h.Key is < 1 or > 7 or 7 || !Enum.IsDefined(h.Value.Mode) || !Enum.IsDefined(h.Value.Source) ||
+                h.Value.Points?.Any(p => p.Temperature < 0 || p.Temperature > 120 || p.Percent < 0 || p.Percent > 100) == true) throw new ArgumentException("Invalid fan header.");
+            _ = h.Value.ToSettings();
+        }
         if (Fans is null || Lighting is null || Lamp is null || Scenes is null || SyncedDevices is null) throw new ArgumentException("Settings cannot be null.");
         if (Fans.Count != 2 || !Fans.ContainsKey("Radiator") || !Fans.ContainsKey("Case fans")) throw new ArgumentException("Only Radiator and Case fans are configurable.");
         foreach (var fan in Fans.Values)

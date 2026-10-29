@@ -24,6 +24,16 @@ public static class PipeContract
 /// <summary>Commands a client may send. Anything else is answered with Ok = false.</summary>
 public static class Commands
 {
+    public const string FindDevices = "findDevices";
+    public const string DismissDevice = "dismissDevice";
+    public const string SetupDevice = "setupDevice";
+    public const string RenameDevice = "renameDevice";
+    public const string ImportTokens = "importTokens";
+    public const string SetDiscoveryOptions = "setDiscoveryOptions";
+    public const string ApplianceProperties = "applianceProperties";
+    public const string PrepareApplianceStart = "prepareApplianceStart";
+    public const string ConfirmApplianceStart = "confirmApplianceStart";
+    public const string ApplianceAction = "applianceAction";
     public const string Hello = "hello";                 // args: { "version": 1, "client": "app|widget" }
     public const string Subscribe = "subscribe";         // start receiving state pushes
     public const string GetState = "getState";           // one StateMessage in Response.Data
@@ -66,7 +76,9 @@ public sealed record StateMessage(
     LampState? Lamp,
     RouterState? Router,
     ServiceHealth Health,
-    string Type = "state", IReadOnlyList<LampState>? Lamps = null);
+    string Type = "state", IReadOnlyList<LampState>? Lamps = null,
+    IReadOnlyList<DeviceState>? Devices = null, IReadOnlyList<DeviceState>? NewDevices = null,
+    IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null);
 
 public sealed record SystemState(
     double? CpuLoad, IReadOnlyList<double?> CpuCoreLoads, double? CpuClockMhz, double? CpuTemp, double? CpuPowerW,

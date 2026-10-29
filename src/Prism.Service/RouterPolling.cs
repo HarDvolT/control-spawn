@@ -5,6 +5,7 @@ namespace Prism.Service;
 
 public interface IRouterBackend : IDisposable
 {
+    IReadOnlyList<DeviceState>? ConnectedDevices() => null;
     RouterState Poll();
     Task<SpeedTestResult?> TestSpeedAsync(CancellationToken token);
 }
@@ -17,6 +18,16 @@ public sealed class FakeRouterBackend : IRouterBackend
 /// <summary>One shared router client and one saved session; called by a single polling loop.</summary>
 public sealed class RouterBackend : IRouterBackend
 {
+    public IReadOnlyList<DeviceState>? ConnectedDevices()
+    {
+        var response = client.GetDevices(); if (response is null) return null;
+        var store = new Dictionary<string, DeviceInfo>(); var tracker = new DeviceTracker(store);
+        Devices.MergeRouterList(tracker, response); var now = DateTimeOffset.UtcNow;
+        return store.Where(p => Prism.Core.DeviceRegistry.NormalizeMac(p.Key) is not null).Select(p => new DeviceState(
+            "network:" + Prism.Core.DeviceRegistry.NormalizeMac(p.Key), DeviceKind.NetworkDevice,
+            string.IsNullOrWhiteSpace(p.Value.Name) ? p.Value.Ip : p.Value.Name, "router", now, now,
+            DeviceStatus.Ready, ["info"], Ip: p.Value.Ip, Mac: p.Key, Vendor: p.Value.Vendor)).ToArray();
+    }
     private readonly CredentialStore credentials;
     private readonly RouterClient client;
     private readonly Queue<PingSample> pingHistory = new();

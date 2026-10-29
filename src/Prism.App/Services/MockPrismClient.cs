@@ -11,7 +11,7 @@ namespace Prism.App.Services;
 /// Realistic changing data for `--mock`, based on the verified hardware in docs/HARDWARE.md.
 /// It never touches hardware, the router or the network.
 /// </summary>
-public sealed class MockPrismClient : PrismClientBase
+public sealed partial class MockPrismClient : PrismClientBase
 {
     private readonly object _gate = new();
     private readonly Random _random = new(20261029);
@@ -191,8 +191,8 @@ public sealed class MockPrismClient : PrismClientBase
             Math.Round(_ping), 0, null);
 
         var lamps = (firstRemoved ? Array.Empty<LampState>() : new[] { lamp }).Concat(extraLamps.Values).ToArray();
-        return new StateMessage(now, system, fans, _fanMode, lighting, lamps.FirstOrDefault(), router,
-            new ServiceHealth(true, false, Array.Empty<string>(), false), Lamps: lamps);
+        return Decorate(new StateMessage(now, system, fans, _fanMode, lighting, lamps.FirstOrDefault(), router,
+            new ServiceHealth(true, false, Array.Empty<string>(), false), Lamps: lamps));
     }
 
     private static double RpmFor(double idleRpm, FanMode mode)
@@ -228,6 +228,17 @@ public sealed class MockPrismClient : PrismClientBase
         {
             switch (command)
             {
+                case Commands.FindDevices:
+                case Commands.RenameDevice:
+                case Commands.DismissDevice:
+                case Commands.SetupDevice:
+                case Commands.ImportTokens:
+                case Commands.SetDiscoveryOptions:
+                case Commands.ApplianceProperties:
+                case Commands.PrepareApplianceStart:
+                case Commands.ConfirmApplianceStart:
+                case Commands.ApplianceAction:
+                    response = DeviceCommand(command, element); publish = BuildState(); break;
                 case Commands.Hello:
                 case Commands.Subscribe:
                 case Commands.StartSpeedTest:

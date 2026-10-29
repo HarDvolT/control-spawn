@@ -58,6 +58,7 @@ public sealed class WidgetViewModel : ObservableObject
         SelectColorCommand = new RelayCommand<string>(hex => _ = SelectColorAsync(hex ?? LightingColor));
         ToggleLampCommand = new RelayCommand(() => _ = SetLampAsync(!LampOn));
         ApplySceneCommand = new RelayCommand<string>(name => _ = ApplySceneAsync(name ?? string.Empty));
+        CancelCookingCommand = new RelayCommand<ApplianceState>(a => { var action = a?.Actions.FirstOrDefault(x => x.Name == "cancel-cooking"); if (a is not null && action is not null) _ = RunAsync(() => _client.SendAsync(Commands.ApplianceAction, new { id = a.Id, siid = action.Siid, aiid = action.Aiid })); });
     }
 
     public WidgetLayout Layout { get; }
@@ -65,6 +66,9 @@ public sealed class WidgetViewModel : ObservableObject
     public IPrismClient Client => _client;
 
     public IReadOnlyList<LampRow> LampRows { get; private set; } = [];
+    public bool IsAirFryer => Kind == WidgetKind.AirFryer;
+    public IReadOnlyList<ApplianceState> Appliances { get; private set; } = [];
+    public RelayCommand<ApplianceState> CancelCookingCommand { get; }
     public string Id => Layout.Id;
     public WidgetKind Kind => Layout.Kind;
     public string Name => WidgetNames.Name(Kind);
@@ -317,6 +321,7 @@ public sealed class WidgetViewModel : ObservableObject
         }
 
         LampRows = LampRow.From(state);
+        Appliances = state.Appliances ?? [];
         if (state.Router is { } router)
         {
             ModemNetwork = router.Network ?? "5G modem";

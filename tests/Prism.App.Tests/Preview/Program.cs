@@ -76,6 +76,20 @@ internal static class Program
             var view = (FrameworkElement)template.LoadContent(); view.DataContext = model;
             Render(view, Path.Combine(output, name + ".png"), 1020);
         }
+        // Round 8: offline mock device setup, import and appliance variants.
+        RenderPage("Devices-registry", vm.Devices);
+        vm.Devices.RequestImport();
+        RenderPage("Devices-import", vm.Devices);
+        var deviceTemplate = (DataTemplate)app.Resources[new DataTemplateKey(typeof(DevicesViewModel))];
+        var narrowDevices = (FrameworkElement)deviceTemplate.LoadContent(); narrowDevices.DataContext = vm.Devices;
+        Render(narrowDevices, Path.Combine(output, "Devices-narrow.png"), 640);
+        RenderPage("Appliance-idle", vm.Appliances);
+        var mockFryer = client.CurrentState.Appliances![0];
+        vm.Appliances.Apply(client.CurrentState with { Appliances = [mockFryer with { Status = "cooking", RemainingMinutes = 12 }] });
+        RenderPage("Appliance-cooking", vm.Appliances);
+        vm.Appliances.Apply(client.CurrentState with { Appliances = [mockFryer with { Status = "cooking", Connected = false, Warning = "Contact lost while cooking. The fryer's firmware remains in control." }] });
+        RenderPage("Appliance-offline", vm.Appliances);
+        vm.Appliances.Apply(client.CurrentState);
         // Round 7: discovered/selected second lamp, and a legacy unresolved fixture. No network or DPAPI.
         vm.Lamp.FindCommand.Execute(null);
         vm.Lamp.SelectedLamp = vm.Lamp.Lamps[1];
@@ -128,7 +142,7 @@ internal static class Program
         app.Shutdown();
         PresentationTraceSources.DataBindingSource.Flush();
         File.WriteAllText(Path.Combine(output,"bindings.log"),errors.ToString());
-        Console.WriteLine("Rendered nine pages, four modem modes and ten widget types to " + output);
+        Console.WriteLine("Rendered pages, modem modes, widgets and device/appliance variants to " + output);
         if (errors.Length > 0) { Console.Error.WriteLine(errors); return 1; }
         return 0;
     }

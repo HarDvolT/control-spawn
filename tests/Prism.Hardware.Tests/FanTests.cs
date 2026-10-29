@@ -131,7 +131,7 @@ public sealed class FanTests
             new SensorReading("/nct6701d/0/fan/2", "Fan #3", SensorCategory.Motherboard, "Fan", "rpm", 0) };
         var fans = FanMap.Discover(sensors, Enumerable.Range(1, 7).ToArray());
         Assert.Equal(new[] { 1, 2, 6, 7 }, fans.Select(f => f.Header));
-        Assert.Equal("Empty header 1", fans[0].Name); Assert.False(fans[^1].CanControl);
+        Assert.Equal("Fan header 1", fans[0].Name); Assert.False(fans[^1].CanControl);
     }
     [Fact]
     public void MemoryTotalIsDerivedFromPhysicalUsedAndAvailableAndMissingStaysNull()

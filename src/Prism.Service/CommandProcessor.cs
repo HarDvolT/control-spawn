@@ -8,6 +8,11 @@ namespace Prism.Service;
 
 public interface IServiceRuntime
 {
+    void SetDeviceObservationHandler(Func<IReadOnlyList<DeviceState>, IReadOnlyList<string>, Task> handler) { }
+    Task<IReadOnlyList<DeviceState>> FindDevicesAsync(CancellationToken token) => Task.FromResult<IReadOnlyList<DeviceState>>([]);
+    Task<string> PrepareApplianceAsync(DeviceState device, int siid, int aiid, CancellationToken token) => Task.FromException<string>(new InvalidOperationException("Appliance unavailable."));
+    Task SetApplianceAsync(DeviceState device, JsonElement values, CancellationToken token) => Task.FromException(new InvalidOperationException("Appliance unavailable."));
+    Task ActApplianceAsync(DeviceState device, int siid, int aiid, string? nonce, CancellationToken token) => Task.FromException(new InvalidOperationException("Appliance unavailable."));
     StateMessage GetState(ServiceSettings settings);
     Task ApplyAsync(ServiceSettings settings, CancellationToken cancellationToken);
     Task<RgbDeviceState> ResizeZoneAsync(string device, int zone, int size, CancellationToken cancellationToken) =>
@@ -21,7 +26,7 @@ public interface IServiceRuntime
 }
 
 /// <summary>Serialized settings commands; connection-local hello/subscribe live in PipeSession.</summary>
-public sealed class CommandProcessor
+public sealed partial class CommandProcessor
 {
     private readonly ISettingsStore store;
     private readonly IServiceRuntime runtime;
@@ -43,6 +48,7 @@ public sealed class CommandProcessor
         this.saveRouterPassword = saveRouterPassword ?? (password => { var credentials = new CredentialStore(); credentials.SavePassword(password); credentials.ForgetSession(); });
         settings = store.Load(); Settings.Validate();
         runtime.SetLampResolutionHandler(CacheLampAsync);
+        runtime.SetDeviceObservationHandler(ObserveDevicesAsync);
     }
     private async Task CacheLampAsync(string id, MiioDevice found)
     {
@@ -77,7 +83,7 @@ public sealed class CommandProcessor
         }
         finally { gate.Release(); }
     }
-    public StateMessage GetState() => runtime.GetState(Settings);
+    public StateMessage GetState() => DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery);
     public async Task<Response> HandleAsync(Request request, CancellationToken cancellationToken = default)
     {
         // A speed test must not hold the settings gate while fans/scenes need to change.
@@ -86,6 +92,12 @@ public sealed class CommandProcessor
         try
         {
             if (request.Command == Commands.GetState) return new(request.Id, true, Data: JsonSerializer.SerializeToElement(GetState(), PipeContract.Json));
+            if (request.Command == Commands.FindDevices)
+            {
+                var observations = await runtime.FindDevicesAsync(cancellationToken);
+                await SaveAsync(MergeObservations(Settings, observations, ["miio", "yeelight"]));
+                return new(request.Id, true);
+            }
             if (request.Command == Commands.DiscoverLamps)
             {
                 var found = await runtime.DiscoverLampsAsync(cancellationToken);
@@ -99,6 +111,54 @@ public sealed class CommandProcessor
             bool removedLegacyToken = false;
             switch (request.Command)
             {
+                case Commands.RenameDevice:
+                {
+                    string id = Text(a, "id"); var device = Settings.Devices.FirstOrDefault(d => d.Id == id) ?? throw new ArgumentException("Unknown device.");
+                    bool reset = a.TryGetProperty("reset", out var r) && r.GetBoolean();
+                    var renamed = DeviceRegistry.Rename(device, reset ? null : Text(a, "name"), reset);
+                    next = Settings with { Devices = Settings.Devices.Select(d => d.Id == id ? renamed : d).ToArray(),
+                        Lamps = Settings.ConfiguredLamps.Select(l => l.Id == id ? l with { Name = renamed.Name } : l).ToArray() }; break;
+                }
+                case Commands.DismissDevice:
+                {
+                    string id = Text(a, "id"); if (!Settings.Devices.Any(d => d.Id == id)) throw new ArgumentException("Unknown device.");
+                    next = Settings with { Devices = Settings.Devices.Select(d => d.Id == id ? d with { Dismissed = true } : d).ToArray() }; break;
+                }
+                case Commands.SetupDevice:
+                {
+                    var device = RegistryDevice(a); next = Settings;
+                    if (device.Status == DeviceStatus.NeedsToken) throw new ArgumentException("Import a token for this device first.");
+                    if (device.Kind == DeviceKind.RgbController)
+                        next = next with { SyncedDevices = new(Settings.SyncedDevices) { [device.Id] = true },
+                            Map = Settings.Map with { Devices = Settings.Map.Devices.Any(p => p.Device == device.Id) ? Settings.Map.Devices : Settings.Map.Devices.Append(new DevicePlacement(device.Id, 0.5, 0.5)).ToArray() } };
+                    if (device.Kind == DeviceKind.FanHeader && int.TryParse(device.Id.AsSpan(4), out var header) && header is not (2 or 6 or 7))
+                        next = next with { HeaderFans = new(Settings.HeaderFans) { [header] = new() } };
+                    if (device.Kind == DeviceKind.Lamp && device.Source == "yeelight" && !Settings.ConfiguredLamps.Any(l => l.Id == device.Id))
+                        next = next with { Lamps = Settings.ConfiguredLamps.Where(l => l.DeviceId is not null || l.Host is not null).Append(new LampConfiguration(Host: device.Ip, Id: device.Id, Name: device.Name, DeviceId: device.DeviceId, LastHost: device.Ip, Transport: "yeelight")).ToArray() };
+                    next = next with { Devices = next.Devices.Select(d => d.Id == device.Id ? d with { Configured = true } : d).ToArray() }; break;
+                }
+                case Commands.ImportTokens:
+                    next = Import(a); break;
+                case Commands.SetDiscoveryOptions:
+                    next = Settings with { Discovery = a.GetProperty("options").Deserialize<DiscoveryOptions>(PipeContract.Json) ?? throw new ArgumentException("Missing options.") }; break;
+                case Commands.PrepareApplianceStart:
+                {
+                    if (Text(a, "origin") != "app") throw new ArgumentException("Start is available only in the app.");
+                    var nonce = await runtime.PrepareApplianceAsync(RegistryDevice(a), a.GetProperty("siid").GetInt32(), a.GetProperty("aiid").GetInt32(), cancellationToken);
+                    return new(request.Id, true, Data: JsonSerializer.SerializeToElement(new { confirmation = nonce }));
+                }
+                case Commands.ConfirmApplianceStart:
+                    if (Text(a, "origin") != "app" || !a.GetProperty("confirmed").GetBoolean()) throw new ArgumentException("Explicit app confirmation required.");
+                    await runtime.ActApplianceAsync(RegistryDevice(a), a.GetProperty("siid").GetInt32(), a.GetProperty("aiid").GetInt32(), Text(a, "confirmation"), cancellationToken); return new(request.Id, true);
+                case Commands.ApplianceAction:
+                {
+                    var device = RegistryDevice(a); int siid = a.GetProperty("siid").GetInt32(), aiid = a.GetProperty("aiid").GetInt32();
+                    var action = MiotSpec.Load(device.Model ?? "")?.Actions.FirstOrDefault(x => x.Siid == siid && x.Aiid == aiid);
+                    if (action?.Name is not ("cancel-cooking" or "pause")) throw new ArgumentException("Cooking actions require explicit app confirmation.");
+                    await runtime.ActApplianceAsync(device, siid, aiid, null, cancellationToken); return new(request.Id, true);
+                }
+                case Commands.ApplianceProperties:
+                    await runtime.SetApplianceAsync(RegistryDevice(a), a.GetProperty("values"), cancellationToken); return new(request.Id, true);
                 case Commands.SetEffectParams:
                     next = Settings with { Lighting = Settings.Lighting with { Parameters = a.GetProperty("parameters").Deserialize<EffectParameters>(PipeContract.Json) ?? throw new ArgumentException("Missing parameters.") } }; break;
                 case Commands.SetLightingMap:
@@ -196,6 +256,13 @@ public sealed class CommandProcessor
                 case Commands.SetFanMode:
                 {
                     var group = Group(a); var mode = EnumValue<FanMode>(a, "mode");
+                    if (group.StartsWith("fan:", StringComparison.Ordinal))
+                    {
+                        int header = int.Parse(group.AsSpan(4)); var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans);
+                        var current = headers.GetValueOrDefault(header) ?? new();
+                        if (mode == FanMode.Custom && current.Points is null) throw new ArgumentException("Set a custom curve first.");
+                        headers[header] = current with { Mode = mode }; next = Settings with { HeaderFans = headers }; break;
+                    }
                     var fans = new Dictionary<string, FanConfiguration>(Settings.Fans);
                     if (mode == FanMode.Custom && fans[group].Points is null) throw new ArgumentException("Set a custom curve first.");
                     fans[group] = fans[group] with { Mode = mode }; next = Settings with { Fans = fans }; break;
@@ -208,6 +275,8 @@ public sealed class CommandProcessor
                         if (p.ValueKind != JsonValueKind.Array || p.GetArrayLength() != 2) throw new ArgumentException("Points must be [temperature,percent].");
                         return new FanPoint(p[0].GetDouble(), p[1].GetDouble());
                     }).ToArray();
+                    if (group.StartsWith("fan:", StringComparison.Ordinal))
+                    { var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans) { [int.Parse(group.AsSpan(4))] = new(FanMode.Custom, source, points) }; next = Settings with { HeaderFans = headers }; break; }
                     var fans = new Dictionary<string, FanConfiguration>(Settings.Fans) { [group] = new(FanMode.Custom, source, points) };
                     next = Settings with { Fans = fans }; break;
                 }
@@ -233,11 +302,25 @@ public sealed class CommandProcessor
                 case Commands.ApplyScene:
                     if (!Settings.Scenes.TryGetValue(Text(a, "name"), out var scene)) throw new ArgumentException("Unknown scene.");
                     next = Settings with { Fans = Settings.Fans.ToDictionary(f => f.Key, f => f.Value with { Mode = scene.Fans }),
+                        HeaderFans = Settings.HeaderFans.ToDictionary(f => f.Key, f => f.Value with { Mode = scene.Fans }),
                         Lighting = scene.Lighting, Lamp = scene.Lamp with { Host = Settings.Lamp.Host },
                         Lamps = Settings.Lamps?.Select(l => l with { On = scene.Lamp.On, Brightness = scene.Lamp.Brightness, Color = scene.Lamp.Color, Follow = scene.Lamp.Follow, Kelvin = scene.Lamp.Kelvin }).ToArray() }; break;
                 default: throw new ArgumentException("Unknown command.");
             }
             if (next.Lamps is not null) next = next with { Lamp = next.Lamps.FirstOrDefault() ?? new() };
+            if (request.Command == Commands.SetLampToken)
+            {
+                var now = DateTimeOffset.UtcNow;
+                next = next with { Devices = DeviceRegistry.Observe(next.Devices, next.ConfiguredLamps.Where(l => l.DeviceId is not null).Select(l =>
+                    new DeviceState(l.Id, DeviceKind.Lamp, l.Name, "miio", now, now, DeviceStatus.Ready, ["color", "brightness"], Model: "yeelink.light.color5", DeviceId: l.DeviceId, Ip: l.LastHost ?? l.Host, Configured: true)), now) };
+            }
+            if (request.Command == Commands.SetLamp && a.TryGetProperty("name", out var renamedName))
+            {
+                string id = a.TryGetProperty("lamp", out var selected) ? selected.GetString() ?? next.Lamp.Id : next.Lamp.Id;
+                next = next with { Devices = next.Devices.Select(d => d.Id == id ? DeviceRegistry.Rename(d, renamedName.GetString()) : d).ToArray() };
+            }
+            if (request.Command == Commands.RemoveLamp)
+                next = next with { Devices = next.Devices.Select(d => d.Id == Text(a, "lamp") ? d with { Configured = false } : d).ToArray() };
             next.Validate(); store.Save(next); Volatile.Write(ref settings, next);
             // Once persisted, a disconnect must not leave the running adapters on the old settings.
             await runtime.ApplyAsync(next, CancellationToken.None);
@@ -247,7 +330,7 @@ public sealed class CommandProcessor
             return new(request.Id, true);
         }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or KeyNotFoundException or JsonException or FormatException or OverflowException)
-        { return new(request.Id, false, request.Command is Commands.SetLampToken or Commands.SetRouterPassword ? "Credential command failed." : e.Message); }
+        { return new(request.Id, false, request.Command is Commands.SetLampToken or Commands.SetRouterPassword or Commands.ImportTokens ? "Credential command failed." : e.Message); }
         catch (System.Security.Cryptography.CryptographicException) { return new(request.Id, false, "Credentials could not be protected."); }
         catch (System.Net.Sockets.SocketException) { return new(request.Id, false, "Device connection failed."); }
         catch (IOException) { return new(request.Id, false, "Settings could not be saved."); }
@@ -282,5 +365,12 @@ public sealed class CommandProcessor
     private static T EnumValue<T>(JsonElement a, string key) where T : struct, Enum =>
         Enum.TryParse<T>(Text(a, key), false, out var value) && Enum.IsDefined(value) && !int.TryParse(Text(a, key), out _)
             ? value : throw new ArgumentException($"Invalid {key}.");
-    private static string Group(JsonElement a) => Text(a, "group") is "Radiator" or "Case fans" ? Text(a, "group") : throw new ArgumentException("Unknown or read-only fan group.");
+    private string Group(JsonElement a)
+    {
+        string group = Text(a, "group");
+        if (group is "Radiator" or "Case fans") return group;
+        if (group.StartsWith("fan:", StringComparison.Ordinal) && int.TryParse(group.AsSpan(4), out var header) && header is >= 1 and <= 6 && Settings.Devices.Any(d => d.Id == group && d.Kind == DeviceKind.FanHeader))
+            return header == 2 ? "Radiator" : header == 6 ? "Case fans" : group;
+        throw new ArgumentException("Unknown or read-only fan group.");
+    }
 }

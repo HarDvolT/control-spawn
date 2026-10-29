@@ -1,0 +1,218 @@
+{
+  "model": "careli.fryer.maf02",
+  "urn": "urn:miot-spec-v2:device:air-fryer:0000A0A4:careli-maf02:1",
+  "source": "https://home.miot-spec.com/spec/careli.fryer.maf02",
+  "properties": [
+    {
+      "siid": 2,
+      "piid": 1,
+      "name": "status",
+      "format": "uint8",
+      "readable": true,
+      "writable": false,
+      "values": {
+        "0": "off",
+        "1": "idle",
+        "2": "paused",
+        "3": "scheduled",
+        "4": "cooking",
+        "5": "preheating",
+        "6": "done",
+        "7": "preheat-done",
+        "8": "preheat-paused",
+        "9": "basket-paused"
+      }
+    },
+    {
+      "siid": 2,
+      "piid": 2,
+      "name": "fault",
+      "format": "uint8",
+      "readable": true,
+      "writable": false,
+      "values": {
+        "0": "none",
+        "1": "NTC disconnected",
+        "2": "NTC shorted"
+      }
+    },
+    {
+      "siid": 2,
+      "piid": 3,
+      "name": "target-time",
+      "format": "uint16",
+      "readable": true,
+      "writable": true,
+      "range": [
+        1,
+        1440,
+        1
+      ],
+      "unit": "minutes"
+    },
+    {
+      "siid": 2,
+      "piid": 4,
+      "name": "target-temperature",
+      "format": "uint8",
+      "readable": true,
+      "writable": true,
+      "range": [
+        40,
+        200,
+        1
+      ],
+      "unit": "celsius"
+    },
+    {
+      "siid": 2,
+      "piid": 5,
+      "name": "left-time",
+      "format": "uint16",
+      "readable": true,
+      "writable": false,
+      "range": [
+        0,
+        1440,
+        1
+      ],
+      "unit": "minutes"
+    },
+    {
+      "siid": 3,
+      "piid": 1,
+      "name": "recipe-id",
+      "format": "string",
+      "readable": true,
+      "writable": true
+    },
+    {
+      "siid": 3,
+      "piid": 3,
+      "name": "work-time",
+      "format": "uint16",
+      "readable": false,
+      "writable": true,
+      "range": [
+        1,
+        1440,
+        1
+      ]
+    },
+    {
+      "siid": 3,
+      "piid": 4,
+      "name": "work-temp",
+      "format": "uint8",
+      "readable": false,
+      "writable": true,
+      "range": [
+        40,
+        200,
+        1
+      ]
+    },
+    {
+      "siid": 3,
+      "piid": 5,
+      "name": "appoint-time",
+      "format": "uint16",
+      "readable": true,
+      "writable": true,
+      "range": [
+        0,
+        1440,
+        1
+      ]
+    },
+    {
+      "siid": 3,
+      "piid": 6,
+      "name": "food-quantity",
+      "format": "uint8",
+      "readable": true,
+      "writable": true,
+      "values": {
+        "0": "none",
+        "1": "single",
+        "2": "double",
+        "3": "half",
+        "4": "full"
+      }
+    },
+    {
+      "siid": 3,
+      "piid": 7,
+      "name": "preheat-switch",
+      "format": "uint8",
+      "readable": true,
+      "writable": true,
+      "values": {
+        "0": "unavailable",
+        "1": "off",
+        "2": "on"
+      }
+    },
+    {
+      "siid": 3,
+      "piid": 8,
+      "name": "appoint-time-left",
+      "format": "uint16",
+      "readable": true,
+      "writable": true,
+      "range": [
+        0,
+        1440,
+        1
+      ]
+    },
+    {
+      "siid": 3,
+      "piid": 10,
+      "name": "turn-pot",
+      "format": "uint8",
+      "readable": true,
+      "writable": true,
+      "values": {
+        "0": "not-needed",
+        "1": "off",
+        "2": "turn-basket"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "siid": 2,
+      "aiid": 1,
+      "name": "start-cook"
+    },
+    {
+      "siid": 2,
+      "aiid": 2,
+      "name": "cancel-cooking"
+    },
+    {
+      "siid": 2,
+      "aiid": 3,
+      "name": "pause"
+    },
+    {
+      "siid": 3,
+      "aiid": 1,
+      "name": "start-custom-cook",
+      "inputs": [
+        1,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "siid": 3,
+      "aiid": 2,
+      "name": "resume-cooking"
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+{
+  "model": "careli.fryer.maf10a",
+  "urn": "urn:miot-spec-v2:device:air-fryer:0000A0A4:careli-maf10a:1",
+  "source": "https://home.miot-spec.com/spec/careli.fryer.maf10a",
+  "properties": [
+    {
+      "siid": 2,
+      "piid": 1,
+      "name": "status",
+      "format": "uint8",
+      "readable": true,
+      "writable": false,
+      "values": {
+        "0": "off",
+        "1": "idle",
+        "2": "paused",
+        "3": "scheduled",
+        "4": "cooking",
+        "5": "preheating",
+        "6": "done",
+        "7": "preheat-done",
+        "8": "preheat-paused",
+        "9": "basket-paused",
+        "10": "keeping-warm",
+        "11": "warm-paused",
+        "12": "warm-done",
+        "13": "crispy-roast",
+        "14": "degrease"
+      }
+    },
+    {
+      "siid": 2,
+      "piid": 2,
+      "name": "fault",
+      "format": "uint8",
+      "readable": true,
+      "writable": false,
+      "values": {
+        "0": "none",
+        "1": "NTC disconnected",
+        "2": "NTC shorted",
+        "3": "NTC failed"
+      }
+    },
+    {
+      "siid": 2,
+      "piid": 3,
+      "name": "target-time",
+      "format": "uint16",
+      "readable": true,
+      "writable": true,
+      "range": [
+        1,
+        1440,
+        1
+      ],
+      "unit": "minutes"
+    },
+    {
+      "siid": 2,
+      "piid": 4,
+      "name": "target-temperature",
+      "format": "uint8",
+      "readable": true,
+      "writable": true,
+      "range": [
+        40,
+        230,
+        5
+      ],
+      "unit": "celsius"
+    },
+    {
+      "siid": 2,
+      "piid": 5,
+      "name": "left-time",
+      "format": "uint16",
+      "readable": true,
+      "writable": false,
+      "range": [
+        0,
+        1440,
+        1
+      ],
+      "unit": "minutes"
+    },
+    {
+      "siid": 2,
+      "piid": 6,
+      "name": "auto-keep-warm",
+      "format": "bool",
+      "readable": true,
+      "writable": true
+    },
+    {
+      "siid": 2,
+      "piid": 7,
+      "name": "current-keep-warm",
+      "format": "bool",
+      "readable": true,
+      "writable": true
+    },
+    {
+      "siid": 2,
+      "piid": 8,
+      "name": "mode",
+      "format": "uint8",
+      "readable": true,
+      "writable": true,
+      "values": {
+        "0": "manual",
+        "1": "fries",
+        "2": "wings",
+        "3": "steak",
+        "4": "lamb",
+        "5": "fish",
+        "6": "shrimp",
+        "7": "vegetables",
+        "8": "cake",
+        "9": "pizza",
+        "10": "defrost",
+        "11": "dried-fruit",
+        "12": "yogurt"
+      }
+    },
+    {
+      "siid": 2,
+      "piid": 9,
+      "name": "preheat",
+      "format": "bool",
+      "readable": true,
+      "writable": true
+    },
+    {
+      "siid": 2,
+      "piid": 10,
+      "name": "recipe-id",
+      "format": "string",
+      "readable": true,
+      "writable": true
+    },
+    {
+      "siid": 2,
+      "piid": 11,
+      "name": "recipe-name",
+      "format": "string",
+      "readable": true,
+      "writable": true
+    },
+    {
+      "siid": 2,
+      "piid": 12,
+      "name": "recipe-sync",
+      "format": "string",
+      "readable": true,
+      "writable": true
+    },
+    {
+      "siid": 2,
+      "piid": 13,
+      "name": "target-cooking-measure",
+      "format": "uint8",
+      "readable": true,
+      "writable": true,
+      "values": {
+        "0": "none",
+        "1": "single",
+        "2": "double",
+        "3": "half",
+        "4": "full"
+      }
+    },
+    {
+      "siid": 2,
+      "piid": 14,
+      "name": "turn-pot",
+      "format": "uint8",
+      "readable": true,
+      "writable": false,
+      "values": {
+        "0": "unknown",
+        "1": "not-needed",
+        "2": "turn-basket"
+      }
+    },
+    {
+      "siid": 2,
+      "piid": 15,
+      "name": "turn-pot-config",
+      "format": "bool",
+      "readable": true,
+      "writable": true
+    },
+    {
+      "siid": 2,
+      "piid": 16,
+      "name": "texture",
+      "format": "uint8",
+      "readable": true,
+      "writable": true,
+      "values": {
+        "0": "none",
+        "1": "crispy",
+        "2": "tender",
+        "3": "degrease"
+      }
+    },
+    {
+      "siid": 2,
+      "piid": 17,
+      "name": "reservation-left-time",
+      "format": "uint16",
+      "readable": true,
+      "writable": true,
+      "range": [
+        0,
+        2880,
+        1
+      ]
+    },
+    {
+      "siid": 2,
+      "piid": 18,
+      "name": "cooking-weight",
+      "format": "uint16",
+      "readable": true,
+      "writable": true,
+      "range": [
+        100,
+        1800,
+        1
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "siid": 2,
+      "aiid": 1,
+      "name": "start-cook"
+    },
+    {
+      "siid": 2,
+      "aiid": 2,
+      "name": "cancel-cooking"
+    },
+    {
+      "siid": 2,
+      "aiid": 3,
+      "name": "pause"
+    },
+    {
+      "siid": 2,
+      "aiid": 4,
+      "name": "resume-cook"
+    },
+    {
+      "siid": 2,
+      "aiid": 5,
+      "name": "start-recipe-cook",
+      "inputs": [
+        3,
+        4,
+        7,
+        10,
+        11,
+        13,
+        16,
+        17,
+        18
+      ]
+    }
+  ]
+}

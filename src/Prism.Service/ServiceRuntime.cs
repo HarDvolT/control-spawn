@@ -9,7 +9,7 @@ using Prism.Router;
 namespace Prism.Service;
 
 /// <summary>Owns adapters; all I/O starts inside RunAsync, never in the composition constructor.</summary>
-public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
+public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 {
     private readonly bool mock;
     private readonly IClock clock = new SystemClock();
@@ -70,7 +70,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private readonly SemaphoreSlim rgbGate = new(1, 1);
     private int lampCredentials, routerCredentials;
     private readonly ConcurrentDictionary<string, int> lampRevisions = new();
-    public void LampCredentialsChanged(string id) => lampRevisions.AddOrUpdate(id, 1, (_, revision) => revision + 1);
+    public void LampCredentialsChanged(string id) { lampRevisions.AddOrUpdate(id, 1, (_, revision) => revision + 1); nextDeviceDiscovery = TimeSpan.Zero; }
     public void CredentialsChanged(bool lamp) { if (lamp) Interlocked.Increment(ref lampCredentials); else Interlocked.Increment(ref routerCredentials); }
 
     public async Task<RgbDeviceState> ResizeZoneAsync(string device, int zone, int size, CancellationToken cancellationToken)
@@ -116,9 +116,14 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             mock ? new FakeLampClient() : null, mock ? new FakeRouterBackend() : null) { }
 
     public ServiceRuntime(bool mock, ISensorSource sensors, IFanControlPort controls, IHealthProbe healthProbe,
-        IRgbBackend rgb, ILampClient? lamp, IRouterBackend? router, IAudioLevels? audioLevels = null, IScreenZones? screenZones = null, MiioDiscovery? miioDiscovery = null, IClock? clock = null)
+        IRgbBackend rgb, ILampClient? lamp, IRouterBackend? router, IAudioLevels? audioLevels = null, IScreenZones? screenZones = null, MiioDiscovery? miioDiscovery = null, IClock? clock = null,
+        YeelightDiscovery? yeelightDiscovery = null, Func<DeviceState, CancellationToken, Task<IMiotClient>>? miotFactory = null)
     {
         this.mock = mock;
+        this.miotFactory = miotFactory ?? (mock ? (_, _) => Task.FromException<IMiotClient>(new IOException("Mock appliance transport unavailable.")) : CreateMiotAsync);
+        appliances = new(this.miotFactory, clock);
+        this.yeelightDiscovery = yeelightDiscovery ?? new(new UdpDiscoveryTransport());
+        useMockYeelight = mock && yeelightDiscovery is null; allowMetadata = !mock || miotFactory is not null;
         this.miioDiscovery = miioDiscovery ?? new(new UdpMiioDiscoveryTransport());
         useMockDiscovery = mock && miioDiscovery is null;
         if (clock is not null) this.clock = clock;
@@ -141,7 +146,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     {
         lock (stateGate)
         {
-            var synced = devices.Select(d => d with { Synced = value.SyncedDevices.GetValueOrDefault(d.Id, true),
+            var synced = devices.Select(d => d with { Synced = value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb),
                 CustomColors = value.LedLayers.TryGetValue(d.Id, out var layer) && layer.Custom is not null ? LedLayers.Resize(layer.Custom, d.LedCount, false) : null,
                 OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null,
                 CustomEnabled = value.LedLayers.GetValueOrDefault(d.Id)?.CustomEnabled == true }).ToArray();
@@ -150,8 +155,8 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lamps.FirstOrDefault(), routerState, health) with { Lamps = lamps };
             var frame = FrameInputs();
             static string Hex(RgbColor? color) { var c = color ?? RgbColor.Black; return $"#{c.R:X2}{c.G:X2}{c.B:X2}"; }
-            return state with { Lighting = state.Lighting with { Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
-                Hex(frame.ScreenLeft), Hex(frame.ScreenCentre), Hex(frame.ScreenRight)) } };
+            return DeviceNames.Apply(state with { Appliances = appliances.States, Lighting = state.Lighting with { Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
+                Hex(frame.ScreenLeft), Hex(frame.ScreenCentre), Hex(frame.ScreenRight)) } }, value.Devices, value.Discovery);
         }
     }
 
@@ -171,7 +176,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         AppDomain.CurrentDomain.ProcessExit += exit;
         AppDomain.CurrentDomain.UnhandledException += crash;
         Console.CancelKeyPress += cancel;
-        var loops = new[] { SensorsAsync(linked.Token), LightingAsync(linked.Token), LampAsync(linked.Token), RouterAsync(linked.Token), HealthAsync(linked.Token), CaptureAsync(true, linked.Token), CaptureAsync(false, linked.Token) };
+        var loops = new[] { SensorsAsync(linked.Token), LightingAsync(linked.Token), LampAsync(linked.Token), RouterAsync(linked.Token), HealthAsync(linked.Token), CaptureAsync(true, linked.Token), CaptureAsync(false, linked.Token), DiscoveryAsync(linked.Token) };
         try
         {
             var first = await Task.WhenAny(loops);
@@ -207,6 +212,8 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 int header = group.Key == "Radiator" ? 2 : 6;
                 if (controls.Headers.Contains(header)) fans.Configure(header, group.Value.ToSettings());
             }
+            foreach (var group in value.HeaderFans)
+                if (controls.Headers.Contains(group.Key) && group.Key != 7) fans.Configure(group.Key, group.Value.ToSettings());
             fans.Apply(next, clock.Elapsed - previous); previous = clock.Elapsed;
             var required = next.Temperature(SensorCategory.Cpu).HasValue && value.Fans.Values.All(f => FanCurveEngine.SelectTemperature(next, f.Source).HasValue);
             lock (stateGate)
@@ -235,6 +242,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         if (Observe) { warnings["observe"] = "Observe mode: fans, RGB and lamp are not controlled."; await Task.Delay(Timeout.Infinite, token); }
         TimeSpan reconnect = TimeSpan.Zero, nextRefresh = TimeSpan.Zero, nextOfflineLog = TimeSpan.Zero;
         var pacer = new DeviceFramePacer();
+        var directModes = new HashSet<string>();
         static (RgbDeviceState[] Devices, Dictionary<string, uint> Indices) Identify(OpenRgbClient client)
         {
             var identities = new Dictionary<string, int>(); var indices = new Dictionary<string, uint>();
@@ -262,6 +270,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     var client = (OpenRgbClient)rgb;
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
                     await client.ConnectAsync(cancellationToken: timeout.Token);
+                    directModes.Clear();
                     var (discovered, indices) = Identify(client);
                     foreach (var d in discovered)
                     {
@@ -277,7 +286,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         }
                     }
                     discovered = discovered.Select(d => LedLayers.Project(d.Id, client.Controllers[(int)indices[d.Id]])).ToArray();
-                    for (uint i = 0; i < client.Controllers.Count; i++) await client.SetDirectModeAsync(i, timeout.Token);
+                    foreach (var d in discovered.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb))) { await client.SetDirectModeAsync(indices[d.Id], timeout.Token); directModes.Add(d.Id); }
                     lock (stateGate) { devices = discovered; rgbIndices = indices; }
                     pacer.Reset();
                     rgbConnected = true;
@@ -294,15 +303,17 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     await live.RefreshAsync(refreshTimeout.Token);
                     var (found, idx) = Identify(live);
                     RgbDeviceState[] before; lock (stateGate) before = devices;
-                    foreach (var added in found.Where(f => before.All(b => b.Id != f.Id)))
-                        await live.SetDirectModeAsync(idx[added.Id], refreshTimeout.Token);
+                    foreach (var added in found.Where(f => before.All(b => b.Id != f.Id) && value.SyncedDevices.GetValueOrDefault(f.Id, value.Discovery.AutoJoinNewRgb)))
+                    { await live.SetDirectModeAsync(idx[added.Id], refreshTimeout.Token); directModes.Add(added.Id); }
                     lock (stateGate) { devices = found; rgbIndices = idx; }
                     pacer.Reset();
                     continue;
                 }
                 RgbDeviceState[] current; lock (stateGate) current = devices;
-                foreach (var device in current.Where(d => (failsafe && value.Events.FanFailsafe) || value.SyncedDevices.GetValueOrDefault(d.Id, true) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false))
+                foreach (var device in current.Where(d => (failsafe && value.Events.FanFailsafe) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false))
                 {
+                    if (!mock && !directModes.Contains(device.Id))
+                    { using var directTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); directTimeout.CancelAfter(TimeSpan.FromSeconds(2)); await ((OpenRgbClient)rgb).SetDirectModeAsync(rgbIndices[device.Id], directTimeout.Token); directModes.Add(device.Id); }
                     var now = clock.Elapsed;
                     var colors = RenderDevice(value, device, current, now.TotalSeconds);
                     if (!pacer.ShouldSend(device.Id, device.Kind, colors, now)) continue;
@@ -403,6 +414,13 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     if (lamp is null && clock.Elapsed >= retry)
                     {
                         if (mock) { lamp = new FakeLampClient(); transport = "mock"; sync = new(lamp, clock); }
+                        else if (config.Transport == "yeelight" && config.Host is { } lanHost)
+                        {
+                            var client = new YeelightClient(new TcpConnectionFactory(), clock, new TcpMusicListener());
+                            try { await client.ConnectAsync(lanHost, 55443, token); lamp = client; }
+                            catch { await client.DisposeAsync(); throw; }
+                            transport = "yeelight"; connectedHost = lanHost; sync = new(lamp, clock);
+                        }
                         else
                         {
                             var found = await DiscoverLampsAsync(token);
@@ -419,6 +437,22 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                             try { lamp = new MiioLampClient(new UdpMiioTransport(resolved.Ip), secret, clock, resolved.DeviceId); }
                             finally { System.Security.Cryptography.CryptographicOperations.ZeroMemory(secret); }
                             connectedHost = resolved.Ip; transport = "miio";
+                            if (lamp is MiioLampClient identified)
+                            {
+                                var info = await identified.CallAsync("miIO.info", Array.Empty<object>(), token);
+                                string model = info.TryGetProperty("model", out var m) ? m.GetString() ?? "" : "";
+                                if (!model.StartsWith("yeelink.light.", StringComparison.Ordinal))
+                                {
+                                    if (observationsHandler is not null)
+                                    {
+                                        var now = DateTimeOffset.UtcNow; var spec = MiotSpec.Load(model);
+                                        await observationsHandler([new(config.Id, model.Contains(".fryer.", StringComparison.Ordinal) ? DeviceKind.Appliance : DeviceKind.NetworkDevice,
+                                            model.Length > 0 ? model : config.Name, "miio", now, now, spec is null ? DeviceStatus.Unsupported : DeviceStatus.Ready, [],
+                                            Model: model, DeviceId: resolved.DeviceId, Ip: resolved.Ip, Configured: true)], []);
+                                    }
+                                    throw new IOException("Discovered device is not a supported lamp.");
+                                }
+                            }
                             sync = new(lamp, clock);
                         }
                     }
@@ -445,7 +479,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                             var rendered = SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, point, kind: "strip", input: FrameInputs());
                             colors = eventEffects.Composite(rendered, point, time, value.Events);
                         }
-                        else colors = current.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, true) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false)
+                        else colors = current.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false)
                             .SelectMany(d => RenderDevice(value, d, current, time)).ToArray();
                         await sync!.PushAsync(colors, LampColorSelection.Average, cancellationToken: token);
                     }
@@ -470,6 +504,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 
     private async Task RouterAsync(CancellationToken token)
     {
+        var nextDeviceList = TimeSpan.Zero;
         string? host = null; int credentials = Volatile.Read(ref routerCredentials);
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         do
@@ -487,6 +522,16 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 router ??= new RouterBackend(Volatile.Read(ref settings).RouterHost);
                 var state = await Task.Run(router.Poll, token);
                 lock (stateGate) routerState = state;
+                if (clock.Elapsed >= nextDeviceList)
+                {
+                    nextDeviceList = clock.Elapsed + TimeSpan.FromSeconds(60);
+                    var connected = await Task.Run(router.ConnectedDevices, token);
+                    if (connected is not null && observationsHandler is not null)
+                    {
+                        var now = DateTimeOffset.UtcNow;
+                        await observationsHandler(connected.Append(new DeviceState("router:" + config.RouterHost, DeviceKind.Router, "Router", "router", now, now, DeviceStatus.Ready, ["signal", "devices"], Ip: config.RouterHost, Configured: true)).ToArray(), ["router"]);
+                    }
+                }
                 bool high = state.PingMs > 100, poor = state.Score < 40 || state.Bars < 2;
                 if (high && !pingHigh) TriggerLightingEvent(LightingEventKind.PingSpike);
                 if (poor && !signalPoor) TriggerLightingEvent(LightingEventKind.PoorSignal);
@@ -588,6 +633,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             try { await speedTask; } catch (Exception e) { System.Diagnostics.Trace.TraceError(e.ToString()); }
         }
         fans.Dispose(); sensors.Dispose();
+        await appliances.DisposeAsync();
         await rgb.DisposeAsync(); if (lamp is not null) await lamp.DisposeAsync();
         router?.Dispose(); rgbProcess.Dispose(); stop.Dispose();
     }

@@ -7,6 +7,17 @@
       </Border.Background>
       <StackPanel>
         <TextBlock Text="{Binding Name}" Style="{StaticResource CardTitle}" Margin="0,0,0,10" MouseLeftButtonDown="DragHeader" Cursor="SizeAll"/>
+        <StackPanel Visibility="{Binding IsAirFryer, Converter={StaticResource BoolToVisibility}}">
+          <ItemsControl ItemsSource="{Binding Appliances}"><ItemsControl.ItemTemplate><DataTemplate>
+            <StackPanel Margin="0,4">
+              <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding Status}"/>
+              <TextBlock Text="{Binding RemainingMinutes, StringFormat={}{0:0} minutes left}"/>
+              <TextBlock Text="{Binding Warning}" Foreground="#FFB46A" TextWrapping="Wrap"/>
+              <Button Content="Cancel cooking" Command="{Binding DataContext.CancelCookingCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Margin="0,4"/>
+            </StackPanel>
+          </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+        </StackPanel>
         <StackPanel Visibility="{Binding ShowsMetrics, Converter={StaticResource BoolToVisibility}}">
           <StackPanel Visibility="{Binding ShowCpu, Converter={StaticResource BoolToVisibility}}">
             <DockPanel>

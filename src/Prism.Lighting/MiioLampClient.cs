@@ -43,15 +43,15 @@ public sealed class MiioLampClient : ILampClient
         this.transport = transport; this.token = token.ToArray(); this.clock = clock;
     }
     public Task SetPowerAsync(bool on, CancellationToken cancellationToken = default) =>
-        SendAsync("set_power", [on ? "on" : "off", "smooth", 500], cancellationToken);
+        SendAsync("set_power", new object[] {on ? "on" : "off", "smooth", 500}, cancellationToken);
     public Task SetColorAsync(RgbColor color, CancellationToken cancellationToken = default) =>
-        SendAsync("set_rgb", [color.Packed, "smooth", 500], cancellationToken);
+        SendAsync("set_rgb", new object[] {color.Packed, "smooth", 500}, cancellationToken);
     public Task SetBrightnessAsync(int brightness, CancellationToken cancellationToken = default) =>
-        SendAsync("set_bright", [brightness is >= 1 and <= 100 ? brightness : throw new ArgumentOutOfRangeException(nameof(brightness)), "smooth", 500], cancellationToken);
+        SendAsync("set_bright", new object[] {brightness is >= 1 and <= 100 ? brightness : throw new ArgumentOutOfRangeException(nameof(brightness)), "smooth", 500}, cancellationToken);
     public Task SetColorTemperatureAsync(int kelvin, CancellationToken cancellationToken = default) =>
-        SendAsync("set_ct_abx", [kelvin is >= 1700 and <= 6500 ? kelvin : throw new ArgumentOutOfRangeException(nameof(kelvin)), "smooth", 500], cancellationToken);
+        SendAsync("set_ct_abx", new object[] {kelvin is >= 1700 and <= 6500 ? kelvin : throw new ArgumentOutOfRangeException(nameof(kelvin)), "smooth", 500}, cancellationToken);
     public Task<JsonElement> GetPropertiesAsync(CancellationToken cancellationToken = default) =>
-        SendAsync("get_prop", ["power", "bright", "rgb", "ct", "color_mode"], cancellationToken);
+        SendAsync("get_prop", new object[] {"power", "bright", "rgb", "ct", "color_mode"}, cancellationToken);
 
     private async Task<byte[]> ExchangeAsync(byte[] packet, CancellationToken token)
     {
@@ -60,7 +60,9 @@ public sealed class MiioLampClient : ILampClient
         return await transport.ExchangeAsync(packet, deadline.Token);
     }
 
-    private async Task<JsonElement> SendAsync(string method, object[] parameters, CancellationToken cancellationToken)
+    public Task<JsonElement> CallAsync(string method, object parameters, CancellationToken cancellationToken = default, bool retry = true) => SendAsync(method, parameters, cancellationToken, retry);
+
+    private async Task<JsonElement> SendAsync(string method, object parameters, CancellationToken cancellationToken, bool retry = true)
     {
         await gate.WaitAsync(cancellationToken);
         try
@@ -98,7 +100,7 @@ public sealed class MiioLampClient : ILampClient
                     if (json.RootElement.TryGetProperty("error", out _)) throw new InvalidOperationException("Lamp rejected the miIO command.");
                     return json.RootElement.GetProperty("result").Clone();
                 }
-                catch (Exception ex) when (attempt < 2 && !cancellationToken.IsCancellationRequested &&
+                catch (Exception ex) when (retry && attempt < 2 && !cancellationToken.IsCancellationRequested &&
                     ex is OperationCanceledException or SocketException or IOException)
                 { header = null; }
             }

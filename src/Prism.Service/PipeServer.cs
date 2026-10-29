@@ -18,6 +18,7 @@ public sealed class PipeSession(CommandProcessor commands)
         using var reader = new StreamReader(stream, new UTF8Encoding(false, true), false, 4096, true);
         using var writeGate = new SemaphoreSlim(1, 1);
         bool hello = false, subscribed = false;
+        bool interactiveApp = false;
         async Task WriteAsync(object message)
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(linked.Token);
@@ -74,9 +75,12 @@ public sealed class PipeSession(CommandProcessor commands)
                     await WriteAsync(new Response(request.Id, valid, valid ? null : "Protocol version or client mismatch.",
                         valid ? JsonSerializer.SerializeToElement(new { version = PipeContract.ProtocolVersion }, PipeContract.Json) : null));
                     if (!valid) break;
+                    interactiveApp = a!.Value.GetProperty("client").GetString() == "app";
                     hello = true;
                 }
                 else if (!hello) await WriteAsync(new Response(request.Id, false, "Send hello first."));
+                else if (!interactiveApp && request.Command is Commands.PrepareApplianceStart or Commands.ConfirmApplianceStart)
+                    await WriteAsync(new Response(request.Id, false, "Cooking start is only available in the app."));
                 else if (request.Command == Commands.Subscribe)
                 {
                     await WriteAsync(new Response(request.Id, true)); Volatile.Write(ref subscribed, true);

@@ -16,6 +16,7 @@ public sealed class SettingsViewModel : PageViewModel
     private readonly AppSettings _settings;
     private readonly Action? _changed;
     private string _lastSavedText = "Saved automatically";
+    private DiscoveryOptions discoveryOptions = new();
 
     public SettingsViewModel(IPrismClient client, SettingsStore store, IStartupRegistry startup,
         AppSettings settings, Action? changed = null) : base(client)
@@ -38,6 +39,10 @@ public sealed class SettingsViewModel : PageViewModel
     public bool LaunchOpenRgb { get => _settings.LaunchOpenRgb; set { _settings.LaunchOpenRgb = value; Save(nameof(LaunchOpenRgb)); } }
     public string RouterHost { get => _settings.RouterHost; set { _settings.RouterHost = value; Save(nameof(RouterHost)); } }
     public RelayCommand ResetCommand { get; }
+    public bool NotifyNewDevices { get => discoveryOptions.NotifyNewDevices; set => _ = DiscoveryAsync(discoveryOptions with { NotifyNewDevices = value }); }
+    public bool AutoJoinNewRgb { get => discoveryOptions.AutoJoinNewRgb; set => _ = DiscoveryAsync(discoveryOptions with { AutoJoinNewRgb = value }); }
+    public bool CookingLightFlash { get => discoveryOptions.CookingLightFlash; set => _ = DiscoveryAsync(discoveryOptions with { CookingLightFlash = value }); }
+    private Task DiscoveryAsync(DiscoveryOptions options) { discoveryOptions = options; NotifyAll(); return RunAsync(() => Client.SendAsync(Commands.SetDiscoveryOptions, new { options })); }
 
     public AppSettings Settings => _settings;
 
@@ -173,6 +178,7 @@ public sealed class SettingsViewModel : PageViewModel
 
     protected override void Refresh()
     {
+        discoveryOptions = State?.Discovery ?? discoveryOptions;
         OnPropertiesChanged(nameof(StartWithWindows), nameof(StartMinimizedToTray), nameof(KeepRunningWhenClosed),
             nameof(ShowWidgetsAtStartup), nameof(ReduceAnimations), nameof(CheckForUpdates), nameof(SceneAutoGame),
             nameof(SceneAutoNight), nameof(SceneAutoLock), nameof(ServiceText), nameof(ServiceDot),
