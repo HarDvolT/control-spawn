@@ -22,7 +22,7 @@ public static class Thresholds
         return value >= t.Critical ? StatusLevel.Critical : value >= t.Hot ? StatusLevel.Hot : value >= t.Warm ? StatusLevel.Warm : value < t.Warm * .5 ? StatusLevel.Cool : StatusLevel.Ok;
     }
     public static Color Color(StatusLevel level) => (Color)ColorConverter.ConvertFromString(level switch
-    { StatusLevel.Cool => "#5AA7FF", StatusLevel.Ok => "#3DDC84", StatusLevel.Warm => "#F5A524", _ => "#FF4D4F" });
+    { StatusLevel.Cool => "#36D6FF", StatusLevel.Ok => "#3DDC84", StatusLevel.Warm => "#F5A524", _ => "#FF4D4F" });
     public static Brush Brush(StatusLevel level) => new SolidColorBrush(Color(level));
     public static DropShadowEffect Glow(StatusLevel level) => new() { Color = Color(level), BlurRadius = 18, ShadowDepth = 0, Opacity = .5 };
 }

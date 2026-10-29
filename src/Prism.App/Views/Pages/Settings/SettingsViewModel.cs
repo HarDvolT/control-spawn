@@ -34,6 +34,15 @@ public sealed class SettingsViewModel : PageViewModel
         Refresh();
     }
 
+    public IReadOnlyList<string> Sections { get; } = ["General", "Devices & access", "Startup & tray", "Safety", "About"];
+    private string selectedSection = "General";
+    public string SelectedSection { get => selectedSection; set { if (Sections.Contains(value) && Set(ref selectedSection, value)) NotifyAll(); } }
+    public bool IsGeneral => SelectedSection == "General";
+    public bool IsAccess => SelectedSection == "Devices & access";
+    public bool IsStartup => SelectedSection == "Startup & tray";
+    public bool IsSafety => SelectedSection == "Safety";
+    public bool IsAbout => SelectedSection == "About";
+    public string HealthSummary => State is { } state ? $"{state.Lighting.Devices.Count(d => d.Connected)} RGB devices ? {state.Lamps?.Count(l => l.Connected) ?? 0} lamps ? Router {(state.Router?.Connected == true ? "connected" : "offline")}" : "Waiting for the service";
     public RelayCommand OpenDataFolderCommand { get; }
     public AsyncRelayCommand SaveServiceOptionsCommand { get; }
     public bool LaunchOpenRgb { get => _settings.LaunchOpenRgb; set { _settings.LaunchOpenRgb = value; Save(nameof(LaunchOpenRgb)); } }

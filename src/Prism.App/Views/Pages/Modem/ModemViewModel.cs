@@ -118,6 +118,7 @@ public sealed class ModemViewModel : PageViewModel
     public string SinrColor { get => _sinrColor; private set => Set(ref _sinrColor, value); }
     public double SinrKnob { get => _sinrKnob; private set => Set(ref _sinrKnob, value); }
 
+    public string Headline => Connected ? $"5G signal is {Verdict.ToLowerInvariant()}" : "Waiting for your router";
     public string BandText => Band;
     public string AnchorText => Format.Dash;
     public string PciText => Format.Dash;

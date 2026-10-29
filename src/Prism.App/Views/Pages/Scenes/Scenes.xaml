@@ -1,45 +1,29 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:v="clr-namespace:Prism.App.Views">
-<DataTemplate DataType="{x:Type vm:ScenesViewModel}">
-    <StackPanel>
-      <c:GlassCard Margin="0,0,0,18"><StackPanel>
-        <TextBlock Text="Scene LED layout" Style="{StaticResource H2}"/>
-        <ComboBox ItemsSource="{Binding PresetScenes}" SelectedItem="{Binding PresetScene}" Margin="0,8"/>
-        <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/>
-        <Button Content="Save layout reference" Command="{Binding SavePresetReferenceCommand}" HorizontalAlignment="Left"/>
-        <TextBlock Text="Saved for future scene automation. Enter a layout name from Edit LEDs." Style="{StaticResource Muted}" Margin="0,8"/>
-      </StackPanel></c:GlassCard>
-      <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-      <ItemsControl ItemsSource="{Binding Scenes}">
+<DataTemplate DataType="{x:Type vm:ScenesViewModel}"><StackPanel><DockPanel Margin="0,0,0,16"><StackPanel DockPanel.Dock="Right" VerticalAlignment="Bottom"><Button Content="+ New scene" Command="{Binding NewSceneCommand}" Style="{StaticResource PillButton}" Margin="0,4,8,4"/></StackPanel><StackPanel><TextBlock Text="SCENES" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" /><TextBlock Text="One tap sets everything" Style="{StaticResource H1}" TextWrapping="Wrap" /><TextBlock Text="Lighting, fans and lamps · all together" Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" /></StackPanel></DockPanel><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="8*"/><ColumnDefinition Width="4*"/></Grid.ColumnDefinitions><StackPanel><ItemsControl ItemsSource="{Binding Scenes}">
         <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel/>
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate>
-            <c:GlassCard Width="300" Margin="0,12,18,12" StaggerIndex="3">
+            <c:GlassCard Margin="0,0,12,12" StaggerIndex="3">
               <StackPanel>
-                <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-                <TextBlock Text="{Binding Trigger}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <TextBlock Text="{Binding LightingText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <TextBlock Text="{Binding FansText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <TextBlock Text="{Binding LampText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <c:GlowProgressBar Value="{Binding Noise}"/>
-                <TextBlock Text="{Binding NoiseText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <Button Content="{Binding ButtonLabel}" Command="{Binding DataContext.ApplyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Style="{StaticResource BaseButton}" Margin="4"/>
+                <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4" />
+                <TextBlock Text="{Binding Trigger}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
+                <TextBlock Text="{Binding LightingText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
+                <TextBlock Text="{Binding FansText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
+                <TextBlock Text="{Binding LampText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
+                <c:GlowProgressBar Value="{Binding Noise}" />
+                <TextBlock Text="{Binding NoiseText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
+                <Button Content="{Binding ButtonLabel}" Command="{Binding DataContext.ApplyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Style="{StaticResource BaseButton}" Margin="4" />
               </StackPanel>
             </c:GlassCard>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-      <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-      <c:GlassCard Margin="0,0,0,18" StaggerIndex="4">
-        <StackPanel>
-          <TextBlock Text="Switch automatically" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-          <TextBlock Text="Automation rules require a future service protocol. Presets can be applied above." Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-        </StackPanel>
-      </c:GlassCard>
-      <TextBlock Text="{Binding LastError}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12"/>
-    </StackPanel>
-  </DataTemplate>
-</ResourceDictionary>
+      </StackPanel><StackPanel Grid.Column="1"><c:GlassCard Span="4" ><StackPanel><TextBlock Text="Automations" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12"/><TextBlock Text="Unavailable · Automatic scene switching requires a service update." Style="{StaticResource Placeholder}" TextWrapping="Wrap" /><TextBlock Text="Game launch · Night time · PC locked" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" /><TextBlock Text="Air fryer starts are always excluded." Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,16,0,0"/></StackPanel></c:GlassCard></StackPanel></Grid><Border Height="4"/><c:GlassCard Span="12"><StackPanel>
+        <TextBlock Text="Scene LED layout" Style="{StaticResource H2}" />
+        <ComboBox ItemsSource="{Binding PresetScenes}" SelectedItem="{Binding PresetScene}" Margin="0,8" />
+        <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8" />
+        <Button Content="Save layout reference" Command="{Binding SavePresetReferenceCommand}" HorizontalAlignment="Left" />
+        <TextBlock Text="Saved for future scene automation. Enter a layout name from Edit LEDs." Style="{StaticResource Muted}" Margin="0,8" />
+      </StackPanel></c:GlassCard>
+      <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" TextWrapping="Wrap" /><TextBlock Text="{Binding LastError}" Style="{StaticResource Muted}" TextWrapping="Wrap" Foreground="#FF8A8A" Margin="0,12"/></StackPanel></DataTemplate></ResourceDictionary>

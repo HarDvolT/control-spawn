@@ -14,6 +14,7 @@ public sealed class AppliancesWorkspace : UserControl
     private readonly StackPanel root = new();
     private readonly Dictionary<string, (TextBlock Status, RingGauge Ring, TextBlock Remaining)> displays = new();
     private readonly Dictionary<(string, int, int), Action<ApplianceProperty>> propertyUpdates = new();
+    private readonly Dictionary<string, List<Control>> settingControls = new();
     private bool updating;
     private AppliancesViewModel? model;
     private string signature = "";
@@ -28,17 +29,19 @@ public sealed class AppliancesWorkspace : UserControl
         if (model is null) return;
         var next = string.Join(";", model.Appliances.Select(a => a.Id + a.Name + a.Connected + a.Properties.Count));
         if (next == signature && displays.Count > 0) { UpdateReadings(); return; }
-        signature = next; root.Children.Clear(); displays.Clear(); propertyUpdates.Clear();
-        root.Children.Add(new TextBlock { Text = "Air fryer", FontSize = 28, Foreground = Brushes.WhiteSmoke, Margin = new(0, 0, 0, 12) });
+        signature = next; root.Children.Clear(); displays.Clear(); propertyUpdates.Clear(); settingControls.Clear();
+        root.Children.Add(new TextBlock { Text = "AIR FRYER", FontSize = 11, Foreground = Brushes.WhiteSmoke, Margin = new(0, 0, 0, 12) });
         root.Children.Add(new TextBlock { Text = "Cooking starts only after you confirm here. Cancel is always one click.", Foreground = Brushes.Silver, TextWrapping = TextWrapping.Wrap });
         var error = new TextBlock { Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap }; error.SetBinding(TextBlock.TextProperty, new Binding("LastError")); root.Children.Add(error);
         if (model.Appliances.Count == 0) root.Children.Add(new TextBlock { Text = "Find your fryer on the Devices page, then import its token.", Foreground = Brushes.Silver, Margin = new(0, 24, 0, 24) });
+        var grid = new CardGrid { Margin = new(0, 16, 0, 0) }; root.Children.Add(grid);
         foreach (var appliance in model.Appliances)
         {
-            var panel = new StackPanel { Margin = new(16) };
+            var panel = new StackPanel();
+            settingControls[appliance.Id] = new();
             panel.Children.Add(new DeviceNameEditor { DeviceId = appliance.Id, DisplayName = appliance.Name, Client = model.Client });
             var status = new TextBlock { Foreground = Brushes.WhiteSmoke, FontSize = 18, TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 12) }; panel.Children.Add(status);
-            var ring = new RingGauge { Width = 150, Height = 150, Maximum = appliance.TargetMinutes ?? 1 }; panel.Children.Add(ring);
+            var ring = new RingGauge { Width = 210, Height = 210, Maximum = appliance.TargetMinutes ?? 1 }; panel.Children.Add(ring);
             var remaining = new TextBlock { Foreground = Brushes.Silver, HorizontalAlignment = HorizontalAlignment.Center }; panel.Children.Add(remaining);
             displays[appliance.Id] = (status, ring, remaining);
             var details = new StackPanel();
@@ -77,6 +80,7 @@ public sealed class AppliancesWorkspace : UserControl
                     slider.PreviewKeyUp += async (_, _) => await model.SetAsync(appliance, p, slider.Value);
                     line.Children.Add(slider); line.Children.Add(number);
                 }
+                foreach (var control in line.Children.OfType<Control>()) settingControls[appliance.Id].Add(control);
                 if (p.Name is "target-temperature" or "target-time" or "mode") panel.Children.Add(line); else details.Children.Add(line);
             }
             panel.Children.Add(new Expander { Header = "Device details", Content = details, Foreground = Brushes.Silver, Margin = new(0, 12, 0, 0) });
@@ -86,14 +90,20 @@ public sealed class AppliancesWorkspace : UserControl
                 var button = new Button { Content = FriendlyLabelConverter.Label(action.Name), Margin = new(0, 8, 12, 8), IsEnabled = appliance.Connected || action.Name == "cancel-cooking" };
                 button.Click += async (_, _) => {
                     var current = model.Appliances.FirstOrDefault(a => a.Id == appliance.Id) ?? appliance;
-                    if (!action.NeedsConfirmation) { await model.ActAsync(current, action); return; }
+                    if (action.Name is "cancel-cooking" or "pause") { await model.ActAsync(current, action); return; }
                     var nonce = await model.PrepareAsync(current, action); if (nonce is null) return;
                     if (MessageBox.Show(Window.GetWindow(this), $"Start cooking on {current.Name}?\nConfirm the basket is safe and ready. Target: {current.TargetTemperature}°C, {current.TargetMinutes} minutes.", "Confirm cooking start", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes)
                         await model.ConfirmAsync(current, action, nonce);
                 };
                 actions.Children.Add(button);
             }
-            panel.Children.Insert(2, actions); root.Children.Add(new Border { Child = panel, Background = new SolidColorBrush(Color.FromRgb(30, 30, 34)), CornerRadius = new(10), Margin = new(0, 18, 0, 0) });
+            panel.Children.Add(actions); grid.Children.Add(new GlassCard { Span = 7, Content = panel });
+            var aside = new StackPanel(); CardGrid.SetSpan(aside, 5);
+            StackPanel Info(string title, string copy) { var body = new StackPanel(); body.Children.Add(new TextBlock { Text = title, FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 12) }); body.Children.Add(new TextBlock { Text = copy, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Silver }); return body; }
+            aside.Children.Add(new GlassCard { Content = Info("Presets", "Unavailable ? Saved cooking presets are not supplied by the service."), Margin = new(0, 0, 0, 16) });
+            aside.Children.Add(new GlassCard { Content = Info("Safety", "Second tap to start\nConfirm the basket is safe and ready.\n\nSettings lock while cooking\nPause or cancel stays within reach.\n\nScenes cannot start cooking\nEvery heating action needs your confirmation here.") });
+            grid.Children.Add(aside);
+            grid.Children.Add(new GlassCard { Span = 12, Content = Info("Recent cooks", "Unavailable ? Cooking history is not supplied by the service.") });
         }
         UpdateReadings();
     }
@@ -106,6 +116,8 @@ public sealed class AppliancesWorkspace : UserControl
                 d.Status.Text = $"{a.Status} · {(a.Connected ? "connected" : "offline")}\nCurrent temperature: {(a.Temperature is { } temp ? $"{temp:0}°C" : "not reported by this model")}\n{a.Warning}{(a.TurnBasket ? " · Turn basket" : "")}";
                 d.Ring.Maximum = Math.Max(1, a.TargetMinutes ?? 1); d.Ring.Value = a.RemainingMinutes ?? 0;
                 d.Remaining.Text = $"{a.RemainingMinutes:0} minutes remaining · {a.TargetTemperature:0}°C target";
+                if (settingControls.TryGetValue(a.Id, out var controls))
+                    foreach (var control in controls) control.IsEnabled = AppliancesViewModel.CanEdit(a);
                 updating = true;
                 try { foreach (var p in a.Properties) if (propertyUpdates.TryGetValue((a.Id, p.Siid, p.Piid), out var update)) update(p); }
                 finally { updating = false; }
