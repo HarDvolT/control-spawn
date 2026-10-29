@@ -73,3 +73,7 @@ The user has a Xiaomi smart air fryer on the same Mi Home account (its token cam
 
 The lead will supply the exact model string from the user before live testing; build the generic path plus a spec
 for the most common Xiaomi/Mijia smart air fryer models found on miot-spec.org.
+
+## Live device facts for round 8
+- Air fryer model: **careli.fryer.maf10a** (Mi Home, same account as the lamps). Build and bundle its MIoT spec first
+  (look it up on miot-spec.org: https://miot-spec.org/miot-spec-v2/instance?type= with the URN for this model).
