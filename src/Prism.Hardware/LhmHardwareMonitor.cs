@@ -44,7 +44,9 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     }
     private void Visit(IHardware hardware, List<SensorReading> readings)
     {
-        if (hardware.HardwareType.ToString() is "GpuAmd" or "GpuNvidia" or "GpuIntel") GpuBusTurns.Read(hardware.Update);
+        var type = hardware.HardwareType.ToString();
+        if (type is "GpuAmd" or "GpuNvidia" or "GpuIntel") BusTurns.Gpu.Read(hardware.Update);
+        else if (type == "Memory") BusTurns.Smbus.Read(hardware.Update);   // DIMM SPD temperatures share the SMBus with the RAM lighting
         else hardware.Update();
         var category = hardware.HardwareType.ToString() switch
         {
