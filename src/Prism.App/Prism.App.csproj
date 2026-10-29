@@ -21,6 +21,8 @@
     <ProjectReference Include="..\Prism.Lighting\Prism.Lighting.csproj" />
   </ItemGroup>
 
+  <ItemGroup><Resource Include="Assets\Fonts\*.ttf" /></ItemGroup>
+
   <!-- The WinForms SDK adds global usings that make Application/Color/Timer ambiguous with WPF. -->
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />

@@ -75,6 +75,8 @@ public sealed class MonitorViewModel : PageViewModel
     public string DiskTempText { get => _diskTempText; private set => Set(ref _diskTempText, value); }
     public string NetDownText { get => _netDownText; private set => Set(ref _netDownText, value); }
     public string NetUpText { get => _netUpText; private set => Set(ref _netUpText, value); }
+    public string Headline => State is null ? "Waiting for live readings" : State.System.CpuTemp >= 85 || State.System.GpuTemp >= 85 ? "Your system is running hot" : "Your system, at a glance";
+    public string PowerText => State?.System is { CpuPowerW: { } cpu, GpuPowerW: { } gpu } ? $"CPU + GPU ? {cpu + gpu:0} W" : "Power unavailable";
     public string PeakText { get => _peakText; private set => Set(ref _peakText, value); }
 
     protected override void Refresh()

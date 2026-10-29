@@ -141,13 +141,13 @@ public sealed class DashboardViewModel : PageViewModel
 
         var ramPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : double.NaN;
         SetGauge(0, new GaugeItem("CPU usage", Format.Percent(system.CpuLoad), "8 cores · 16 threads",
-            ColorUtil.ToHex(ColorUtil.TextPrimary), Math.Clamp(system.CpuLoad ?? double.NaN, 0, 100)));
+            ColorUtil.ToHex(Controls.Thresholds.Color(Controls.Thresholds.Level(system.CpuLoad ?? double.NaN, Controls.SensorKind.Load))), Math.Clamp(system.CpuLoad ?? double.NaN, 0, 100)));
         SetGauge(1, new GaugeItem("CPU temp", Format.Temp(system.CpuTemp), "Tctl / Tdie",
             ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp)), Math.Clamp(system.CpuTemp ?? double.NaN, 0, 100)));
         SetGauge(2, new GaugeItem("GPU temp", Format.Temp(system.GpuTemp), "RX 9070 XT",
             ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp)), Math.Clamp(system.GpuTemp ?? double.NaN, 0, 100)));
         SetGauge(3, new GaugeItem("RAM used", Format.Percent(ramPercent), Format.GbPair(system.RamUsedGb, system.RamTotalGb),
-            ColorUtil.ToHex(ColorUtil.Accent), Math.Clamp(ramPercent, 0, 100)));
+            "#36D6FF", Math.Clamp(ramPercent, 0, 100)));
 
         Fans.Clear();
         foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))

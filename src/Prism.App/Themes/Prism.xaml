@@ -3,8 +3,8 @@
                     xmlns:system="clr-namespace:System;assembly=mscorlib"
                     xmlns:controls="clr-namespace:Prism.App.Controls">
 
-    <FontFamily x:Key="BodyFont">Inter, Segoe UI</FontFamily>
-    <FontFamily x:Key="NumberFont">Space Grotesk, Segoe UI</FontFamily>
+    <FontFamily x:Key="BodyFont">pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
+    <FontFamily x:Key="NumberFont">pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI</FontFamily>
     <system:Double x:Key="TypeDisplay">40</system:Double>
     <system:Double x:Key="TypeTitle">22</system:Double>
     <system:Double x:Key="TypeHeading">15</system:Double>
@@ -87,20 +87,20 @@
 
     <!-- Typography -->
     <Style TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
         <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
     </Style>
 
     <Style x:Key="H1" TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
+        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI" />
         <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="H2" TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI" />
         <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
@@ -134,21 +134,21 @@
 
     <Style x:Key="Number" TargetType="{x:Type TextBlock}">
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
-        <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
+        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI" />
         <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="NumberLarge" TargetType="{x:Type TextBlock}">
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
-        <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
+        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI" />
         <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="NumberXl" TargetType="{x:Type TextBlock}">
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
-        <Setter Property="FontFamily" Value="Space Grotesk, Segoe UI" />
+        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI" />
         <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
@@ -172,7 +172,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="16,0" />
         <Setter Property="MinHeight" Value="40" />
-        <Setter Property="FontFamily" Value="Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
@@ -476,7 +476,7 @@
 
     <!-- Glass card -->
     <Style TargetType="{x:Type controls:GlassCard}">
-        <Setter Property="Padding" Value="20" />
+        <Setter Property="Padding" Value="18" />
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
         <Setter Property="Template">
             <Setter.Value>
@@ -548,7 +548,7 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}" />
         <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
-        <Setter Property="FontFamily" Value="Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">

@@ -144,6 +144,7 @@ public sealed class SceneOption : ObservableObject
 
     public string Name { get; }
     public string ColorHex { get; }
+    public string Description => Name switch { "Gaming" => "Smart lighting ? Turbo fans", "Work" => "Static white ? Balanced", "Night" => "Dim breathing ? Silent", "Movie" => "Screen ambient ? Silent", _ => Name };
 
     public bool IsActive
     {
