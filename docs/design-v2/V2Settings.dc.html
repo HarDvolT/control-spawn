@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism v2 — Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(60px,40px) scale(1.12)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes crit{0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.6)}50%{box-shadow:0 0 0 7px rgba(255,77,79,0)}}
+@keyframes warnpulse{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,.55)}50%{box-shadow:0 0 0 7px rgba(245,165,36,0)}}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+@keyframes orb{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+@keyframes lbreathe{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes lrainbow{to{filter:hue-rotate(360deg)}}
+@keyframes lflow{from{background-position:0% 50%}to{background-position:200% 50%}}
+@keyframes lstrobe{0%,49%{opacity:1}50%,100%{opacity:.08}}
+.card{animation:rise .6s cubic-bezier(.22,1,.36,1) both;transition:border-color .25s,transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s}
+.card:hover{border-color:rgba(255,255,255,.13)!important}
+.lift:hover{transform:translateY(-3px)}
+.d1{animation-delay:.04s}.d2{animation-delay:.08s}.d3{animation-delay:.12s}.d4{animation-delay:.16s}.d5{animation-delay:.2s}.d6{animation-delay:.24s}.d7{animation-delay:.28s}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s,border-color .2s}.btn:hover{border-color:rgba(255,255,255,.2)!important}.btn:active{transform:scale(.97)}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F5F7}
+.live{animation:livedot 1.6s ease-in-out infinite}
+.crit{animation:crit 1.2s infinite}.warn{animation:warnpulse 1.8s infinite}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;animation:drift 18s ease-in-out infinite alternate}
+.b1{width:520px;height:520px;left:-120px;top:-180px;background:radial-gradient(circle,rgba(255,77,26,.35),transparent 70%)}
+.b2{width:620px;height:620px;right:-160px;top:120px;background:radial-gradient(circle,rgba(54,214,255,.22),transparent 70%);animation-duration:24s}
+.arc{transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1),stroke .5s}
+.needle{transition:transform .8s cubic-bezier(.22,1,.36,1)}
+.fill{position:relative;overflow:hidden;transition:width .8s cubic-bezier(.22,1,.36,1),height .8s cubic-bezier(.22,1,.36,1),background .5s,box-shadow .5s}
+.fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2.6s ease-in-out infinite}
+.spark{stroke-dasharray:600;animation:draw 2.4s cubic-bezier(.22,1,.36,1) both}
+.orb{animation:orb 4s ease-in-out infinite;transition:box-shadow .5s,opacity .5s,background .5s}
+.flow{background-size:200% 100%!important;animation:lflow 3s linear infinite}
+.ring{position:relative;border-radius:18px;padding:1.5px;overflow:hidden}
+.ring::before{content:"";position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent 0 60%,#FF4D1A 75%,#36D6FF 88%,transparent 100%);animation:spin 4s linear infinite}
+.ring > *{position:relative}
+.ico{flex:0 0 18px}
+.topbtn{transition:background .2s,border-color .2s}.topbtn:hover{border-color:rgba(255,255,255,.18)!important}
+.knob{transition:transform .25s cubic-bezier(.22,1,.36,1)}
+@media (max-width: 1100px){main > *{grid-column:span 12!important}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+.tab{transition:background .2s,color .2s}.tab:hover{background:rgba(255,255,255,.04);color:#F4F5F7}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 900px; display: flex; flex-wrap: wrap; color: #F4F5F7; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse 70% 40% at 50% -10%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%), radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px) 0 0 / 24px 24px, #07080A;">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden;"><span class="blob b1"></span><span class="blob b2"></span></div>
+  <nav aria-label="Main" style="position: relative; z-index: 1; flex: 0 0 220px; box-sizing: border-box; padding: 20px 12px; background: rgba(13,14,17,.8); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #FF4D1A, #FF8A3D); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(255,77,26,.5);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#07080A" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700;">Prism</span>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="16">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}"><p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{n.label}}</p></sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}"><a class="nav" href="{{n.href}}" style="{{n.style}}"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg>{{n.label}}</a></sc-if>
+    </sc-for>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 12px 8px 0; padding: 10px 12px; border-radius: 12px; background: #111216; border: 1px solid rgba(255,255,255,.06); font-size: 12px; color: #A3A6AE;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 10px #3DDC84;"></span>Service live · 12 devices</div>
+  </nav>
+
+  <main style="position: relative; z-index: 1; flex: 999 1 600px; min-width: 0; box-sizing: border-box; padding: 20px 26px 26px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: min-content; gap: 16px; align-content: start;">
+    <div style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 2px;">
+      <p style="margin: 0; font-size: 13px; color: #7C808A;">Prism <span style="color: #3A3C44;">/</span> <span style="color: #C9CBD1;">{{pageName}}</span></p>
+      <div style="flex-grow: 1;"></div>
+      <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 8px 0 14px; border-radius: 999px; background: rgba(17,18,22,.8); border: 1px solid rgba(255,255,255,.07); flex: 0 1 360px; backdrop-filter: blur(12px);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C808A" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Search</span>
+        <input type="search" placeholder="Search or type a command" style="flex-grow: 1; min-width: 0; background: transparent; border: 0; outline: none; color: #F4F5F7; font: inherit; font-size: 13px;">
+        <span style="padding: 3px 8px; border-radius: 6px; background: #1E2026; font-size: 11px; color: #A3A6AE;">Ctrl Space</span>
+      </label>
+      <span style="display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; background: rgba(61,220,132,.08); border: 1px solid rgba(61,220,132,.3); font-size: 12px; color: #9BEFC2;"><span class="live" style="width: 7px; height: 7px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 8px #3DDC84;"></span>All systems normal</span>
+      <button class="topbtn" type="button" aria-label="Notifications" style="width: 40px; height: 40px; border-radius: 20px; background: rgba(17,18,22,.8); border: 1px solid rgba(255,255,255,.07); color: #C9CBD1; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"></path></svg></button>
+    </div>
+    <header class="card" style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div>
+        <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">SETTINGS</p>
+        <h1 style="margin: 4px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -0.02em;">{{tabTitle}}</h1>
+        <p style="margin: 6px 0 0; font-size: 13px; color: #A3A6AE;">{{tabSub}}</p>
+      </div>
+      <span style="{{saveChip}}"><span style="{{saveDot}}"></span>Changes save as you go</span>
+    </header>
+
+    <div style="grid-column: span 3; display: flex; flex-direction: column; gap: 16px;">
+    <nav class="card d1" aria-label="Settings sections" style="padding: 10px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 4px;">
+      <sc-for list="{{tabs}}" as="b" hint-placeholder-count="5">
+        <button class="tab" type="button" onClick="{{b.pick}}" aria-current="{{b.current}}" style="{{b.style}}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.icon}}"></path></svg>
+          <span style="flex: 1 1 auto; text-align: left;">{{b.label}}</span>
+          <sc-if value="{{b.hasBadge}}" hint-placeholder-val="{{false}}"><span style="{{b.badgeStyle}}">{{b.badge}}</span></sc-if>
+        </button>
+      </sc-for>
+    </nav>
+    <section class="card d2" aria-label="Health check" style="padding: 16px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Health check</h2><span style="font-size: 12px; color: #7C808A;">just now</span></div>
+      <sc-for list="{{health}}" as="h" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px;"><span style="{{h.dot}}"></span><span style="flex: 1 1 auto; color: #C9CBD1;">{{h.label}}</span><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 12px; color: #7C808A;">{{h.value}}</span></div>
+      </sc-for>
+    </section>
+    </div>
+
+    <div style="grid-column: span 9; display: flex; flex-direction: column; gap: 16px;">
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+        <section class="card d2" aria-label="{{g.title}}" style="padding: 6px 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45);">
+          <p style="margin: 12px 0 4px; margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{g.title}}</p>
+          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 0; border-top: {{r.line}};">
+              <sc-if value="{{r.hasDot}}" hint-placeholder-val="{{false}}"><span style="{{r.dot}}"></span></sc-if>
+              <div style="flex: 1 1 260px; min-width: 0;"><p style="margin: 0; font-size: 14px; font-weight: 600;">{{r.label}}</p><p style="margin: 3px 0 0; font-size: 12px; color: #7C808A;">{{r.sub}}</p></div>
+              <sc-if value="{{r.isToggle}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span class="knob" style="{{r.knob}}"></span></button></sc-if>
+              <sc-if value="{{r.isSeg}}" hint-placeholder-val="{{false}}"><div role="group" aria-label="{{r.label}}" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07); width: fit-content;"><sc-for list="{{r.opts}}" as="o" hint-placeholder-count="3"><button class="btn" type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="{{o.style}}">{{o.label}}</button></sc-for></div></sc-if>
+              <sc-if value="{{r.isColors}}" hint-placeholder-val="{{false}}"><div style="display: flex; gap: 8px;"><sc-for list="{{r.colors}}" as="c" hint-placeholder-count="5"><button class="btn" type="button" aria-label="{{c.label}}" onClick="{{c.pick}}" style="{{c.style}}"></button></sc-for></div></sc-if>
+              <sc-if value="{{r.isAction}}" hint-placeholder-val="{{false}}"><div style="display: flex; gap: 8px;"><sc-for list="{{r.actions}}" as="a" hint-placeholder-count="2"><button class="btn" type="button" onClick="{{a.pick}}" style="{{a.style}}">{{a.label}}</button></sc-for></div></sc-if>
+              <sc-if value="{{r.isStatus}}" hint-placeholder-val="{{false}}"><span style="{{r.chip}}"><span style="{{r.chipDot}}"></span>{{r.status}}</span></sc-if>
+            </div>
+          </sc-for>
+        </section>
+      </sc-for>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'General', unit: '°C', accent: '#FF4D1A', motion: false, notif: { hot: true, fryer: true, offline: true, update: false },
+    crit: 90, exitFans: true, shutdownLights: 'Off', tokens: 3, forgot: false, exported: false, checked: false }; }
+  
+  shellVals() {
+    const ICONS = { Dashboard: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z', Monitor: 'M3 12h4l3-8 4 16 3-8h4', Devices: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', Widgets: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z', Lighting: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z', Lamps: 'M8 21h8M12 17v4M6 3h12l-3 8H9zM9 11a3 3 0 0 0 6 0', Fans: 'M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2', Scenes: 'M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z', 'Air fryer': 'M5 6h14v14H5zM8 3h8M9 10h6M12 13v4', Internet: 'M5 20v-4M10 20v-8M15 20v-12M20 20V4', Settings: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M18 18h2M14 4v4M8 10v4M16 16v4' };
+    const nav = [
+      { section: true, label: 'GENERAL' }, ['Dashboard', 'V2Dashboard.dc.html'], ['Monitor', 'V2Monitor.dc.html'], ['Devices', 'V2Devices.dc.html'], ['Widgets', 'V2Widgets.dc.html'],
+      { section: true, label: 'CONTROL' }, ['Lighting', 'V2Lighting.dc.html'], ['Lamps', 'V2Lamps.dc.html'], ['Fans', 'V2Fans.dc.html'], ['Scenes', 'V2Scenes.dc.html'],
+      { section: true, label: 'HOME' }, ['Air fryer', 'V2Fryer.dc.html'], ['Internet', 'V2Modem.dc.html'],
+      { section: true, label: 'SYSTEM' }, ['Settings', 'V2Settings.dc.html']
+    ].map(n => Array.isArray(n) ? { link: true, section: false, label: n[0], href: n[1], icon: ICONS[n[0]] || '',
+      style: 'display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 12px; border-radius: 12px; text-decoration: none; font-size: 14px; ' +
+        (n[0] === 'Settings' ? 'background: linear-gradient(90deg, rgba(255,77,26,.18), rgba(255,77,26,.04)); color: #F4F5F7; font-weight: 600; box-shadow: inset 2px 0 0 #FF4D1A;' : 'color: #A3A6AE;') }
+      : { ...n, link: false });
+    return { nav, pageName: 'Settings' };
+  }
+  pill(on) { return 'min-height: 38px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #07080A; box-shadow: 0 0 18px rgba(255,77,26,.45);' : 'background: transparent; color: #A3A6AE;'); }
+  small(on) { return 'flex: 1 1 0; min-height: 36px; padding: 0 10px; border-radius: 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' + (on ? 'background: rgba(255,77,26,.16); color: #FF8A60; border: 1px solid rgba(255,77,26,.55);' : 'background: #1E2026; color: #C9CBD1; border: 1px solid rgba(255,255,255,.06);'); }
+  level(v, warm, hot) { return v >= hot ? '#FF4D4F' : v >= warm ? '#F5A524' : v >= warm * 0.6 ? '#3DDC84' : '#36D6FF'; }
+  chip(c) { return 'display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; min-height: 30px; padding: 0 12px; border-radius: 999px; background: ' + c + '1A; border: 1px solid ' + c + '55; font-size: 12px; color: #F4F5F7;'; }
+  dot(c) { return 'width: 7px; height: 7px; border-radius: 4px; background: ' + c + '; box-shadow: 0 0 8px ' + c + ';'; }
+  sw(on) { return { track: 'flex: 0 0 46px; width: 46px; height: 26px; border-radius: 13px; border: 0; padding: 0; position: relative; cursor: pointer; ' + (on ? 'background: #FF4D1A; box-shadow: 0 0 14px rgba(255,77,26,.45);' : 'background: #2A2C33;'), knob: 'position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px; background: #F4F5F7; transform: translateX(' + (on ? 20 : 0) + 'px);' }; }
+  spark(series, w, h) { const max = Math.max(...series), min = Math.min(...series), r = (max - min) || 1; return series.map((v, i) => (i ? 'L' : 'M') + (i * w / (series.length - 1)).toFixed(1) + ' ' + (h - 3 - (v - min) / r * (h - 6)).toFixed(1)).join(' '); }
+
+  renderVals() {
+    const s = this.state;
+    const seg = on => 'min-height: 34px; padding: 0 14px; border-radius: 999px; border: 0; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #07080A;' : 'background: transparent; color: #A3A6AE;');
+    const btn = (primary) => primary ? 'min-height: 36px; padding: 0 16px; border-radius: 999px; border: 0; background: #FF4D1A; color: #07080A; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;'
+      : 'min-height: 36px; padding: 0 16px; border-radius: 999px; background: #17181D; border: 1px solid rgba(255,255,255,.1); color: #F4F5F7; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;';
+    const base = { hasDot: false, dot: '', isToggle: false, isSeg: false, isColors: false, isAction: false, isStatus: false, on: false, toggle: () => {}, track: '', knob: '', opts: [], colors: [], actions: [], chip: '', chipDot: '', status: '' };
+    const tog = (label, sub, on, toggle) => ({ ...base, label, sub, isToggle: true, on, toggle, ...this.sw(on) });
+    const pick = (label, sub, opts, cur, set) => ({ ...base, label, sub, isSeg: true, opts: opts.map(o => ({ label: o, on: cur === o, pick: () => set(o), style: seg(cur === o) })) });
+    const stat = (label, sub, status, c) => ({ ...base, label, sub, isStatus: true, hasDot: false, status, chip: this.chip(c), chipDot: this.dot(c) });
+    const act = (label, sub, actions) => ({ ...base, label, sub, isAction: true, actions: actions.map(([l, p, f]) => ({ label: l, style: btn(p), pick: f || (() => {}) })) });
+    const N = k => () => this.setState({ notif: { ...s.notif, [k]: !s.notif[k] } });
+    const pages = {
+      General: { sub: 'Units, look and notifications', icon: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M18 18h2M14 4v4M8 10v4M16 16v4', groups: [
+        ['DISPLAY', [pick('Temperature unit', 'Used everywhere, including widgets', ['°C', '°F'], s.unit, v => this.setState({ unit: v })),
+          { ...base, label: 'Accent colour', sub: 'Buttons and active states. Machine readings stay cyan.', isColors: true,
+            colors: [['#FF4D1A', 'Ember'], ['#F5A524', 'Amber'], ['#3DDC84', 'Green'], ['#4D6BFF', 'Blue'], ['#B26BFF', 'Violet']].map(([c, n]) => ({ label: n, pick: () => this.setState({ accent: c }),
+              style: 'width: 30px; height: 30px; border-radius: 9px; cursor: pointer; background: ' + c + '; ' + (s.accent === c ? 'border: 2px solid #F4F5F7; box-shadow: 0 0 14px ' + c + ';' : 'border: 2px solid transparent;') })) },
+          tog('Reduce motion', 'Turns off glows that pulse and cards that slide in', s.motion, () => this.setState({ motion: !s.motion }))]],
+        ['NOTIFICATIONS', [tog('Running hot', 'CPU or GPU passes the warning line', s.notif.hot, N('hot')), tog('Air fryer finished', 'And the halfway shake reminder', s.notif.fryer, N('fryer')),
+          tog('A device went offline', 'Lamps, fryer or router stop answering', s.notif.offline, N('offline')), tog('Updates', 'A new Prism version is ready', s.notif.update, N('update'))]]] },
+      'Devices & access': { sub: 'What Prism talks to and how it gets in', icon: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', groups: [
+        ['HARDWARE ACCESS', [stat('OpenRGB', 'Lighting bridge on port 6742 · board, RAM, GPU, ARGB header', 'Running · 5 devices', '#3DDC84'),
+          stat('PawnIO driver', 'Lets Prism read the fan chip (NCT6701D) · version 2.2', 'Installed', '#3DDC84'),
+          stat('ASUS fan service', 'Must stay off or it locks the fan chip', 'Disabled · good', '#3DDC84'),
+          stat('Armoury Crate and iCUE', 'Not needed. Uninstall them to stop lighting fights.', 'Not running', '#3DDC84')]],
+        ['TOKENS & PASSWORDS', [act('Xiaomi device tokens', s.forgot ? 'Forgotten. Import again to control lamps and the fryer.' : s.tokens + ' devices · encrypted with your Windows account', [['Import tokens', true, () => this.setState({ forgot: false })], ['Forget all', false, () => this.setState({ forgot: true })]]),
+          act('Router password', 'ZLT X17M · encrypted with your Windows account', [['Change', false]])]]] },
+      Safety: { sub: 'Rules that hold even when you are not looking', icon: 'M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z', groups: [
+        ['FANS', [pick('Full speed at', 'If CPU or GPU reaches this, every fan goes to 100%', ['85°', '90°', '95°'], s.crit + '°', v => this.setState({ crit: parseInt(v) })),
+          tog('Hand fans back to the BIOS on exit', 'If Prism stops or crashes, the board controls the fans', s.exitFans, () => this.setState({ exitFans: !s.exitFans })),
+          stat('AIO pump', 'Header 7 is never slowed down', 'Locked at 100%', '#3DDC84')]],
+        ['LIGHTS & HOME', [pick('When the PC shuts down', 'What the case lights do', ['Off', 'Keep', 'Dim'], s.shutdownLights, v => this.setState({ shutdownLights: v })),
+          stat('Air fryer start', 'Always needs a second tap. Scenes and automations cannot start it.', 'Always on', '#3DDC84')]]] },
+      Backup: { sub: 'Save your scenes, curves and LED layout', icon: 'M12 3v12M7 10l5 5 5-5M5 21h14', groups: [
+        ['YOUR SETUP', [act('Export settings', s.exported ? 'Saved prism-settings.json to Documents' : 'Scenes, fan curves, LED layout and widget positions. Tokens are not included.', [['Export', true, () => this.setState({ exported: true })]]),
+          act('Import settings', 'Load a file you exported before', [['Choose file', false]]),
+          act('Reset to defaults', 'Keeps your device tokens and router password', [['Reset', false]])]]] },
+      About: { sub: 'Version, logs and diagnostics', icon: 'M12 8h.01M11 12h1v5h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', groups: [
+        ['PRISM', [stat('Version', 'Preview build · .NET 8 service and app', '0.9 preview', '#36D6FF'),
+          act('Updates', s.checked ? 'You have the latest version' : 'Last checked 2 days ago', [['Check now', false, () => this.setState({ checked: true })]]),
+          act('Logs and diagnostics', 'Helpful when something looks wrong', [['Open logs', false], ['Export diagnostics', false]])]]] } };
+    const page = pages[s.tab];
+    return {
+      ...this.shellVals(),
+      health: [['Prism service', 'running', '#3DDC84'], ['OpenRGB', '5 devices', '#3DDC84'], ['Fan chip', 'NCT6701D', '#3DDC84'], ['Lamps', s.forgot ? 'no token' : '2 online', s.forgot ? '#F5A524' : '#3DDC84'], ['Router', 'signed in', '#3DDC84']]
+        .map(([label, value, c]) => ({ label, value, dot: this.dot(c) })),
+      tabTitle: s.tab, tabSub: page.sub, saveChip: this.chip('#3DDC84'), saveDot: this.dot('#3DDC84'),
+      tabs: Object.entries(pages).map(([k, p]) => { const on = s.tab === k; return { label: k, icon: p.icon, current: on ? 'page' : 'false', pick: () => this.setState({ tab: k }),
+        hasBadge: k === 'Devices & access' && s.forgot, badge: '!', badgeStyle: 'width: 20px; height: 20px; border-radius: 10px; background: #F5A524; color: #07080A; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;',
+        style: 'display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 0; font: inherit; font-size: 14px; cursor: pointer; ' +
+          (on ? 'background: linear-gradient(90deg, rgba(255,77,26,.18), rgba(255,77,26,.04)); color: #F4F5F7; font-weight: 600; box-shadow: inset 2px 0 0 #FF4D1A;' : 'background: transparent; color: #A3A6AE;') }; }),
+      groups: page.groups.map(([title, rows]) => ({ title, rows: rows.map((r, i) => ({ ...r, line: i ? '1px solid rgba(255,255,255,.05)' : '0' })) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

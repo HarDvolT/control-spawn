@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism v2 — Lighting</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(60px,40px) scale(1.12)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes crit{0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.6)}50%{box-shadow:0 0 0 7px rgba(255,77,79,0)}}
+@keyframes warnpulse{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,.55)}50%{box-shadow:0 0 0 7px rgba(245,165,36,0)}}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+@keyframes orb{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+@keyframes lbreathe{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes lrainbow{to{filter:hue-rotate(360deg)}}
+@keyframes lflow{from{background-position:0% 50%}to{background-position:200% 50%}}
+@keyframes lstrobe{0%,49%{opacity:1}50%,100%{opacity:.08}}
+.card{animation:rise .6s cubic-bezier(.22,1,.36,1) both;transition:border-color .25s,transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s}
+.card:hover{border-color:rgba(255,255,255,.13)!important}
+.lift:hover{transform:translateY(-3px)}
+.d1{animation-delay:.04s}.d2{animation-delay:.08s}.d3{animation-delay:.12s}.d4{animation-delay:.16s}.d5{animation-delay:.2s}.d6{animation-delay:.24s}.d7{animation-delay:.28s}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s,border-color .2s}.btn:hover{border-color:rgba(255,255,255,.2)!important}.btn:active{transform:scale(.97)}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F5F7}
+.live{animation:livedot 1.6s ease-in-out infinite}
+.crit{animation:crit 1.2s infinite}.warn{animation:warnpulse 1.8s infinite}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;animation:drift 18s ease-in-out infinite alternate}
+.b1{width:520px;height:520px;left:-120px;top:-180px;background:radial-gradient(circle,rgba(255,77,26,.35),transparent 70%)}
+.b2{width:620px;height:620px;right:-160px;top:120px;background:radial-gradient(circle,rgba(54,214,255,.22),transparent 70%);animation-duration:24s}
+.arc{transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1),stroke .5s}
+.needle{transition:transform .8s cubic-bezier(.22,1,.36,1)}
+.fill{position:relative;overflow:hidden;transition:width .8s cubic-bezier(.22,1,.36,1),height .8s cubic-bezier(.22,1,.36,1),background .5s,box-shadow .5s}
+.fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2.6s ease-in-out infinite}
+.spark{stroke-dasharray:600;animation:draw 2.4s cubic-bezier(.22,1,.36,1) both}
+.orb{animation:orb 4s ease-in-out infinite;transition:box-shadow .5s,opacity .5s,background .5s}
+.flow{background-size:200% 100%!important;animation:lflow 3s linear infinite}
+.ring{position:relative;border-radius:18px;padding:1.5px;overflow:hidden}
+.ring::before{content:"";position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent 0 60%,#FF4D1A 75%,#36D6FF 88%,transparent 100%);animation:spin 4s linear infinite}
+.ring > *{position:relative}
+.ico{flex:0 0 18px}
+.topbtn{transition:background .2s,border-color .2s}.topbtn:hover{border-color:rgba(255,255,255,.18)!important}
+.knob{transition:transform .25s cubic-bezier(.22,1,.36,1)}
+@media (max-width: 1100px){main > *{grid-column:span 12!important}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+.led{transition:fill .35s,opacity .35s}
+.ledbtn{transition:transform .15s,box-shadow .2s}.ledbtn:hover{transform:translateY(-2px)}
+.dev{transition:background .2s,border-color .2s}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 940px; display: flex; flex-wrap: wrap; color: #F4F5F7; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse 70% 40% at 50% -10%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%), radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px) 0 0 / 24px 24px, #07080A;">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden;"><span class="blob b1"></span><span class="blob b2"></span></div>
+  <nav aria-label="Main" style="position: relative; z-index: 1; flex: 0 0 220px; box-sizing: border-box; padding: 20px 12px; background: rgba(13,14,17,.8); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #FF4D1A, #FF8A3D); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(255,77,26,.5);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#07080A" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700;">Prism</span>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="16">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}"><p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{n.label}}</p></sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}"><a class="nav" href="{{n.href}}" style="{{n.style}}"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg>{{n.label}}</a></sc-if>
+    </sc-for>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 12px 8px 0; padding: 10px 12px; border-radius: 12px; background: #111216; border: 1px solid rgba(255,255,255,.06); font-size: 12px; color: #A3A6AE;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 10px #3DDC84;"></span>Service live · 12 devices</div>
+  </nav>
+
+  <main style="position: relative; z-index: 1; flex: 999 1 600px; min-width: 0; box-sizing: border-box; padding: 20px 26px 26px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: min-content; gap: 16px; align-content: start;">
+    <div style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 2px;">
+      <p style="margin: 0; font-size: 13px; color: #7C808A;">Prism <span style="color: #3A3C44;">/</span> <span style="color: #C9CBD1;">{{pageName}}</span></p>
+      <div style="flex-grow: 1;"></div>
+      <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 8px 0 14px; border-radius: 999px; background: rgba(17,18,22,.8); border: 1px solid rgba(255,255,255,.07); flex: 0 1 360px; backdrop-filter: blur(12px);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C808A" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Search</span>
+        <input type="search" placeholder="Search or type a command" style="flex-grow: 1; min-width: 0; background: transparent; border: 0; outline: none; color: #F4F5F7; font: inherit; font-size: 13px;">
+        <span style="padding: 3px 8px; border-radius: 6px; background: #1E2026; font-size: 11px; color: #A3A6AE;">Ctrl Space</span>
+      </label>
+      <span style="display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; background: rgba(61,220,132,.08); border: 1px solid rgba(61,220,132,.3); font-size: 12px; color: #9BEFC2;"><span class="live" style="width: 7px; height: 7px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 8px #3DDC84;"></span>All systems normal</span>
+      <button class="topbtn" type="button" aria-label="Notifications" style="width: 40px; height: 40px; border-radius: 20px; background: rgba(17,18,22,.8); border: 1px solid rgba(255,255,255,.07); color: #C9CBD1; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"></path></svg></button>
+    </div>
+    <header class="card" style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div>
+        <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">LIGHTING</p>
+        <h1 style="margin: 4px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -0.02em;">{{headline}}</h1>
+      </div>
+      <div role="group" aria-label="Lighting mode" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07); width: fit-content;">
+        <sc-for list="{{modes}}" as="m" hint-placeholder-count="3"><button class="btn" type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="{{m.style}}">{{m.label}}</button></sc-for>
+      </div>
+    </header>
+
+    <sc-if value="{{needsArgb}}" hint-placeholder-val="{{true}}">
+      <div class="card d1 warn" role="status" style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 16px; background: linear-gradient(90deg, rgba(245,165,36,.14), rgba(245,165,36,.04)); border: 1px solid rgba(245,165,36,.35);">
+        <span style="width: 10px; height: 10px; border-radius: 5px; background: #F5A524;"></span>
+        <p style="margin: 0; flex: 1 1 360px; font-size: 13px;"><b style="font-weight: 600;">Your case fans and LED strip aren't lit yet.</b> <span style="color: #C9CBD1;">They're on the motherboard's ARGB header, which starts at 0 LEDs. Prism lights everything, then you count down to the last LED.</span></p>
+        <button class="btn" type="button" onClick="{{setupArgb}}" style="min-height: 40px; padding: 0 18px; border-radius: 999px; border: 0; background: #F5A524; color: #07080A; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;">Set up case lighting</button>
+      </div>
+    </sc-if>
+
+    <section class="card d2" aria-label="Live preview of your PC" style="grid-column: span 7; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+        <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{previewLabel}}</p>
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #A3A6AE;"><span class="live" style="width: 7px; height: 7px; border-radius: 4px; background: {{color}}; box-shadow: 0 0 10px {{color}};"></span>{{previewStatus}}</span>
+      </div>
+      <div style="display: flex; gap: 14px; align-items: center;">
+        <svg viewBox="0 0 560 400" role="img" aria-label="{{caseLabel}}" style="flex: 1 1 auto; width: 100%; max-height: 410px; opacity: {{caseOpacity}}; animation: {{anim}};">
+          <defs>
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"></feGaussianBlur><feMerge><feMergeNode in="b"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
+            <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1A1C22"></stop><stop offset="1" stop-color="#0D0E12"></stop></linearGradient>
+          </defs>
+          <rect x="20" y="10" width="520" height="380" rx="22" fill="url(#glass)" stroke="rgba(255,255,255,.12)" stroke-width="1.5"></rect>
+          <rect x="34" y="24" width="492" height="352" rx="14" fill="none" stroke="rgba(255,255,255,.05)"></rect>
+          <text x="44" y="46" fill="#7C808A" font-family="Inter" font-size="11" letter-spacing="1.5">RADIATOR</text>
+          <g filter="url(#glow)" fill="none" stroke-width="6">
+            <circle class="led" cx="190" cy="80" r="28" stroke="{{L.top}}"></circle><circle class="led" cx="270" cy="80" r="28" stroke="{{L.top}}"></circle><circle class="led" cx="350" cy="80" r="28" stroke="{{L.top}}"></circle>
+            <circle class="led" cx="470" cy="140" r="34" stroke="{{L.front}}"></circle><circle class="led" cx="470" cy="226" r="34" stroke="{{L.front}}"></circle><circle class="led" cx="470" cy="312" r="34" stroke="{{L.front}}"></circle>
+            <circle class="led" cx="78" cy="150" r="30" stroke="{{L.rear}}"></circle>
+          </g>
+          <rect x="130" y="128" width="270" height="150" rx="10" fill="#101116" stroke="rgba(255,255,255,.07)"></rect>
+          <g transform="rotate({{R.board}} 207 169)">
+            <path class="led" d="M196 168 l22 -10 l-8 22 z" fill="{{L.board}}" filter="url(#glow)"></path>
+            <rect x="184" y="148" width="46" height="42" rx="6" fill="none" stroke="#FF4D1A" stroke-dasharray="4 4" opacity="{{H.board}}"></rect>
+          </g>
+          <text x="150" y="268" fill="#7C808A" font-family="Inter" font-size="10" letter-spacing="1.2">ROG STRIX B850-F</text>
+          <g transform="rotate({{R.ram}} 315 190)">
+            <g filter="url(#glow)">
+              <rect class="led" x="300" y="138" width="10" height="10" rx="2" fill="{{L.a0}}"></rect><rect class="led" x="300" y="148.4" width="10" height="10" rx="2" fill="{{L.a1}}"></rect><rect class="led" x="300" y="158.8" width="10" height="10" rx="2" fill="{{L.a2}}"></rect><rect class="led" x="300" y="169.2" width="10" height="10" rx="2" fill="{{L.a3}}"></rect><rect class="led" x="300" y="179.6" width="10" height="10" rx="2" fill="{{L.a4}}"></rect><rect class="led" x="300" y="190" width="10" height="10" rx="2" fill="{{L.a5}}"></rect><rect class="led" x="300" y="200.4" width="10" height="10" rx="2" fill="{{L.a6}}"></rect><rect class="led" x="300" y="210.8" width="10" height="10" rx="2" fill="{{L.a7}}"></rect><rect class="led" x="300" y="221.2" width="10" height="10" rx="2" fill="{{L.a8}}"></rect><rect class="led" x="300" y="231.6" width="10" height="10" rx="2" fill="{{L.a9}}"></rect>
+              <rect class="led" x="320" y="138" width="10" height="10" rx="2" fill="{{L.b0}}"></rect><rect class="led" x="320" y="148.4" width="10" height="10" rx="2" fill="{{L.b1}}"></rect><rect class="led" x="320" y="158.8" width="10" height="10" rx="2" fill="{{L.b2}}"></rect><rect class="led" x="320" y="169.2" width="10" height="10" rx="2" fill="{{L.b3}}"></rect><rect class="led" x="320" y="179.6" width="10" height="10" rx="2" fill="{{L.b4}}"></rect><rect class="led" x="320" y="190" width="10" height="10" rx="2" fill="{{L.b5}}"></rect><rect class="led" x="320" y="200.4" width="10" height="10" rx="2" fill="{{L.b6}}"></rect><rect class="led" x="320" y="210.8" width="10" height="10" rx="2" fill="{{L.b7}}"></rect><rect class="led" x="320" y="221.2" width="10" height="10" rx="2" fill="{{L.b8}}"></rect><rect class="led" x="320" y="231.6" width="10" height="10" rx="2" fill="{{L.b9}}"></rect>
+            </g>
+            <rect x="292" y="130" width="46" height="120" rx="6" fill="none" stroke="#FF4D1A" stroke-dasharray="4 4" opacity="{{H.ram}}"></rect>
+          </g>
+          <g transform="rotate({{R.gpu}} 270 313)">
+            <rect x="120" y="296" width="300" height="34" rx="8" fill="#15161B" stroke="rgba(255,255,255,.08)"></rect>
+            <g filter="url(#glow)"><rect class="led" x="132" y="309" width="22" height="7" rx="3" fill="{{L.g0}}"></rect><rect class="led" x="158" y="309" width="22" height="7" rx="3" fill="{{L.g1}}"></rect><rect class="led" x="184" y="309" width="22" height="7" rx="3" fill="{{L.g2}}"></rect><rect class="led" x="210" y="309" width="22" height="7" rx="3" fill="{{L.g3}}"></rect></g>
+            <text x="300" y="318" fill="#A3A6AE" font-family="Space Grotesk" font-size="11" letter-spacing="2">RADEON</text>
+            <rect x="112" y="288" width="316" height="50" rx="10" fill="none" stroke="#FF4D1A" stroke-dasharray="4 4" opacity="{{H.gpu}}"></rect>
+          </g>
+          <g transform="rotate({{R.strip}} 248 360)">
+            <g filter="url(#glow)"><circle class="led" cx="60" cy="360" r="4" fill="{{L.s0}}"></circle><circle class="led" cx="94" cy="360" r="4" fill="{{L.s1}}"></circle><circle class="led" cx="128" cy="360" r="4" fill="{{L.s2}}"></circle><circle class="led" cx="162" cy="360" r="4" fill="{{L.s3}}"></circle><circle class="led" cx="196" cy="360" r="4" fill="{{L.s4}}"></circle><circle class="led" cx="230" cy="360" r="4" fill="{{L.s5}}"></circle><circle class="led" cx="264" cy="360" r="4" fill="{{L.s6}}"></circle><circle class="led" cx="298" cy="360" r="4" fill="{{L.s7}}"></circle><circle class="led" cx="332" cy="360" r="4" fill="{{L.s8}}"></circle><circle class="led" cx="366" cy="360" r="4" fill="{{L.s9}}"></circle><circle class="led" cx="400" cy="360" r="4" fill="{{L.s10}}"></circle><circle class="led" cx="434" cy="360" r="4" fill="{{L.s11}}"></circle></g>
+            <rect x="46" y="348" width="402" height="24" rx="8" fill="none" stroke="#FF4D1A" stroke-dasharray="4 4" opacity="{{H.strip}}"></rect>
+          </g>
+          <text x="56" y="386" fill="#7C808A" font-family="Inter" font-size="10" letter-spacing="1.2">LED STRIP · FRONT FANS · REAR FAN (ARGB)</text>
+        </svg>
+        <div style="flex: 0 0 92px; display: flex; flex-direction: column; gap: 18px; align-items: center;">
+          <sc-for list="{{lampOrbs}}" as="l" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;"><span class="orb" style="{{l.orb}}"></span><span style="font-size: 12px; color: #C9CBD1;">{{l.name}}</span></div>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{isWhole}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <span style="font-size: 12px; color: #7C808A; margin-right: 4px;">Applies to</span>
+          <sc-for list="{{targets}}" as="t" hint-placeholder-count="9"><button class="btn" type="button" onClick="{{t.toggle}}" aria-pressed="{{t.on}}" style="{{t.style}}"><span style="{{t.dot}}"></span>{{t.label}}</button></sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isDevice}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px; border-radius: 14px; background: #111216; border: 1px solid rgba(255,255,255,.06);">
+          <span style="font-size: 12px; color: #A3A6AE; margin-right: 4px;">{{selName}}</span>
+          <div role="group" aria-label="Tool" style="display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #0D0E12;">
+            <sc-for list="{{tools}}" as="t" hint-placeholder-count="2"><button class="btn" type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="{{t.style}}">{{t.label}}</button></sc-for>
+          </div>
+          <sc-if value="{{isArrange}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; gap: 6px; align-items: center; margin-left: auto;">
+              <button class="btn" type="button" aria-label="Rotate left 15 degrees" onClick="{{rotL}}" style="min-height: 42px; padding: 0 18px; border-radius: 999px; background: #17181D; border: 1px solid rgba(255,255,255,.1); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; padding: 0 12px;">⟲ 15°</button>
+              <span style="min-width: 52px; text-align: center; font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600;">{{angle}}°</span>
+              <button class="btn" type="button" aria-label="Rotate right 15 degrees" onClick="{{rotR}}" style="min-height: 42px; padding: 0 18px; border-radius: 999px; background: #17181D; border: 1px solid rgba(255,255,255,.1); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; padding: 0 12px;">15° ⟳</button>
+              <button class="btn" type="button" onClick="{{flip}}" style="min-height: 42px; padding: 0 18px; border-radius: 999px; background: #17181D; border: 1px solid rgba(255,255,255,.1); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; padding: 0 12px;">Flip</button>
+              <button class="btn" type="button" onClick="{{resetMap}}" style="min-height: 36px; padding: 0 12px; border-radius: 999px; background: transparent; border: 1px solid rgba(255,255,255,.1); color: #A3A6AE; font: inherit; font-size: 12px; cursor: pointer;">Reset map</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{isPaint}}" hint-placeholder-val="{{false}}">
+            <div role="group" aria-label="Paint tool" style="display: flex; gap: 4px; margin-left: auto;">
+              <sc-for list="{{brushes}}" as="b" hint-placeholder-count="5"><button class="btn" type="button" onClick="{{b.pick}}" aria-pressed="{{b.on}}" style="{{b.style}}">{{b.label}}</button></sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{isPaint}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <p style="margin: 0; font-size: 12px; color: #A3A6AE;">{{paintHint}}</p>
+            <div style="display: flex; gap: 6px;">
+              <sc-for list="{{ledRow}}" as="l" hint-placeholder-count="10"><button class="ledbtn" type="button" aria-label="{{l.label}}" onClick="{{l.paint}}" style="{{l.style}}">{{l.n}}</button></sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </sc-if>
+    </section>
+
+    <section class="card d3" aria-label="Controls" style="grid-column: span 5; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 16px;">
+      <sc-if value="{{showColour}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; gap: 18px; align-items: center;">
+          <div role="img" aria-label="Colour wheel, current colour {{pickColor}}" style="position: relative; flex: 0 0 150px; height: 150px; border-radius: 75px; background: conic-gradient(#FF4D4F, #F5A524, #FFE34D, #3DDC84, #36D6FF, #4D6BFF, #B26BFF, #FF4DB8, #FF4D4F); box-shadow: 0 0 40px rgba(0,0,0,.5);">
+            <div style="position: absolute; inset: 18px; border-radius: 57px; background: #0F1014; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+              <span style="width: 52px; height: 52px; border-radius: 26px; background: {{pickColor}}; box-shadow: 0 0 30px {{pickColor}}, inset 0 -8px 16px rgba(0,0,0,.25);"></span>
+              <span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 12px; color: #C9CBD1;">{{pickColor}}</span>
+            </div>
+            <span style="position: absolute; left: {{markX}}; top: {{markY}}; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 8px; background: #F4F5F7; border: 3px solid #07080A; box-shadow: 0 0 12px rgba(255,255,255,.6);"></span>
+          </div>
+          <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 12px; min-width: 0;">
+            <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{colourLabel}}</p>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+              <sc-for list="{{swatches}}" as="s" hint-placeholder-count="8"><button class="btn" type="button" aria-label="{{s.label}}" onClick="{{s.pick}}" style="{{s.style}}"></button></sc-for>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 12px; color: #A3A6AE; margin-bottom: 8px;"><span>Brightness</span><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; color: #F4F5F7;">{{bright}}%</span></div>
+              <div style="height: 14px; border-radius: 7px; background: #1E2026; overflow: hidden;"><div class="fill" style="{{brightFill}}"></div></div>
+              <div style="display: flex; gap: 6px; margin-top: 8px;"><sc-for list="{{levels}}" as="b" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{b.pick}}" style="{{b.style}}">{{b.label}}</button></sc-for></div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isWhole}}" hint-placeholder-val="{{true}}">
+        <div>
+          <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A; margin-bottom: 10px;">EFFECT</p>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+            <sc-for list="{{effects}}" as="e" hint-placeholder-count="9">
+              <div class="{{e.ringCls}}"><button class="btn" type="button" onClick="{{e.pick}}" aria-pressed="{{e.on}}" style="{{e.style}}"><span class="flow" style="{{e.preview}}"></span><span style="font-size: 13px; font-weight: 600;">{{e.name}}</span></button></div>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{hasSpeed}}" hint-placeholder-val="{{true}}">
+          <div style="padding: 10px 12px; border-radius: 12px; background: #17181D; border: 1px solid rgba(255,255,255,.04); display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #A3A6AE;"><span>{{effect}} speed</span><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; color: #F4F5F7;">{{speed}}</span></div>
+            <div style="display: flex; gap: 6px;"><sc-for list="{{speeds}}" as="p" hint-placeholder-count="3"><button class="btn" type="button" onClick="{{p.pick}}" style="{{p.style}}">{{p.label}}</button></sc-for></div>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{isDevice}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A; margin-bottom: 4px;">DEVICES</p>
+          <sc-for list="{{deviceList}}" as="d" hint-placeholder-count="7">
+            <button class="dev btn" type="button" onClick="{{d.pick}}" aria-pressed="{{d.on}}" style="{{d.style}}"><span style="{{d.dot}}"></span><span style="flex: 1; text-align: left;">{{d.name}}</span><span style="font-size: 11px; color: #A3A6AE;">{{d.behaviour}}</span></button>
+          </sc-for>
+        </div>
+        <div>
+          <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A; margin-bottom: 8px;">{{selName}} FOLLOWS</p>
+          <div role="group" aria-label="Behaviour" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
+            <sc-for list="{{behaviours}}" as="b" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{b.pick}}" aria-pressed="{{b.on}}" style="{{b.style}}">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isSensor}}" hint-placeholder-val="{{false}}">
+        <div>
+          <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A; margin-bottom: 10px;">DRIVEN BY</p>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+            <sc-for list="{{sources}}" as="s" hint-placeholder-count="6"><button class="btn" type="button" onClick="{{s.pick}}" aria-pressed="{{s.on}}" style="{{s.style}}"><span style="font-size: 13px; font-weight: 600;">{{s.label}}</span><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 12px; opacity: .8;">{{s.value}}</span></button></sc-for>
+          </div>
+        </div>
+        <div style="padding: 10px 12px; border-radius: 12px; background: #17181D; border: 1px solid rgba(255,255,255,.04); display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 12px; color: #A3A6AE;">{{sensorName}} now</span><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 600; color: {{sensorColor}};">{{sensorValue}}</span></div>
+          <div style="position: relative; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #36D6FF, #3DDC84, #F5A524, #FF4D4F);"><span class="needle" style="{{sensorMarker}}"></span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #7C808A;"><span>{{rangeMin}}</span><span>Range · auto-learn on</span><span>{{rangeMax}}</span></div>
+        </div>
+        <div>
+          <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A; margin-bottom: 8px;">SHOW IT AS</p>
+          <div role="group" aria-label="Style" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
+            <sc-for list="{{styles}}" as="s" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{s.pick}}" style="{{s.style}}">{{s.label}}</button></sc-for>
+          </div>
+        </div>
+        <div>
+          <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A; margin-bottom: 8px;">ON</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;"><sc-for list="{{sensorTargets}}" as="t" hint-placeholder-count="5"><button class="btn" type="button" onClick="{{t.toggle}}" aria-pressed="{{t.on}}" style="{{t.style}}">{{t.label}}</button></sc-for></div>
+        </div>
+      </sc-if>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":940}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'Whole case', color: '#36D6FF', effect: 'Static', bright: 80, speed: 'Medium', off: {}, argb: false,
+      sel: 'ram', tool: 'Paint', brush: 'Brush', rot: { ram: 0, gpu: 0, strip: 0, board: 0 },
+      behaviour: { ram: 'Paint', gpu: 'Sensor', board: 'Follow', strip: 'Follow', front: 'Follow', top: 'Own', rear: 'Follow' },
+      own: { top: '#B26BFF' }, paint: { ram: ['#FF4D1A', '#FF6A2B', '#FF8A3D', '#FFA552', '#F5C26B', '#9BD8C9', '#5FCBEA', '#36D6FF', '#4D9BFF', '#4D6BFF'] },
+      src: 'GPU temperature', style: 'Gradient', sTargets: { gpu: true }, t: 0 };
+  }
+  componentDidMount() { this.timer = setInterval(() => this.setState({ t: this.state.t + 1 }), 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  
+  shellVals() {
+    const ICONS = { Dashboard: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z', Monitor: 'M3 12h4l3-8 4 16 3-8h4', Devices: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', Widgets: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z', Lighting: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z', Lamps: 'M8 21h8M12 17v4M6 3h12l-3 8H9zM9 11a3 3 0 0 0 6 0', Fans: 'M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2', Scenes: 'M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z', 'Air fryer': 'M5 6h14v14H5zM8 3h8M9 10h6M12 13v4', Internet: 'M5 20v-4M10 20v-8M15 20v-12M20 20V4', Settings: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M18 18h2M14 4v4M8 10v4M16 16v4' };
+    const nav = [
+      { section: true, label: 'GENERAL' }, ['Dashboard', 'V2Dashboard.dc.html'], ['Monitor', 'V2Monitor.dc.html'], ['Devices', 'V2Devices.dc.html'], ['Widgets', 'V2Widgets.dc.html'],
+      { section: true, label: 'CONTROL' }, ['Lighting', 'V2Lighting.dc.html'], ['Lamps', 'V2Lamps.dc.html'], ['Fans', 'V2Fans.dc.html'], ['Scenes', 'V2Scenes.dc.html'],
+      { section: true, label: 'HOME' }, ['Air fryer', 'V2Fryer.dc.html'], ['Internet', 'V2Modem.dc.html'],
+      { section: true, label: 'SYSTEM' }, ['Settings', 'V2Settings.dc.html']
+    ].map(n => Array.isArray(n) ? { link: true, section: false, label: n[0], href: n[1], icon: ICONS[n[0]] || '',
+      style: 'display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 12px; border-radius: 12px; text-decoration: none; font-size: 14px; ' +
+        (n[0] === 'Lighting' ? 'background: linear-gradient(90deg, rgba(255,77,26,.18), rgba(255,77,26,.04)); color: #F4F5F7; font-weight: 600; box-shadow: inset 2px 0 0 #FF4D1A;' : 'color: #A3A6AE;') }
+      : { ...n, link: false });
+    return { nav, pageName: 'Lighting' };
+  }
+  pill(on) { return 'min-height: 38px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #07080A; box-shadow: 0 0 18px rgba(255,77,26,.45);' : 'background: transparent; color: #A3A6AE;'); }
+  small(on) { return 'flex: 1 1 0; min-height: 36px; padding: 0 10px; border-radius: 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' + (on ? 'background: rgba(255,77,26,.16); color: #FF8A60; border: 1px solid rgba(255,77,26,.55);' : 'background: #1E2026; color: #C9CBD1; border: 1px solid rgba(255,255,255,.06);'); }
+  level(v, warm, hot) { return v >= hot ? '#FF4D4F' : v >= warm ? '#F5A524' : v >= warm * 0.6 ? '#3DDC84' : '#36D6FF'; }
+  chip(c) { return 'display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; min-height: 30px; padding: 0 12px; border-radius: 999px; background: ' + c + '1A; border: 1px solid ' + c + '55; font-size: 12px; color: #F4F5F7;'; }
+  dot(c) { return 'width: 7px; height: 7px; border-radius: 4px; background: ' + c + '; box-shadow: 0 0 8px ' + c + ';'; }
+  sw(on) { return { track: 'flex: 0 0 46px; width: 46px; height: 26px; border-radius: 13px; border: 0; padding: 0; position: relative; cursor: pointer; ' + (on ? 'background: #FF4D1A; box-shadow: 0 0 14px rgba(255,77,26,.45);' : 'background: #2A2C33;'), knob: 'position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px; background: #F4F5F7; transform: translateX(' + (on ? 20 : 0) + 'px);' }; }
+  spark(series, w, h) { const max = Math.max(...series), min = Math.min(...series), r = (max - min) || 1; return series.map((v, i) => (i ? 'L' : 'M') + (i * w / (series.length - 1)).toFixed(1) + ' ' + (h - 3 - (v - min) / r * (h - 6)).toFixed(1)).join(' '); }
+
+  renderVals() {
+    const s = this.state, t = s.t;
+    const mix = (a, b, f) => { const p = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * f).toString(16).padStart(2, '0')).join(''); };
+    const ramp = (f) => f < .33 ? mix('#36D6FF', '#3DDC84', f / .33) : f < .66 ? mix('#3DDC84', '#F5A524', (f - .33) / .33) : mix('#F5A524', '#FF4D4F', (f - .66) / .34);
+    const sources = { 'GPU temperature': [49 + 6 * Math.sin(t * .4), 35, 85, '°C'], 'GPU power': [110 + 70 * Math.sin(t * .5), 15, 300, ' W'], 'GPU usage': [43 + 30 * Math.sin(t * .6), 0, 100, '%'],
+      'CPU temperature': [54 + 4 * Math.sin(t * .5), 35, 90, '°C'], 'CPU usage': [18 + 9 * Math.sin(t * .8), 0, 100, '%'], 'Ping': [22 + 8 * Math.sin(t * 1.1), 10, 120, ' ms'] };
+    const [sv, smin, smax, unit] = sources[s.src]; const sf = Math.max(0, Math.min(1, (sv - smin) / (smax - smin))); const sensorC = ramp(sf);
+    const DEV = [['top', 'Radiator fans'], ['front', 'Front fans'], ['rear', 'Rear fan'], ['ram', 'RAM'], ['gpu', 'Graphics card'], ['board', 'ROG logo'], ['strip', 'LED strip']];
+    const isWhole = s.mode === 'Whole case', isDevice = s.mode === 'Per device', isSensor = s.mode === 'Sensor';
+    const argbIds = ['front', 'rear', 'strip'];
+    const colorOf = (id) => {
+      if (!s.argb && argbIds.includes(id)) return '#2A2C33';
+      if (isWhole) return s.off[id] ? '#1E2026' : s.color;
+      if (isSensor) return s.sTargets[id] ? sensorC : s.color;
+      const b = s.behaviour[id] || 'Follow';
+      if (b === 'Own') return s.own[id] || s.color;
+      if (b === 'Sensor') return sensorC;
+      return s.color;
+    };
+    const ramLeds = (k) => (!isWhole && s.behaviour.ram === 'Paint' && !isSensor) ? s.paint.ram[k] : colorOf('ram');
+    const L = { top: colorOf('top'), front: colorOf('front'), rear: colorOf('rear'), board: colorOf('board') };
+    for (let k = 0; k < 10; k++) { L['a' + k] = ramLeds(k); L['b' + k] = ramLeds(9 - k); }
+    for (let k = 0; k < 4; k++) L['g' + k] = colorOf('gpu');
+    for (let k = 0; k < 12; k++) L['s' + k] = colorOf('strip');
+    const H = { ram: isDevice && s.sel === 'ram' ? 1 : 0, gpu: isDevice && s.sel === 'gpu' ? 1 : 0, strip: isDevice && s.sel === 'strip' ? 1 : 0, board: isDevice && s.sel === 'board' ? 1 : 0 };
+    const swatches = [['#FF4D1A', 'Ember'], ['#FF4D4F', 'Red'], ['#F5A524', 'Amber'], ['#3DDC84', 'Green'], ['#36D6FF', 'Ion'], ['#4D6BFF', 'Blue'], ['#B26BFF', 'Violet'], ['#F4F5F7', 'White']];
+    const pickColor = isDevice ? (s.behaviour[s.sel] === 'Own' ? (s.own[s.sel] || s.color) : s.color) : s.color;
+    const angle = { '#FF4D4F': 0, '#FF4D1A': 15, '#F5A524': 45, '#3DDC84': 135, '#36D6FF': 180, '#4D6BFF': 225, '#B26BFF': 270, '#F4F5F7': 320 }[pickColor] ?? 180;
+    const rad = (angle - 90) * Math.PI / 180;
+    const setColor = (c) => {
+      if (isDevice && s.behaviour[s.sel] === 'Own') this.setState({ own: { ...s.own, [s.sel]: c } });
+      else this.setState({ color: c });
+    };
+    const effects = [['Static', 'linear-gradient(90deg, C, C)', ''], ['Breathing', 'linear-gradient(90deg, #0F1014, C, #0F1014)', 'lbreathe 2.4s ease-in-out infinite'],
+      ['Rainbow', 'linear-gradient(90deg, #FF4D4F, #F5A524, #3DDC84, #36D6FF, #B26BFF, #FF4D4F)', 'lrainbow 4s linear infinite'], ['Aurora', 'linear-gradient(90deg, #3DDC84, #36D6FF, #B26BFF, #3DDC84)', 'lrainbow 9s linear infinite'],
+      ['Comet', 'linear-gradient(90deg, #0F1014 0%, #0F1014 60%, C 80%, #FFFFFF 85%, #0F1014 100%)', 'lbreathe 1.2s ease-in-out infinite'], ['Fire', 'linear-gradient(90deg, #FF4D4F, #F5A524, #FFE34D, #FF4D1A, #FF4D4F)', 'lbreathe 0.9s ease-in-out infinite'],
+      ['Ocean', 'linear-gradient(90deg, #4D6BFF, #36D6FF, #0F3D5C, #4D6BFF)', 'lbreathe 3.2s ease-in-out infinite'], ['Rain', 'linear-gradient(90deg, #0F1014, C, #0F1014, C, #0F1014)', 'lbreathe 1.6s ease-in-out infinite'], ['Strobe', 'linear-gradient(90deg, C, C)', 'lstrobe 0.5s steps(1) infinite']];
+    const cur = effects.find(e => e[0] === s.effect);
+    const tile = (on) => 'width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 16px; font: inherit; color: #F4F5F7; text-align: left; cursor: pointer; ' + (on ? 'background: #1E2026; border: 0;' : 'background: #17181D; border: 1px solid rgba(255,255,255,.06);');
+    const sel = DEV.find(d => d[0] === s.sel);
+    const ledRow = (s.paint[s.sel] || Array.from({ length: s.sel === 'gpu' ? 4 : s.sel === 'strip' ? 12 : 10 }, () => s.color));
+    return {
+      ...this.shellVals(),
+      headline: isWhole ? 'Your whole setup, one colour' : isDevice ? 'Fine-tune each device' : 'Lights that show what your PC is doing',
+      modes: ['Whole case', 'Per device', 'Sensor'].map(m => ({ label: m, on: s.mode === m, style: this.pill(s.mode === m), pick: () => this.setState({ mode: m }) })),
+      needsArgb: !s.argb, setupArgb: () => this.setState({ argb: true }),
+      isWhole, isDevice, isSensor, isArrange: isDevice && s.tool === 'Arrange', isPaint: isDevice && s.tool === 'Paint',
+      showColour: isWhole || (isDevice && s.behaviour[s.sel] === 'Own') || (isDevice && s.tool === 'Paint'),
+      colourLabel: isWhole ? 'COLOUR · EVERYTHING' : isDevice && s.tool === 'Paint' ? 'BRUSH COLOUR' : (sel[1] + ' COLOUR').toUpperCase(),
+      previewLabel: isDevice && s.tool === 'Arrange' ? 'ARRANGE · DRAG, ROTATE, FLIP' : 'LIVE PREVIEW',
+      previewStatus: isSensor ? s.src + ' · ' + s.style : s.effect + ' · ' + s.bright + '%',
+      color: isSensor ? sensorC : s.color, pickColor, L, H, R: s.rot,
+      anim: isWhole && cur[2] ? cur[2] : 'none', caseOpacity: (0.3 + 0.7 * s.bright / 100).toFixed(2),
+      caseLabel: 'Your PC case preview, ' + (isWhole ? s.effect + ' in ' + s.color : s.mode),
+      lampOrbs: ['Desk lamp', 'Bedside lamp'].map(n => { const c = isSensor ? s.color : s.color; return { name: n, orb: 'width: 58px; height: 58px; border-radius: 29px; background: radial-gradient(circle at 35% 30%, #FFFFFF, ' + c + ' 45%, rgba(0,0,0,.3)); opacity: ' + (s.off[n] ? .2 : (0.35 + 0.65 * s.bright / 100)).toFixed(2) + '; box-shadow: 0 0 ' + (s.off[n] ? 0 : 34) + 'px ' + c + ';' }; }),
+      targets: [...DEV.map(d => [d[0], d[1]]), ['Desk lamp', 'Desk lamp'], ['Bedside lamp', 'Bedside lamp']].map(([id, n]) => { const on = !s.off[id]; return { label: n, on, toggle: () => this.setState({ off: { ...s.off, [id]: on } }),
+        dot: this.dot(on ? s.color : '#3A3C44'),
+        style: 'display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 12px; cursor: pointer; ' + (on ? 'background: #1E2026; color: #F4F5F7; border: 1px solid rgba(255,255,255,.1);' : 'background: transparent; color: #7C808A; border: 1px dashed rgba(255,255,255,.14);') }; }),
+      markX: (75 + 66 * Math.cos(rad)).toFixed(1) + 'px', markY: (75 + 66 * Math.sin(rad)).toFixed(1) + 'px',
+      swatches: swatches.map(([c, n]) => ({ label: n, pick: () => setColor(c), style: 'height: 34px; border-radius: 10px; cursor: pointer; background: ' + c + '; ' + (pickColor === c ? 'border: 2px solid #F4F5F7; box-shadow: 0 0 16px ' + c + ';' : 'border: 2px solid transparent;') })),
+      bright: s.bright, brightFill: 'height: 14px; border-radius: 7px; width: ' + s.bright + '%; background: linear-gradient(90deg, rgba(255,255,255,.15), ' + pickColor + '); box-shadow: 0 0 14px ' + pickColor + ';',
+      levels: [['25%', 25], ['50%', 50], ['80%', 80], ['Max', 100]].map(([l, v]) => ({ label: l, pick: () => this.setState({ bright: v }), style: this.small(s.bright === v) })),
+      effect: s.effect, speed: s.speed, hasSpeed: s.effect !== 'Static',
+      effects: effects.map(([n, g]) => ({ name: n, on: s.effect === n, ringCls: s.effect === n ? 'ring' : '', pick: () => this.setState({ effect: n }),
+        preview: 'display: block; height: 34px; border-radius: 9px; background: ' + g.replace(/\bC\b/g, s.color) + ';', style: tile(s.effect === n) })),
+      speeds: ['Slow', 'Medium', 'Fast'].map(p => ({ label: p, pick: () => this.setState({ speed: p }), style: this.small(s.speed === p) })),
+      selName: sel[1], angle: s.rot[s.sel] ?? 0,
+      tools: ['Paint', 'Arrange'].map(x => ({ label: x === 'Paint' ? 'Paint LEDs' : 'Arrange case', on: s.tool === x, pick: () => this.setState({ tool: x }), style: this.pill(s.tool === x) + ' min-height: 32px;' })),
+      rotL: () => this.setState({ rot: { ...s.rot, [s.sel]: ((s.rot[s.sel] || 0) - 15) } }), rotR: () => this.setState({ rot: { ...s.rot, [s.sel]: ((s.rot[s.sel] || 0) + 15) } }),
+      flip: () => this.setState({ rot: { ...s.rot, [s.sel]: ((s.rot[s.sel] || 0) + 180) } }), resetMap: () => this.setState({ rot: { ram: 0, gpu: 0, strip: 0, board: 0 } }),
+      brushes: ['Brush', 'Fill', 'Gradient', 'Eyedropper', 'Eraser'].map(b => ({ label: b, on: s.brush === b, pick: () => this.setState({ brush: b }), style: this.small(s.brush === b) + ' flex: 0 0 auto;' })),
+      paintHint: 'Tap an LED to paint it with the brush colour · ' + sel[1] + ' · ' + ledRow.length + ' LEDs · changes reach your PC instantly',
+      ledRow: ledRow.map((c, k) => ({ n: k + 1, label: 'LED ' + (k + 1), paint: () => { const row = ledRow.slice(); if (s.brush === 'Fill') row.fill(s.color); else row[k] = s.brush === 'Eraser' ? '#1E2026' : s.color; this.setState({ paint: { ...s.paint, [s.sel]: row }, behaviour: { ...s.behaviour, [s.sel]: 'Paint' } }); },
+        style: 'flex: 1 1 0; min-width: 0; height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); cursor: pointer; font: inherit; font-size: 11px; color: rgba(7,8,10,.7); font-weight: 700; background: ' + c + '; box-shadow: 0 0 12px ' + c + '88;' })),
+      deviceList: DEV.map(([id, n]) => ({ name: n, on: s.sel === id, behaviour: (!s.argb && argbIds.includes(id)) ? 'Not set up' : (s.behaviour[id] || 'Follow'),
+        pick: () => this.setState({ sel: id }), dot: this.dot(colorOf(id)),
+        style: 'display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: 12px; font: inherit; font-size: 13px; color: #F4F5F7; cursor: pointer; ' + (s.sel === id ? 'background: #1E2026; border: 1px solid rgba(255,77,26,.6); box-shadow: 0 0 14px rgba(255,77,26,.15);' : 'background: transparent; border: 1px solid rgba(255,255,255,.05);') })),
+      behaviours: ['Follow', 'Own', 'Sensor', 'Paint'].map(b => ({ label: b === 'Follow' ? 'Whole case' : b === 'Own' ? 'Own colour' : b === 'Sensor' ? 'Sensor' : 'Painted', on: (s.behaviour[s.sel] || 'Follow') === b,
+        pick: () => this.setState({ behaviour: { ...s.behaviour, [s.sel]: b }, tool: b === 'Paint' ? 'Paint' : s.tool }), style: this.small((s.behaviour[s.sel] || 'Follow') === b) })),
+      sources: Object.entries(sources).map(([n, [v, , , u]]) => ({ label: n, value: Math.round(v) + u, on: s.src === n, pick: () => this.setState({ src: n }),
+        style: 'display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: 12px; font: inherit; color: #F4F5F7; cursor: pointer; text-align: left; ' + (s.src === n ? 'background: #1E2026; border: 1px solid rgba(255,77,26,.6);' : 'background: #17181D; border: 1px solid rgba(255,255,255,.05);') })),
+      sensorName: s.src, sensorValue: Math.round(sv) + unit, sensorColor: sensorC, rangeMin: smin + unit, rangeMax: smax + unit,
+      sensorMarker: 'position: absolute; top: -5px; left: calc(' + (sf * 100).toFixed(1) + '% - 4px); width: 8px; height: 22px; border-radius: 4px; background: #F4F5F7; box-shadow: 0 0 12px ' + sensorC + ';',
+      styles: ['Gradient', 'Fill bar', 'Breathing', 'Threshold'].map(x => ({ label: x, pick: () => this.setState({ style: x }), style: this.small(s.style === x) })),
+      sensorTargets: [['gpu', 'Graphics card'], ['ram', 'RAM'], ['strip', 'LED strip'], ['top', 'Radiator fans'], ['board', 'ROG logo']].map(([id, n]) => { const on = !!s.sTargets[id]; return { label: n, on, toggle: () => this.setState({ sTargets: { ...s.sTargets, [id]: !on } }), style: this.small(on) + ' flex: 0 0 auto;' }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

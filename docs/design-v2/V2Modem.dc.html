@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism v2 — Internet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(60px,40px) scale(1.12)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes crit{0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.6)}50%{box-shadow:0 0 0 7px rgba(255,77,79,0)}}
+@keyframes warnpulse{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,.55)}50%{box-shadow:0 0 0 7px rgba(245,165,36,0)}}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+@keyframes orb{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+@keyframes lbreathe{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes lrainbow{to{filter:hue-rotate(360deg)}}
+@keyframes lflow{from{background-position:0% 50%}to{background-position:200% 50%}}
+@keyframes lstrobe{0%,49%{opacity:1}50%,100%{opacity:.08}}
+.card{animation:rise .6s cubic-bezier(.22,1,.36,1) both;transition:border-color .25s,transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s}
+.card:hover{border-color:rgba(255,255,255,.13)!important}
+.lift:hover{transform:translateY(-3px)}
+.d1{animation-delay:.04s}.d2{animation-delay:.08s}.d3{animation-delay:.12s}.d4{animation-delay:.16s}.d5{animation-delay:.2s}.d6{animation-delay:.24s}.d7{animation-delay:.28s}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s,border-color .2s}.btn:hover{border-color:rgba(255,255,255,.2)!important}.btn:active{transform:scale(.97)}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F5F7}
+.live{animation:livedot 1.6s ease-in-out infinite}
+.crit{animation:crit 1.2s infinite}.warn{animation:warnpulse 1.8s infinite}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;animation:drift 18s ease-in-out infinite alternate}
+.b1{width:520px;height:520px;left:-120px;top:-180px;background:radial-gradient(circle,rgba(255,77,26,.35),transparent 70%)}
+.b2{width:620px;height:620px;right:-160px;top:120px;background:radial-gradient(circle,rgba(54,214,255,.22),transparent 70%);animation-duration:24s}
+.arc{transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1),stroke .5s}
+.needle{transition:transform .8s cubic-bezier(.22,1,.36,1)}
+.fill{position:relative;overflow:hidden;transition:width .8s cubic-bezier(.22,1,.36,1),height .8s cubic-bezier(.22,1,.36,1),background .5s,box-shadow .5s}
+.fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2.6s ease-in-out infinite}
+.spark{stroke-dasharray:600;animation:draw 2.4s cubic-bezier(.22,1,.36,1) both}
+.orb{animation:orb 4s ease-in-out infinite;transition:box-shadow .5s,opacity .5s,background .5s}
+.flow{background-size:200% 100%!important;animation:lflow 3s linear infinite}
+.ring{position:relative;border-radius:18px;padding:1.5px;overflow:hidden}
+.ring::before{content:"";position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent 0 60%,#FF4D1A 75%,#36D6FF 88%,transparent 100%);animation:spin 4s linear infinite}
+.ring > *{position:relative}
+.ico{flex:0 0 18px}
+.topbtn{transition:background .2s,border-color .2s}.topbtn:hover{border-color:rgba(255,255,255,.18)!important}
+.knob{transition:transform .25s cubic-bezier(.22,1,.36,1)}
+@media (max-width: 1100px){main > *{grid-column:span 12!important}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+@keyframes sweep{to{transform:rotate(360deg)}}
+.sweep{transform-origin:50% 50%;animation:sweep 1.4s linear infinite}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 1180px; display: flex; flex-wrap: wrap; color: #F4F5F7; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse 70% 40% at 50% -10%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%), radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px) 0 0 / 24px 24px, #07080A;">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden;"><span class="blob b1"></span><span class="blob b2"></span></div>
+  <nav aria-label="Main" style="position: relative; z-index: 1; flex: 0 0 220px; box-sizing: border-box; padding: 20px 12px; background: rgba(13,14,17,.8); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #FF4D1A, #FF8A3D); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(255,77,26,.5);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#07080A" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700;">Prism</span>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="16">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}"><p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{n.label}}</p></sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}"><a class="nav" href="{{n.href}}" style="{{n.style}}"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg>{{n.label}}</a></sc-if>
+    </sc-for>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 12px 8px 0; padding: 10px 12px; border-radius: 12px; background: #111216; border: 1px solid rgba(255,255,255,.06); font-size: 12px; color: #A3A6AE;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 10px #3DDC84;"></span>Service live · 12 devices</div>
+  </nav>
+
+  <main style="position: relative; z-index: 1; flex: 999 1 600px; min-width: 0; box-sizing: border-box; padding: 20px 26px 26px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: min-content; gap: 16px; align-content: start;">
+    <div style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 2px;">
+      <p style="margin: 0; font-size: 13px; color: #7C808A;">Prism <span style="color: #3A3C44;">/</span> <span style="color: #C9CBD1;">{{pageName}}</span></p>
+      <div style="flex-grow: 1;"></div>
+      <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 8px 0 14px; border-radius: 999px; background: rgba(17,18,22,.8); border: 1px solid rgba(255,255,255,.07); flex: 0 1 360px; backdrop-filter: blur(12px);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C808A" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Search</span>
+        <input type="search" placeholder="Search or type a command" style="flex-grow: 1; min-width: 0; background: transparent; border: 0; outline: none; color: #F4F5F7; font: inherit; font-size: 13px;">
+        <span style="padding: 3px 8px; border-radius: 6px; background: #1E2026; font-size: 11px; color: #A3A6AE;">Ctrl Space</span>
+      </label>
+      <span style="display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; background: rgba(61,220,132,.08); border: 1px solid rgba(61,220,132,.3); font-size: 12px; color: #9BEFC2;"><span class="live" style="width: 7px; height: 7px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 8px #3DDC84;"></span>All systems normal</span>
+      <button class="topbtn" type="button" aria-label="Notifications" style="width: 40px; height: 40px; border-radius: 20px; background: rgba(17,18,22,.8); border: 1px solid rgba(255,255,255,.07); color: #C9CBD1; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"></path></svg></button>
+    </div>
+    <header class="card" style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div>
+        <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">INTERNET</p>
+        <h1 style="margin: 4px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -0.02em;">5G signal is {{ratingWord}}</h1>
+        <p style="margin: 6px 0 0; font-size: 13px; color: #A3A6AE;">ZLT X17M · 5G NSA on band n78 with an LTE anchor · updated {{ago}}</p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <sc-for list="{{headChips}}" as="c" hint-placeholder-count="3"><span style="{{c.style}}"><span style="{{c.dot}}"></span>{{c.label}}</span></sc-for>
+      </div>
+    </header>
+
+    <section class="card d1" aria-label="Signal score" style="grid-column: span 4; padding: 20px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; align-items: center; gap: 12px;">
+      <div style="position: relative; width: 210px; height: 180px;">
+        <svg width="210" height="180" viewBox="0 0 210 180" role="img" aria-label="Signal score {{score}} of 100">
+          <defs><linearGradient id="scoreG" x1="0" x2="1"><stop offset="0" stop-color="#FF4D4F"></stop><stop offset=".45" stop-color="#F5A524"></stop><stop offset=".75" stop-color="#3DDC84"></stop><stop offset="1" stop-color="#36D6FF"></stop></linearGradient></defs>
+          <path d="M 30 160 A 85 85 0 1 1 180 160" fill="none" stroke="#1E2026" stroke-width="16" stroke-linecap="round"></path>
+          <path d="M 30 160 A 85 85 0 1 1 180 160" fill="none" stroke="url(#scoreG)" stroke-width="16" stroke-linecap="round" opacity=".18"></path>
+          <path class="arc" d="M 30 160 A 85 85 0 1 1 180 160" fill="none" stroke="{{scoreColor}}" stroke-width="16" stroke-linecap="round" stroke-dasharray="401" stroke-dashoffset="{{scoreOffset}}" style="filter: drop-shadow(0 0 10px {{scoreColor}});"></path>
+        </svg>
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 18px;">
+          <span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 56px; font-weight: 600; line-height: 1;">{{score}}</span>
+          <span style="font-size: 14px; font-weight: 600; color: {{scoreColor}};">{{ratingWord}}</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: flex-end; gap: 5px; height: 40px;"><sc-for list="{{bars}}" as="b" hint-placeholder-count="5"><span style="{{b.style}}"></span></sc-for></div>
+      <p style="margin: 0; font-size: 12px; color: #A3A6AE; text-align: center; max-width: 280px;">{{tip}}</p>
+    </section>
+
+    <section class="card d1" aria-label="Signal readings" style="grid-column: span 8; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Signal readings</h2><p style="margin: 2px 0 0; font-size: 12px; color: #7C808A;">Bars show where each reading sits from poor to excellent</p></div>
+        <div role="tablist" aria-label="Radio" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07); width: fit-content;"><sc-for list="{{radios}}" as="r" hint-placeholder-count="2"><button class="btn" type="button" role="tab" aria-selected="{{r.on}}" onClick="{{r.pick}}" style="{{r.style}}">{{r.label}}</button></sc-for></div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+        <sc-for list="{{metrics}}" as="m" hint-placeholder-count="4">
+          <div style="padding: 14px; border-radius: 16px; background: #17181D; border: 1px solid rgba(255,255,255,.04); display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+              <div><p style="margin: 0; font-size: 13px; font-weight: 600;">{{m.name}}</p><p style="margin: 2px 0 0; font-size: 11px; color: #7C808A;">{{m.what}}</p></div>
+              <p style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 600; color: {{m.color}};">{{m.value}}<span style="font-size: 12px; color: #7C808A;"> {{m.unit}}</span></p>
+            </div>
+            <div style="position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px;">
+              <span style="height: 8px; border-radius: 4px 0 0 4px; background: rgba(255,77,79,.35);"></span><span style="height: 8px; background: rgba(245,165,36,.35);"></span><span style="height: 8px; background: rgba(61,220,132,.35);"></span><span style="height: 8px; border-radius: 0 4px 4px 0; background: rgba(54,214,255,.35);"></span>
+              <span style="{{m.marker}}"></span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #5A5D66;"><span>Poor</span><span>Fair</span><span>Good</span><span>Excellent</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section class="card d2" aria-label="Ping" style="grid-column: span 6; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><div><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Ping</h2><p style="margin: 2px 0 0; font-size: 12px; color: #7C808A;">Live to 1.1.1.1 · last 60 seconds</p></div><span style="{{spikeChip}}"><span style="{{spikeDot}}"></span>{{spikeText}}</span></div>
+      <div style="position: relative; height: 130px; border-radius: 14px; background: #0D0E12; border: 1px solid rgba(255,255,255,.05); overflow: hidden;">
+        <svg viewBox="0 0 600 130" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 100%;" aria-hidden="true">
+          <defs><linearGradient id="pingG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#36D6FF" stop-opacity=".35"></stop><stop offset="1" stop-color="#36D6FF" stop-opacity="0"></stop></linearGradient></defs>
+          <path d="M0 32H600M0 65H600M0 97H600" stroke="rgba(255,255,255,.05)" vector-effect="non-scaling-stroke"></path>
+          <path d="{{pingArea}}" fill="url(#pingG)"></path>
+          <path d="{{pingLine}}" fill="none" stroke="#36D6FF" stroke-width="2" vector-effect="non-scaling-stroke" style="filter: drop-shadow(0 0 4px #36D6FF);"></path>
+        </svg>
+        <sc-for list="{{spikes}}" as="k" hint-placeholder-count="2"><span style="{{k.style}}"></span></sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{pingStats}}" as="t" hint-placeholder-count="4"><div style="padding: 10px 12px; border-radius: 12px; background: #17181D; border: 1px solid rgba(255,255,255,.04);"><p style="margin: 0; font-size: 11px; color: #7C808A;">{{t.label}}</p><p style="margin: 2px 0 0; font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 17px; font-weight: 600; color: {{t.color}};">{{t.value}}</p></div></sc-for>
+      </div>
+    </section>
+
+    <section class="card d3" aria-label="Speed test" style="grid-column: span 3; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 12px;">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Speed test</h2>
+      <div style="position: relative; width: 120px; height: 120px; align-self: center;">
+        <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#1E2026" stroke-width="8"></circle>
+          <circle class="arc" cx="60" cy="60" r="52" fill="none" stroke="#36D6FF" stroke-width="8" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="{{speedOffset}}" transform="rotate(-90 60 60)" style="filter: drop-shadow(0 0 6px #36D6FF);"></circle>
+          <g class="sweep" opacity="{{sweepOp}}"><circle cx="60" cy="8" r="4" fill="#FF4D1A"></circle></g>
+        </svg>
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;"><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 28px; font-weight: 600;">{{down}}</span><span style="font-size: 11px; color: #7C808A;">Mb/s down</span></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #A3A6AE;"><span>Upload <b style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; color: #FF7A50;">{{up}}</b> Mb/s</span><span>{{testWhen}}</span></div>
+      <button class="btn" type="button" onClick="{{runTest}}" style="min-height: 42px; padding: 0 20px; border-radius: 999px; border: 0; background: #FF4D1A; color: #07080A; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 0 22px rgba(255,77,26,.4); min-height: 38px;">{{testLabel}}</button>
+    </section>
+
+    <section class="card d3" aria-label="Who is connected" style="grid-column: span 3; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Connected</h2><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600;">{{deviceCount}}</span></div>
+      <sc-for list="{{clients}}" as="d" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="{{d.dot}}"></span>
+          <span style="flex: 1 1 auto; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{d.name}}</span>
+          <span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 12px; color: #7C808A;">{{d.rate}}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <section class="card d4" aria-label="Cell and band" style="grid-column: span 7; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><div><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Cell &amp; band</h2><p style="margin: 2px 0 0; font-size: 12px; color: #7C808A;">What the modem is locked onto right now</p></div><button class="btn" type="button" onClick="{{scan}}" style="min-height: 42px; padding: 0 18px; border-radius: 999px; background: #17181D; border: 1px solid rgba(255,255,255,.1); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px;">{{scanLabel}}</button></div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{cell}}" as="c" hint-placeholder-count="8"><div style="padding: 10px 12px; border-radius: 12px; background: #17181D; border: 1px solid rgba(255,255,255,.04);"><p style="margin: 0; font-size: 11px; color: #7C808A;">{{c.label}}</p><p style="margin: 2px 0 0; font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600;">{{c.value}}</p></div></sc-for>
+      </div>
+      <sc-if value="{{scanned}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <sc-for list="{{scanRows}}" as="r" hint-placeholder-count="3">
+            <div style="display: grid; grid-template-columns: 90px 1fr 70px; align-items: center; gap: 10px; font-size: 12px;"><span style="color: #C9CBD1;">{{r.band}}</span><div style="height: 8px; border-radius: 4px; background: #1E2026;"><div class="fill" style="{{r.fill}}"></div></div><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; text-align: right; color: {{r.color}};">{{r.score}}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </section>
+
+    <section class="card d4" aria-label="Router" style="grid-column: span 5; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Router</h2><span style="font-size: 12px; color: #7C808A;">Password kept encrypted on this PC</span></div>
+      <sc-for list="{{routerRows}}" as="r" hint-placeholder-count="4">
+        <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #A3A6AE;">{{r.label}}</span><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums;">{{r.value}}</span></div>
+      </sc-for>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn" type="button" style="min-height: 42px; padding: 0 18px; border-radius: 999px; background: #17181D; border: 1px solid rgba(255,255,255,.1); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; flex: 1; min-height: 38px;">Open router page</button>
+        <button class="btn" type="button" style="min-height: 42px; padding: 0 18px; border-radius: 999px; background: #17181D; border: 1px solid rgba(255,255,255,.1); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; flex: 1; min-height: 38px;">Restart router</button>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { t: 0, radio: '5G', testing: false, testT: 0, down: 214, up: 38, scanned: false }; }
+  componentDidMount() { this.timer = setInterval(() => { const s = this.state; this.setState({ t: s.t + 1, ...(s.testing ? (s.testT >= 4 ? { testing: false, down: 180 + Math.round(Math.random() * 70), up: 30 + Math.round(Math.random() * 14) } : { testT: s.testT + 1 }) : {}) }); }, 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  
+  shellVals() {
+    const ICONS = { Dashboard: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z', Monitor: 'M3 12h4l3-8 4 16 3-8h4', Devices: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', Widgets: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z', Lighting: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z', Lamps: 'M8 21h8M12 17v4M6 3h12l-3 8H9zM9 11a3 3 0 0 0 6 0', Fans: 'M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2', Scenes: 'M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z', 'Air fryer': 'M5 6h14v14H5zM8 3h8M9 10h6M12 13v4', Internet: 'M5 20v-4M10 20v-8M15 20v-12M20 20V4', Settings: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M18 18h2M14 4v4M8 10v4M16 16v4' };
+    const nav = [
+      { section: true, label: 'GENERAL' }, ['Dashboard', 'V2Dashboard.dc.html'], ['Monitor', 'V2Monitor.dc.html'], ['Devices', 'V2Devices.dc.html'], ['Widgets', 'V2Widgets.dc.html'],
+      { section: true, label: 'CONTROL' }, ['Lighting', 'V2Lighting.dc.html'], ['Lamps', 'V2Lamps.dc.html'], ['Fans', 'V2Fans.dc.html'], ['Scenes', 'V2Scenes.dc.html'],
+      { section: true, label: 'HOME' }, ['Air fryer', 'V2Fryer.dc.html'], ['Internet', 'V2Modem.dc.html'],
+      { section: true, label: 'SYSTEM' }, ['Settings', 'V2Settings.dc.html']
+    ].map(n => Array.isArray(n) ? { link: true, section: false, label: n[0], href: n[1], icon: ICONS[n[0]] || '',
+      style: 'display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 12px; border-radius: 12px; text-decoration: none; font-size: 14px; ' +
+        (n[0] === 'Internet' ? 'background: linear-gradient(90deg, rgba(255,77,26,.18), rgba(255,77,26,.04)); color: #F4F5F7; font-weight: 600; box-shadow: inset 2px 0 0 #FF4D1A;' : 'color: #A3A6AE;') }
+      : { ...n, link: false });
+    return { nav, pageName: 'Internet' };
+  }
+  pill(on) { return 'min-height: 38px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #07080A; box-shadow: 0 0 18px rgba(255,77,26,.45);' : 'background: transparent; color: #A3A6AE;'); }
+  small(on) { return 'flex: 1 1 0; min-height: 36px; padding: 0 10px; border-radius: 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' + (on ? 'background: rgba(255,77,26,.16); color: #FF8A60; border: 1px solid rgba(255,77,26,.55);' : 'background: #1E2026; color: #C9CBD1; border: 1px solid rgba(255,255,255,.06);'); }
+  level(v, warm, hot) { return v >= hot ? '#FF4D4F' : v >= warm ? '#F5A524' : v >= warm * 0.6 ? '#3DDC84' : '#36D6FF'; }
+  chip(c) { return 'display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; min-height: 30px; padding: 0 12px; border-radius: 999px; background: ' + c + '1A; border: 1px solid ' + c + '55; font-size: 12px; color: #F4F5F7;'; }
+  dot(c) { return 'width: 7px; height: 7px; border-radius: 4px; background: ' + c + '; box-shadow: 0 0 8px ' + c + ';'; }
+  sw(on) { return { track: 'flex: 0 0 46px; width: 46px; height: 26px; border-radius: 13px; border: 0; padding: 0; position: relative; cursor: pointer; ' + (on ? 'background: #FF4D1A; box-shadow: 0 0 14px rgba(255,77,26,.45);' : 'background: #2A2C33;'), knob: 'position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px; background: #F4F5F7; transform: translateX(' + (on ? 20 : 0) + 'px);' }; }
+  spark(series, w, h) { const max = Math.max(...series), min = Math.min(...series), r = (max - min) || 1; return series.map((v, i) => (i ? 'L' : 'M') + (i * w / (series.length - 1)).toFixed(1) + ' ' + (h - 3 - (v - min) / r * (h - 6)).toFixed(1)).join(' '); }
+
+  renderVals() {
+    const s = this.state, t = s.t;
+    const w = (b, a, k, o = 0) => b + a * Math.sin((t + o) * k) + a * .4 * Math.sin((t + o) * k * 2.3);
+    const score = Math.round(w(47, 2, .3));
+    const rate = v => v >= 80 ? ['Excellent', '#36D6FF'] : v >= 60 ? ['Good', '#3DDC84'] : v >= 40 ? ['Fair', '#F5A524'] : ['Poor', '#FF4D4F'];
+    const [word, col] = rate(score);
+    const seg = on => 'min-height: 32px; padding: 0 14px; border-radius: 999px; border: 0; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #07080A;' : 'background: transparent; color: #A3A6AE;');
+    // Each reading has its own band edges [floor, fair, good, excellent, ceiling]; each band gets a quarter of the bar.
+    const metric = (name, what, v, unit, edges) => { const z = Math.max(0, Math.min(3, edges.slice(1, 4).filter(e => v >= e).length));
+      const p = Math.max(0, Math.min(1, (z + Math.max(0, Math.min(1, (v - edges[z]) / (edges[z + 1] - edges[z])))) / 4)); const c = ['#FF4D4F', '#F5A524', '#3DDC84', '#36D6FF'][z];
+      return { name, what, value: v.toFixed(unit === 'dB' && Math.abs(v) < 30 ? 1 : 0), unit, color: c, marker: 'position: absolute; top: -4px; left: calc(' + (p * 100).toFixed(1) + '% - 3px); width: 6px; height: 16px; border-radius: 3px; background: #F4F5F7; box-shadow: 0 0 10px ' + c + '; transition: left .8s;' }; };
+    const metrics = s.radio === '5G'
+      ? [metric('RSRP', 'Signal strength', w(-97, 1.5, .4), 'dBm', [-125, -100, -90, -80, -65]), metric('SINR', 'Signal vs noise', w(9, 1.2, .5), 'dB', [-5, 0, 13, 20, 30]), metric('RSRQ', 'Signal quality', w(-11, .6, .3), 'dB', [-25, -15, -10, -5, 0]), metric('RSSI', 'Total received power', w(-72, 1, .4), 'dBm', [-110, -85, -75, -65, -45])]
+      : [metric('RSRP', 'Signal strength', w(-88, 1.5, .4), 'dBm', [-125, -100, -90, -80, -65]), metric('SINR', 'Signal vs noise', w(14, 1.2, .5), 'dB', [-5, 0, 13, 20, 30]), metric('RSRQ', 'Signal quality', w(-9, .6, .3), 'dB', [-25, -15, -10, -5, 0]), metric('RSSI', 'Total received power', w(-63, 1, .4), 'dBm', [-110, -85, -75, -65, -45])];
+    const ping = Array.from({ length: 60 }, (_, i) => { const k = t + i - 60; return 18 + 6 * Math.abs(Math.sin(k * .7)) + 4 * Math.sin(k * 1.9) + ((k % 23 + 23) % 23 === 0 ? 38 : 0); });
+    const pmax = 80, px = i => (i / 59 * 600).toFixed(1), py = v => (130 - Math.min(v, pmax) / pmax * 120).toFixed(1);
+    const line = ping.map((v, i) => (i ? 'L' : 'M') + px(i) + ' ' + py(v)).join(' ');
+    const avg = ping.reduce((a, b) => a + b, 0) / ping.length, jit = ping.slice(1).reduce((a, v, i) => a + Math.abs(v - ping[i]), 0) / 59;
+    const spikes = ping.map((v, i) => [v, i]).filter(([v]) => v > 45);
+    const bars = Math.max(1, Math.min(5, Math.round(score / 20)));
+    return {
+      ...this.shellVals(),
+      ratingWord: word.toLowerCase(), ago: (t % 2) + 1 + ' s ago',
+      headChips: [['5G NSA · n78', '#36D6FF'], ['Ping ' + Math.round(ping[59]) + ' ms', '#36D6FF'], ['No outages today', '#3DDC84']].map(([l, c]) => ({ label: l, style: this.chip(c), dot: this.dot(c) })),
+      score, scoreColor: col, scoreOffset: (401 * (1 - score / 100)).toFixed(1),
+      bars: [1, 2, 3, 4, 5].map(i => ({ style: 'width: 10px; height: ' + (i * 7 + 5) + 'px; border-radius: 3px; background: ' + (i <= bars ? col + '; box-shadow: 0 0 8px ' + col + '66' : '#1E2026') + ';' })),
+      tip: 'SINR is the weak spot. Moving the router 1–2 m closer to a window usually adds 3–5 dB.',
+      radios: ['5G', 'LTE anchor'].map(r => ({ label: r, on: s.radio === r, pick: () => this.setState({ radio: r }), style: seg(s.radio === r) })),
+      metrics,
+      pingLine: line, pingArea: line + ' L600 130 L0 130 Z',
+      spikes: spikes.map(([v, i]) => ({ style: 'position: absolute; left: calc(' + (i / 59 * 100).toFixed(1) + '% - 5px); top: calc(' + (py(v) / 130 * 100).toFixed(1) + '% - 5px); width: 10px; height: 10px; border-radius: 5px; background: #F5A524; box-shadow: 0 0 10px #F5A524;' })),
+      spikeChip: this.chip(spikes.length ? '#F5A524' : '#3DDC84'), spikeDot: this.dot(spikes.length ? '#F5A524' : '#3DDC84'), spikeText: spikes.length ? spikes.length + ' spike' + (spikes.length > 1 ? 's' : '') + ' in a minute' : 'Steady',
+      pingStats: [['Now', Math.round(ping[59]) + ' ms', '#36D6FF'], ['Average', Math.round(avg) + ' ms', '#F4F5F7'], ['Jitter', jit.toFixed(1) + ' ms', '#F4F5F7'], ['Lost', '0%', '#3DDC84']].map(([label, value, color]) => ({ label, value, color })),
+      testing: s.testing, sweepOp: s.testing ? 1 : 0, down: s.testing ? Math.round(60 + s.testT * 35 + 10 * Math.sin(t * 3)) : s.down, up: s.up,
+      speedOffset: (326.7 * (1 - Math.min(1, (s.testing ? 60 + s.testT * 35 : s.down) / 300))).toFixed(1),
+      testWhen: s.testing ? 'Testing…' : 'Just now', testLabel: s.testing ? 'Testing…' : 'Run speed test', runTest: () => !s.testing && this.setState({ testing: true, testT: 0 }),
+      deviceCount: 7,
+      clients: [['This PC · Prism', '3.1 Mb/s', '#FF4D1A'], ['Phone', '420 kb/s', '#36D6FF'], ['Desk lamp', 'idle', '#3DDC84'], ['Bedside lamp', 'idle', '#3DDC84'], ['Air fryer', 'idle', '#3DDC84']].map(([name, rate, c]) => ({ name, rate, dot: this.dot(c) })),
+      cell: [['Band', 'n78 · 3.5 GHz'], ['Bandwidth', '100 MHz'], ['PCI', '412'], ['Cell ID', '4F2A1C'], ['ARFCN', '636666'], ['Anchor', 'LTE B3'], ['Carrier aggr.', 'B3 + n78'], ['Tower dist.', '~1.2 km']].map(([label, value]) => ({ label, value })),
+      scanned: s.scanned, scanLabel: s.scanned ? 'Scan again' : 'Scan nearby bands', scan: () => this.setState({ scanned: true }),
+      scanRows: [['n78 · now', 47], ['n28', 39], ['B3 (LTE)', 58], ['B20 (LTE)', 44]].map(([band, v]) => { const [, c] = rate(v); return { band, score: v + ' / 100', color: c, fill: 'height: 8px; border-radius: 4px; width: ' + v + '%; background: ' + c + '; box-shadow: 0 0 8px ' + c + '66;' }; }),
+      routerRows: [['Model', 'ZLT X17M 5G'], ['Address', '192.168.0.1'], ['Uptime', '6 d 3 h'], ['Data this month', '412 GB']].map(([label, value]) => ({ label, value }))
+    };
+  }
+}
+</script>
+</body>
+</html>
