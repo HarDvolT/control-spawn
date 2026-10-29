@@ -44,3 +44,32 @@ extractor text/JSON parsing (fixture with two yeelink.light.color5 lamps, decima
 NewDevices dismissal persistence, no secrets in state JSON.
 
 Finish with docs/STATUS-codex-8.md.
+
+## 6. Rename anything (user request)
+Every device in the registry (lamps, RGB controllers, fan groups, network devices, appliances) has a user-editable
+display name, persisted by stable id and used everywhere (sidebar, widgets, case map, tray, scenes). Command
+`renameDevice` { id, name } (1–40 chars, trimmed). Inline rename in the Devices page, Lamp page, Lighting device
+tabs and Fans cards (pencil icon → text box → Enter saves, Esc cancels). Reset to the detected name.
+
+## 7. Xiaomi appliances via MIoT (first one: the user's air fryer)
+The user has a Xiaomi smart air fryer on the same Mi Home account (its token came from the same extractor run).
+- Add a generic **MIoT client** on top of the existing miIO transport: `get_properties` / `set_properties` /
+  `action` with siid/piid/aiid, batched, with retries and the existing rate limit.
+- **Spec-driven:** a device's model (e.g. `careli.fryer.*`, `xiaomi.fryer.*`, `silen.fryer.*`) selects a spec. Ship
+  a bundled JSON spec file per supported model (fetched by the developer from https://miot-spec.org, cached in the
+  repo; the app must work offline). Map the spec's services to UI controls generically: bool → ToggleSwitch,
+  int/float with range → ThickSlider + number, enum → segmented control, actions → buttons. Unknown models still show
+  read-only properties.
+- **Air fryer page / card:** status (idle / preheating / cooking / paused / done / fault), current and target
+  temperature, target and remaining time (animated ring countdown), mode/recipe picker, start / pause / cancel,
+  "turn basket" or "done" notification if the spec has it.
+- **Safety (heating appliance):** Start always needs an explicit confirmation in the app; no scene, schedule,
+  automation, widget or command-search entry may start cooking; Stop/Cancel is always one click and works from the
+  widget and tray; temperature and time are clamped to the spec's ranges; if Prism loses contact while cooking it
+  only shows a warning (the fryer's own firmware keeps control). Never send anything on startup.
+- Tray notification and optional event-light flash when cooking finishes.
+- Tests: spec parsing, property mapping, clamping, the start-needs-confirmation rule, no automation can start it,
+  fixture replies for get_properties/action. Do NOT contact the real fryer.
+
+The lead will supply the exact model string from the user before live testing; build the generic path plus a spec
+for the most common Xiaomi/Mijia smart air fryer models found on miot-spec.org.
