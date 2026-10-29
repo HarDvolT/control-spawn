@@ -153,9 +153,19 @@ public sealed class SceneOption : ObservableObject
     {
         get
         {
-            var colors = Name switch { "Gaming" => ("#4D180F", "#A83617"), "Work" => ("#14213F", "#4051B5"), "Night" => ("#160F33", "#5038A8"), _ => ("#3A2405", "#A57417") };
-            return new System.Windows.Media.LinearGradientBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colors.Item1),
-                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colors.Item2), 0);
+            var colors = Name switch { "Gaming" => ("#FF4D1A", "#7A1408"), "Work" => ("#4D6BFF", "#14213F"), "Night" => ("#6A4DFF", "#160F33"), _ => ("#F5A524", "#3A2405") };
+            var bright = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colors.Item1);
+            var dark = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colors.Item2);
+            var group = new System.Windows.Media.DrawingGroup();
+            var rect = new System.Windows.Media.RectangleGeometry(new System.Windows.Rect(0, 0, 1, 1));
+            var baseGradient = new System.Windows.Media.LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(1, 1) };
+            baseGradient.GradientStops.Add(new(dark, 0)); baseGradient.GradientStops.Add(new(System.Windows.Media.Color.FromRgb(15, 16, 20), .8));
+            group.Children.Add(new System.Windows.Media.GeometryDrawing(baseGradient, null, rect));
+            var glow = new System.Windows.Media.RadialGradientBrush { Center = new(.85, .15), GradientOrigin = new(.85, .15), RadiusX = .55, RadiusY = 1.2 };
+            glow.GradientStops.Add(new(System.Windows.Media.Color.FromArgb(204, bright.R, bright.G, bright.B), 0)); glow.GradientStops.Add(new(System.Windows.Media.Color.FromArgb(0, bright.R, bright.G, bright.B), 1));
+            group.Children.Add(new System.Windows.Media.GeometryDrawing(glow, null, rect));
+            return new System.Windows.Media.DrawingBrush(group);
+
         }
     }
     public string StateText => IsActive ? "Active" : "Apply";
