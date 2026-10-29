@@ -98,6 +98,35 @@ public sealed class OpenRgbClient(IConnectionFactory connections) : IRgbBackend
         }
         finally { gate.Release(); }
     }
+    /// <summary>
+    /// Sets the LED count of a resizable zone (ARGB headers start at 0 LEDs in OpenRGB, so a strip stays dark
+    /// until it is sized). RGBCONTROLLER_RESIZEZONE = 1000, payload int32 zone index + int32 new size.
+    /// The controller's LED list changes afterwards: call <see cref="RefreshAsync"/> before sending colours.
+    /// </summary>
+    public async Task ResizeZoneAsync(uint controller, int zone, int size, CancellationToken cancellationToken = default)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            ValidateController(controller);
+            var z = Controllers[(int)controller].Zones;
+            if (zone < 0 || zone >= z.Count) throw new ArgumentOutOfRangeException(nameof(zone));
+            if (size < z[zone].Minimum || size > z[zone].Maximum) throw new ArgumentOutOfRangeException(nameof(size), $"Zone accepts {z[zone].Minimum}..{z[zone].Maximum} LEDs.");
+            var data = new byte[8];
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(data, zone);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(4), size);
+            await SendAsync(controller, 1000, data, cancellationToken);
+        }
+        finally { gate.Release(); }
+    }
+    /// <summary>OpenRGB device_type values as names (0 Motherboard, 1 DRAM, 2 GPU, ...).</summary>
+    public static string KindName(int type) => type switch
+    {
+        0 => "Motherboard", 1 => "RAM", 2 => "GPU", 3 => "Cooler", 4 => "LED strip", 5 => "Keyboard", 6 => "Mouse",
+        7 => "Mousemat", 8 => "Headset", 9 => "Headset stand", 10 => "Gamepad", 11 => "Light", 12 => "Speaker",
+        13 => "Virtual", 14 => "Storage", 15 => "Case", 16 => "Microphone", 17 => "Accessory", 18 => "Keypad",
+        _ => "Other"
+    };
     private void ValidateController(uint controller)
     {
         if (DeviceListInvalidated) throw new InvalidOperationException("Device list changed. Refresh controllers first.");

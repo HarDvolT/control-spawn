@@ -167,7 +167,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         int occurrence = identities.GetValueOrDefault(digest); identities[digest] = occurrence + 1;
                         string identity = $"rgb:{digest}:{occurrence}";
                         indices[identity] = (uint)i;
-                        return new RgbDeviceState(identity, d.Name, d.Type.ToString(), true, true, d.Colors.Count);
+                        return new RgbDeviceState(identity, d.Name, OpenRgbClient.KindName(d.Type), true, true, d.Colors.Count);
                     }).ToArray();
                     lock (stateGate) { devices = discovered; rgbIndices = indices; }
                     rgbConnected = true;
