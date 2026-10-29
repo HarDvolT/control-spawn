@@ -93,6 +93,30 @@ public sealed class ServiceTests
         Assert.Same(before, processor.Settings); Assert.Null(runtime.Applied);
     }
     [Fact]
+    public void LiveSensorShapesPickDiscreteGpuRealCoresAndDimmReadingsOnly()
+    {
+        // Shapes seen on the real 9800X3D + RX 9070 XT machine (live observe run, 2026-10-29).
+        var sensors = new[] {
+            new SensorReading("/amdcpu/0/load/1", "AMD Ryzen 7 9800X3D: CPU Core #1 Thread #1", SensorCategory.Cpu, "Load", "%", 60),
+            new SensorReading("/amdcpu/0/load/2", "AMD Ryzen 7 9800X3D: CPU Core #1 Thread #2", SensorCategory.Cpu, "Load", "%", 47),
+            new SensorReading("/amdcpu/0/load/17", "AMD Ryzen 7 9800X3D: CPU Core Max", SensorCategory.Cpu, "Load", "%", 64),
+            new SensorReading("/gpu-amd/0/load/0", "AMD Radeon(TM) Graphics: GPU Core", SensorCategory.Gpu, "Load", "%", 0),
+            new SensorReading("/gpu-amd/0/smalldata/1", "AMD Radeon(TM) Graphics: GPU Memory Total", SensorCategory.Gpu, "SmallData", "MB", 512),
+            new SensorReading("/gpu-amd/1/load/0", "AMD Radeon RX 9070 XT: GPU Core", SensorCategory.Gpu, "Load", "%", 35),
+            new SensorReading("/gpu-amd/1/temperature/0", "AMD Radeon RX 9070 XT: GPU Core", SensorCategory.Gpu, "Temperature", "C", 45),
+            new SensorReading("/gpu-amd/1/smalldata/1", "AMD Radeon RX 9070 XT: GPU Memory Total", SensorCategory.Gpu, "SmallData", "MB", 16304),
+            new SensorReading("/memory/dimm/1/temperature/0", "Corsair - CMH32GX5M2B6000Z30 (#1): DIMM #1", SensorCategory.Memory, "Temperature", "C", 36.75),
+            new SensorReading("/memory/dimm/1/temperature/1", "Corsair - CMH32GX5M2B6000Z30 (#1): Temperature Sensor Resolution", SensorCategory.Memory, "Temperature", "C", 0.25),
+            new SensorReading("/memory/dimm/1/temperature/5", "Corsair - CMH32GX5M2B6000Z30 (#1): Thermal Sensor Critical High Limit", SensorCategory.Memory, "Temperature", "C", 85),
+            new SensorReading("/memory/dimm/3/temperature/0", "Corsair - CMH32GX5M2B6000Z30 (#3): DIMM #3", SensorCategory.Memory, "Temperature", "C", 36.5)
+        };
+        var state = StateAssembler.Assemble(new(DateTimeOffset.UnixEpoch, sensors), new(), [2, 6, 7], [], null, null, new(true, false, [], false));
+        Assert.Equal(new double?[] { 60, 47 }, state.System.CpuCoreLoads);
+        Assert.Equal(35, state.System.GpuLoad); Assert.Equal(45, state.System.GpuTemp);
+        Assert.Equal(16304 / 1024d, state.System.VramTotalGb);
+        Assert.Equal(new double?[] { 36.75, 36.5 }, state.System.DimmTemps);
+    }
+    [Fact]
     public void SnapshotProjectionPreservesMissingValuesAndZero()
     {
         var sensors = new[] {

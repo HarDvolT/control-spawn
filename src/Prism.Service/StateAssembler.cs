@@ -9,8 +9,19 @@ public static class StateAssembler
     public static StateMessage Assemble(HardwareSnapshot snapshot, ServiceSettings settings, IReadOnlyList<int> controls,
         IReadOnlyList<RgbDeviceState> devices, LampState? lamp, RouterState? router, ServiceHealth health)
     {
-        var sensors = snapshot.Sensors;
+        // The 9800X3D also has an integrated Radeon GPU (512 MB): read GPU values from the discrete card only,
+        // i.e. the GPU device reporting the most dedicated memory.
+        var gpuDevice = snapshot.Sensors.Where(s => s.Category == SensorCategory.Gpu).GroupBy(s => DeviceId(s.Id))
+            .OrderByDescending(g => g.FirstOrDefault(s => s.Kind == "SmallData" && s.Name.Contains("Memory Total", StringComparison.OrdinalIgnoreCase))?.Value ?? -1)
+            .Select(g => g.Key).FirstOrDefault();
+        var sensors = snapshot.Sensors.Where(s => s.Category != SensorCategory.Gpu || DeviceId(s.Id) == gpuDevice).ToArray();
         double? Pick(SensorCategory category, string kind, string name) => sensors.FirstOrDefault(s => s.Category == category && s.Kind == kind && s.Name.Contains(name, StringComparison.OrdinalIgnoreCase))?.Value;
+        // Per-thread loads are "CPU Core #1 Thread #2" style; "CPU Core Max" is an aggregate, not a core.
+        static bool IsCoreLoad(SensorReading s) => s.Category == SensorCategory.Cpu && s.Kind == "Load" &&
+            s.Name.Contains("CPU Core #", StringComparison.OrdinalIgnoreCase);
+        // DIMM sensors also report resolution and limit values as temperatures; only "DIMM #n" is a reading.
+        static bool IsDimmTemp(SensorReading s) => s.Category == SensorCategory.Memory && s.Kind == "Temperature" &&
+            s.Name.Contains("DIMM #", StringComparison.OrdinalIgnoreCase);
         double? Id(string id) => sensors.FirstOrDefault(s => s.Id == id)?.Value;
         double? Sum(SensorCategory category, string kind, string name, double divisor)
         {
@@ -18,12 +29,12 @@ public static class StateAssembler
             return found.Length == 0 ? null : found.Sum(s => s.Value) / divisor;
         }
         var system = new SystemState(
-            Pick(SensorCategory.Cpu, "Load", "Total"), sensors.Where(s => s.Category == SensorCategory.Cpu && s.Kind == "Load" && s.Name.Contains("Core", StringComparison.OrdinalIgnoreCase)).Select(s => s.Value).ToArray(),
+            Pick(SensorCategory.Cpu, "Load", "Total"), sensors.Where(IsCoreLoad).Select(s => s.Value).ToArray(),
             Pick(SensorCategory.Cpu, "Clock", "Core"), snapshot.Temperature(SensorCategory.Cpu), Pick(SensorCategory.Cpu, "Power", "Package"),
             Pick(SensorCategory.Gpu, "Load", "Core"), Pick(SensorCategory.Gpu, "Temperature", "Core"), Pick(SensorCategory.Gpu, "Temperature", "Hot"),
             Pick(SensorCategory.Gpu, "Clock", "Core"), Pick(SensorCategory.Gpu, "Power", "Package") ?? Pick(SensorCategory.Gpu, "Power", "Total"), Pick(SensorCategory.Gpu, "Fan", ""),
             Pick(SensorCategory.Gpu, "SmallData", "Memory Used") / 1024, Pick(SensorCategory.Gpu, "SmallData", "Memory Total") / 1024,
-            Id("/ram/data/0"), Id("prism/ram/total"), sensors.Where(s => s.Category == SensorCategory.Memory && s.Kind == "Temperature").Select(s => s.Value).ToArray(),
+            Id("/ram/data/0"), Id("prism/ram/total"), sensors.Where(IsDimmTemp).Select(s => s.Value).ToArray(),
             snapshot.Temperature(SensorCategory.Motherboard),
             sensors.Where(s => s.Category == SensorCategory.Storage).GroupBy(s => DeviceId(s.Id)).Select(g => new DiskState(
                 g.First().Name.Split(':')[0], g.FirstOrDefault(s => s.Kind == "Temperature")?.Value,

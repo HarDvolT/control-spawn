@@ -38,11 +38,14 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private Task? running;
     private bool disposed;
 
-    public ServiceRuntime(bool mock)
-        : this(mock, HardwareComposition.Create(mock ? ["--mock"] : [])) { }
+    /// <summary>Observe mode: real sensors, but no fan, RGB or lamp writes (fans stay on the BIOS curves).</summary>
+    public bool Observe { get; init; }
 
-    private ServiceRuntime(bool mock, (ISensorSource Sensors, IFanControlPort Controls, IServiceQuery Services) hardware)
-        : this(mock, hardware.Sensors, hardware.Controls,
+    public ServiceRuntime(bool mock, bool observe = false)
+        : this(mock, HardwareComposition.Create(mock ? ["--mock"] : []), observe) { Observe = observe; }
+
+    private ServiceRuntime(bool mock, (ISensorSource Sensors, IFanControlPort Controls, IServiceQuery Services) hardware, bool observe)
+        : this(mock, hardware.Sensors, observe ? new ObservingFanControlPort(hardware.Controls) : hardware.Controls,
             mock ? new FakeHealthProbe() : new WindowsHealthProbe(),
             mock ? new FakeRgbBackend() : new OpenRgbClient(new TcpConnectionFactory()),
             mock ? new FakeLampClient() : null, mock ? new FakeRouterBackend() : null) { }
@@ -140,6 +143,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 
     private async Task LightingAsync(CancellationToken token)
     {
+        if (Observe) { warnings["observe"] = "Observe mode: fans, RGB and lamp are not controlled."; await Task.Delay(Timeout.Infinite, token); }
         var engine = new EffectEngine(clock, inputs, inputs, inputs);
         TimeSpan reconnect = TimeSpan.Zero;
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1d / 30));
@@ -190,6 +194,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 
     private async Task LampAsync(CancellationToken token)
     {
+        if (Observe) await Task.Delay(Timeout.Infinite, token);
         LampConfiguration? applied = null; string transport = mock ? "mock" : "not configured";
         LampSync? sync = lamp is null ? null : new(lamp, clock);
         var engine = new EffectEngine(clock, inputs, inputs, inputs);

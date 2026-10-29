@@ -8,11 +8,12 @@ public static class Program
     public static async Task Main(string[] args)
     {
         bool mock = args.Contains("--mock", StringComparer.OrdinalIgnoreCase);
-        bool console = mock || args.Contains("--console", StringComparer.OrdinalIgnoreCase) || Environment.UserInteractive;
+        bool observe = args.Contains("--observe", StringComparer.OrdinalIgnoreCase);
+        bool console = mock || observe || args.Contains("--console", StringComparer.OrdinalIgnoreCase) || Environment.UserInteractive;
         // Don't pass the standalone flags to the host's key/value command-line parser.
         var builder = Host.CreateDefaultBuilder([]);
         if (!console) builder.UseWindowsService();
-        await using var runtime = new ServiceRuntime(mock);
+        await using var runtime = new ServiceRuntime(mock, observe);
         builder.ConfigureServices(services =>
         {
             services.AddSingleton(runtime);

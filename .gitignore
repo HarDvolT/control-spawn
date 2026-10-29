@@ -5,3 +5,4 @@ obj/
 TestResults/
 docs/*_log.txt
 docs/*last_message*.md
+docs/live-observe.*
