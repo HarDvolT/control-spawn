@@ -27,3 +27,15 @@
 - ASUS firmware WMI `root\wmi ASUSManagement` has GetFanPolicy/SetFanPolicy (FanType 0–3, profiles like STANDARD) and Get/SetManualFanCurvePro (8 points). Its port/RHWM methods (asio_hw_fun07/13/21) return 0 on this BIOS: do not use them.
 - OpenRGB: its SDK server is TCP 6742. iCUE and the ASUS AURA services fight over the same chips, so they must be stopped when Prism controls lighting.
 - PawnIO kernel driver 2.2 is installed (service "PawnIO"). Hardware access needs admin, so the hardware runs in an elevated Windows service, and the UI talks to it over a named pipe.
+
+## Lighting findings (live tests, 2026-10-29)
+
+- All devices take Prism's frames through OpenRGB 1.1: 2x Vengeance RGB DDR5 (10 LEDs), RX 9070 XT Taichi (4),
+  ROG STRIX B850-F (board LEDs + ARGB header, resizable). Fans' RGB rings are not in OpenRGB's device list yet.
+- GPU lighting chip: max 10 fps from Prism, still frames refreshed only every 10 s, and writes take turns with GPU
+  sensor reads (`BusTurns.Gpu`). Red flashes on the GPU came from AMD Software / Armoury Crate also using the bus.
+- RAM lighting shares the chipset SMBus with the DIMM temperature sensors: writes take turns (`BusTurns.Smbus`).
+- OpenRGB "device list updated" notices must be handled by refreshing in place. A full reconnect re-initialises
+  every controller (RAM went dark and the ROG logo flashed every ~5 s, measured frame by frame from a phone video).
+- Final check: 30 s static blue, GPU 0 / RAM 0 / board 0 flickers, 0 RGB reconnects, with AMD Software running.
+- ArmouryCrateService sometimes refuses to stop; uninstalling Armoury Crate and iCUE is the clean end state.
