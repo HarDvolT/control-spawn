@@ -204,8 +204,22 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private async Task LightingAsync(CancellationToken token)
     {
         if (Observe) { warnings["observe"] = "Observe mode: fans, RGB and lamp are not controlled."; await Task.Delay(Timeout.Infinite, token); }
-        TimeSpan reconnect = TimeSpan.Zero;
+        TimeSpan reconnect = TimeSpan.Zero, nextRefresh = TimeSpan.Zero;
         var pacer = new DeviceFramePacer();
+        static (RgbDeviceState[] Devices, Dictionary<string, uint> Indices) Identify(OpenRgbClient client)
+        {
+            var identities = new Dictionary<string, int>(); var indices = new Dictionary<string, uint>();
+            var found = client.Controllers.Select((d, i) =>
+            {
+                var metadata = string.Join("|", d.Type, d.Vendor, d.Name, d.Serial, d.Location);
+                var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(metadata)))[..24];
+                int occurrence = identities.GetValueOrDefault(digest); identities[digest] = occurrence + 1;
+                string identity = $"rgb:{digest}:{occurrence}";
+                indices[identity] = (uint)i;
+                return LedLayers.Project(identity, d);
+            }).ToArray();
+            return (found, indices);
+        }
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1d / 30));
         do
         {
@@ -219,17 +233,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     var client = (OpenRgbClient)rgb;
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
                     await client.ConnectAsync(cancellationToken: timeout.Token);
-                    for (uint i = 0; i < client.Controllers.Count; i++) await client.SetDirectModeAsync(i, timeout.Token);
-                    var identities = new Dictionary<string, int>(); var indices = new Dictionary<string, uint>();
-                    var discovered = client.Controllers.Select((d, i) =>
-                    {
-                        var metadata = string.Join("|", d.Type, d.Vendor, d.Name, d.Serial, d.Location);
-                        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(metadata)))[..24];
-                        int occurrence = identities.GetValueOrDefault(digest); identities[digest] = occurrence + 1;
-                        string identity = $"rgb:{digest}:{occurrence}";
-                        indices[identity] = (uint)i;
-                        return LedLayers.Project(identity, d);
-                    }).ToArray();
+                    var (discovered, indices) = Identify(client);
                     foreach (var d in discovered)
                     {
                         if (!value.ZoneSizes.TryGetValue(d.Id, out var sizes)) continue;
@@ -237,7 +241,8 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         {
                             if (d.Zones is null || size.Key >= d.Zones.Count) continue;
                             var z = d.Zones[size.Key];
-                            if (size.Value < z.MinLeds || size.Value > z.MaxLeds) continue;
+                            // Only resize when OpenRGB forgot the size: every resize re-initialises the controller.
+                            if (size.Value < z.MinLeds || size.Value > z.MaxLeds || z.LedCount == size.Value) continue;
                             await client.ResizeZoneAsync(indices[d.Id], size.Key, size.Value, timeout.Token);
                             await client.RefreshAsync(timeout.Token);
                         }
@@ -249,6 +254,23 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     rgbConnected = true;
                 }
                 if (!rgbConnected) continue;
+                // OpenRGB announces "device list updated" for many reasons. Re-read the list in place instead of
+                // dropping the connection: a full reconnect re-initialises every controller, which blanked a RAM
+                // stick and flashed the board's ROG logo every 5 s in the live test (2026-10-29).
+                if (!mock && rgb is OpenRgbClient live && live.DeviceListInvalidated)
+                {
+                    if (clock.Elapsed < nextRefresh) continue;
+                    nextRefresh = clock.Elapsed + TimeSpan.FromSeconds(1);
+                    using var refreshTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); refreshTimeout.CancelAfter(TimeSpan.FromSeconds(2));
+                    await live.RefreshAsync(refreshTimeout.Token);
+                    var (found, idx) = Identify(live);
+                    RgbDeviceState[] before; lock (stateGate) before = devices;
+                    foreach (var added in found.Where(f => before.All(b => b.Id != f.Id)))
+                        await live.SetDirectModeAsync(idx[added.Id], refreshTimeout.Token);
+                    lock (stateGate) { devices = found; rgbIndices = idx; }
+                    pacer.Reset();
+                    continue;
+                }
                 RgbDeviceState[] current; lock (stateGate) current = devices;
                 foreach (var device in current.Where(d => (failsafe && value.Events.FanFailsafe) || value.SyncedDevices.GetValueOrDefault(d.Id, true) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false))
                 {
@@ -263,10 +285,16 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 }
                 warnings.TryRemove("rgb", out _);
             }
+            catch (InvalidOperationException) when (!token.IsCancellationRequested && rgb is OpenRgbClient { DeviceListInvalidated: true })
+            {
+                // The device list changed between our check and the write: refresh on the next tick, keep the connection.
+            }
             catch (Exception e) when (!token.IsCancellationRequested && e is IOException or SocketException or OperationCanceledException or InvalidOperationException or ArgumentException or System.ComponentModel.Win32Exception)
             {
                 rgbConnected = false; reconnect = clock.Elapsed + TimeSpan.FromSeconds(5);
-                warnings["rgb"] = "OpenRGB server not reachable on 127.0.0.1:6742.";
+                warnings["rgb"] = $"OpenRGB connection lost ({e.GetType().Name}: {e.Message}); reconnecting in 5 s.";
+                System.Diagnostics.Trace.TraceWarning("RGB reconnect: " + e);
+                Console.Error.WriteLine($"[rgb] reconnect after {e.GetType().Name}: {e.Message}");
                 lock (stateGate) devices = devices.Select(d => d with { Connected = false }).ToArray();
                 await rgb.DisposeAsync(); rgb = mock ? new FakeRgbBackend() : new OpenRgbClient(new TcpConnectionFactory());
                 rgbConnected = mock;

@@ -15,7 +15,8 @@ $exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\Prism.Service
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 
 function Round($label, $extraArgs) {
-  $p = Start-Process $exe -ArgumentList (@('--console', '--exit-after', '45') + $extraArgs) -PassThru -WindowStyle Hidden
+  $errLog = Join-Path $env:TEMP "prism-flicker-$label.err"
+  $p = Start-Process $exe -ArgumentList (@('--console', '--exit-after', '45') + $extraArgs) -PassThru -WindowStyle Hidden -RedirectStandardError $errLog
   try {
     Start-Sleep -Seconds 8
     $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
@@ -34,6 +35,8 @@ function Round($label, $extraArgs) {
     Log ("  ASUS/AMD/Corsair processes alive at the end of the round: " + ((Get-Process | Where-Object { $_.Name -match 'Armoury|asus_framework|LightingService|AMDRSServ|RadeonSoftware|iCUE|Corsair' } | Select-Object -Expand Name -Unique) -join ', '))
   } finally {
     if (-not $p.WaitForExit(40000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Log "WARNING: round $label service did not exit cleanly" }
+    $rgbLines = @(Get-Content $errLog -ErrorAction SilentlyContinue | Where-Object { $_ -match '\[rgb\]' })
+    Log "  RGB reconnects during round ${label}: $($rgbLines.Count)"; $rgbLines | Select-Object -First 5 | ForEach-Object { Log "    $_" }
   }
 }
 
