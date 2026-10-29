@@ -255,6 +255,8 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     var now = clock.Elapsed;
                     var colors = RenderDevice(value, device, current, now.TotalSeconds);
                     if (!pacer.ShouldSend(device.Id, device.Kind, colors, now)) continue;
+                    // Real GPUs only: wait for our turn on the card's bus (sensor reads share it). Retried next tick.
+                    if (!mock && device.Kind == "GPU" && !GpuBusTurns.TryBeginWrite()) continue;
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
                     await rgb.SetColorsAsync(rgbIndices[device.Id], colors, timeout.Token);
                     pacer.Sent(device.Id, colors, now);

@@ -29,8 +29,14 @@ public sealed class DeviceFramePacer
         if (!sent.TryGetValue(deviceId, out var last)) return true;
         var since = now - last.At;
         if (since < MinInterval(kind)) return false;
-        return since >= KeepAlive || !Same(last.Colors, colors);
+        return since >= KeepAliveFor(kind) || !Same(last.Colors, colors);
     }
+
+    /// <summary>
+    /// Every write to the GPU's lighting chip is a chance for a glitch (a single LED flicked red even with
+    /// Prism's sensor reads off), so a GPU showing a still colour is only refreshed every 10 s.
+    /// </summary>
+    public static TimeSpan KeepAliveFor(string kind) => kind == "GPU" ? TimeSpan.FromSeconds(10) : KeepAlive;
 
     public void Sent(string deviceId, IReadOnlyList<RgbColor> colors, TimeSpan now) => sent[deviceId] = (now, colors.ToArray());
 

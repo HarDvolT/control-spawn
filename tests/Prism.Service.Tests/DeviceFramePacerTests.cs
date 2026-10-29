@@ -34,10 +34,12 @@ public sealed class DeviceFramePacerTests
     public void InvisibleChangesAreSkippedButResentAsKeepAlive()
     {
         var pacer = new DeviceFramePacer();
-        pacer.Sent("gpu", Orange, Ms(0));
+        pacer.Sent("ram", Orange, Ms(0)); pacer.Sent("gpu", Orange, Ms(0));
         var almost = Orange.Select(c => new RgbColor((byte)(c.R - 2), (byte)(c.G + 1), c.B)).ToArray();
-        Assert.False(pacer.ShouldSend("gpu", "GPU", almost, Ms(500)));
-        Assert.True(pacer.ShouldSend("gpu", "GPU", almost, Ms(2000)));
+        Assert.False(pacer.ShouldSend("ram", "RAM", almost, Ms(500)));
+        Assert.True(pacer.ShouldSend("ram", "RAM", almost, Ms(2000)));
+        Assert.False(pacer.ShouldSend("gpu", "GPU", almost, Ms(2000)));   // the GPU is only refreshed every 10 s
+        Assert.True(pacer.ShouldSend("gpu", "GPU", almost, Ms(10000)));
     }
 
     [Fact]

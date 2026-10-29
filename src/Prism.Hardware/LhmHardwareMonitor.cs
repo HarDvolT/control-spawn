@@ -44,7 +44,8 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     }
     private void Visit(IHardware hardware, List<SensorReading> readings)
     {
-        hardware.Update();
+        if (hardware.HardwareType.ToString() is "GpuAmd" or "GpuNvidia" or "GpuIntel") GpuBusTurns.Read(hardware.Update);
+        else hardware.Update();
         var category = hardware.HardwareType.ToString() switch
         {
             "Cpu" => SensorCategory.Cpu,
