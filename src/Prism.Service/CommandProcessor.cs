@@ -37,6 +37,7 @@ public sealed partial class CommandProcessor
     private readonly LampTokenStore lampTokens;
     private readonly SemaphoreSlim gate = new(1, 1);
     private ServiceSettings settings;
+    public StateHub State { get; }
     public ServiceSettings Settings => Volatile.Read(ref settings);
     public CommandProcessor(ISettingsStore store, IServiceRuntime runtime, Action<byte[]>? saveLampToken = null, Action<string>? saveRouterPassword = null, Action<uint, byte[]>? saveDeviceToken = null, Action<uint>? removeDeviceToken = null, LampTokenStore? lampTokens = null)
     {
@@ -47,6 +48,7 @@ public sealed partial class CommandProcessor
         this.saveLampToken = saveLampToken ?? (token => this.lampTokens.Save(token));
         this.saveRouterPassword = saveRouterPassword ?? (password => { var credentials = new CredentialStore(); credentials.SavePassword(password); credentials.ForgetSession(); });
         settings = store.Load(); Settings.Validate();
+        State = new StateHub(AssembleState);
         runtime.SetLampResolutionHandler(CacheLampAsync);
         runtime.SetDeviceObservationHandler(ObserveDevicesAsync);
     }
@@ -83,7 +85,12 @@ public sealed partial class CommandProcessor
         }
         finally { gate.Release(); }
     }
-    public StateMessage GetState() => DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery);
+    private StateMessage AssembleState()
+    {
+        var state = DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery);
+        return store is JsonSettingsStore { HealthWarning: { } warning } ? state with { Health = state.Health with { Warnings = state.Health.Warnings.Append(warning).ToArray() } } : state;
+    }
+    public StateMessage GetState() => State.Read();
     public async Task<Response> HandleAsync(Request request, CancellationToken cancellationToken = default)
     {
         // A speed test must not hold the settings gate while fans/scenes need to change.
@@ -348,7 +355,7 @@ public sealed partial class CommandProcessor
         catch (System.Net.Sockets.SocketException) { return new(request.Id, false, "Device connection failed."); }
         catch (IOException) { return new(request.Id, false, "Settings could not be saved."); }
         catch (UnauthorizedAccessException) { return new(request.Id, false, "Settings access denied."); }
-        finally { gate.Release(); }
+        finally { gate.Release(); if (request.Command != Commands.GetState) State.Publish(); }
     }
     private async Task<Response> SpeedResponseAsync(int id, CancellationToken token)
     {

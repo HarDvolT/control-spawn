@@ -11,41 +11,43 @@ public interface ILampSecretProtector
 }
 public sealed class LampDpapiProtector : ILampSecretProtector
 {
-    public byte[] Protect(byte[] value)
-    {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("DPAPI requires Windows.");
-        return ProtectedData.Protect(value, null, DataProtectionScope.CurrentUser);
-    }
-    public byte[] Unprotect(byte[] value)
-    {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("DPAPI requires Windows.");
-        return ProtectedData.Unprotect(value, null, DataProtectionScope.CurrentUser);
-    }
+    private readonly SecretStore store = new();
+    public byte[] Protect(byte[] value) => store.ProtectPayload(value);
+    public byte[] Unprotect(byte[] value) => store.UnprotectPayload(value);
 }
 
-/// <summary>CurrentUser DPAPI, matching the router credential store. Provision under the service identity.</summary>
-public sealed class LampTokenStore(string? path = null, ILampSecretProtector? protector = null)
+/// <summary>Service machine store by default; explicit paths/protectors support legacy fixtures.</summary>
+public sealed class LampTokenStore(string? path = null, ILampSecretProtector? protector = null, SecretStore? secrets = null)
 {
+    private readonly SecretStore? secrets = secrets ?? (protector is null ? new SecretStore() : null);
     private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Prism", "lamp.json");
     private readonly ILampSecretProtector protector = protector ?? new LampDpapiProtector();
     private string DevicePath(uint deviceId) => path + "." + deviceId.ToString(System.Globalization.CultureInfo.InvariantCulture);
-    public void Save(uint deviceId, byte[] token) => new LampTokenStore(DevicePath(deviceId), protector).Save(token);
-    public byte[]? Load(uint deviceId) => new LampTokenStore(DevicePath(deviceId), protector).Load();
-    public void Remove(uint deviceId) { if (File.Exists(DevicePath(deviceId))) File.Delete(DevicePath(deviceId)); }
-    public void DeleteLegacy() { if (File.Exists(path)) File.Delete(path); }
+    public void Save(uint deviceId, byte[] token) { if (secrets is not null) { if (token.Length != 16) throw new ArgumentException("Token must contain 16 bytes."); secrets.Save("lamp." + deviceId, token); } else new LampTokenStore(DevicePath(deviceId), protector).Save(token); }
+    public byte[]? Load(uint deviceId) => secrets is not null ? LoadSecret("lamp." + deviceId, DevicePath(deviceId)) : new LampTokenStore(DevicePath(deviceId), protector).Load();
+    public void Remove(uint deviceId) { if (secrets is not null) { secrets.Remove("lamp." + deviceId); return; } if (File.Exists(DevicePath(deviceId))) File.Delete(DevicePath(deviceId)); }
+    public void DeleteLegacy() { if (secrets is not null) { secrets.Remove("lamp"); return; } if (File.Exists(path)) File.Delete(path); }
     public void Save(byte[] token)
     {
         if (token.Length != 16) throw new ArgumentException("Token must contain 16 bytes.", nameof(token));
+        if (secrets is not null) { secrets.Save("lamp", token); return; }
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         File.WriteAllText(path, JsonSerializer.Serialize(new { dpapi = Convert.ToBase64String(protector.Protect(token)) }));
     }
+    private byte[]? LoadSecret(string key, string legacy)
+    {
+        try { var token = secrets!.Load(key, legacy); if (token is null || token.Length == 16) return token; CryptographicOperations.ZeroMemory(token); return null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or CryptographicException or FormatException or InvalidOperationException or KeyNotFoundException) { return null; }
+    }
     public byte[]? Load()
     {
+        if (secrets is not null) return LoadSecret("lamp", path);
         try
         {
             using var json = JsonDocument.Parse(File.ReadAllText(path));
             var token = protector.Unprotect(Convert.FromBase64String(json.RootElement.GetProperty("dpapi").GetString()!));
-            return token.Length == 16 ? token : null;
+            if (token.Length == 16) return token;
+            CryptographicOperations.ZeroMemory(token); return null;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or FormatException or CryptographicException or InvalidOperationException or KeyNotFoundException)
         { return null; }

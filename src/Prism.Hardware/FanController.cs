@@ -81,7 +81,7 @@ public sealed class FanController : IFanController
         {
             // Attempt every control even when one fails. Cleanup must never hide the original exception.
             foreach (int header in port.Headers.ToArray())
-                try { port.SetDefault(header); } catch (Exception ex) { System.Diagnostics.Trace.TraceError(ex.ToString()); }
+                try { port.SetDefault(header); } catch (Exception ex) { PrismLog.Failure("fans", ex); }
         }
     }
     private void OnExit(object? sender, EventArgs e) => RestoreDefaults();

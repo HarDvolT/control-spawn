@@ -194,12 +194,16 @@ public sealed class ServiceTests
         public void SetDefault(int header) => Restored.Add(header);
     }
     [Fact]
-    public async Task WorkerFaultRestoresBiosControls()
+    public async Task FanModuleFaultRestoresBiosControlsAndKeepsSiblingsAlive()
     {
         var controls = new FailingControls();
         await using var runtime = new ServiceRuntime(true, new FakeSensorSource(), controls, new FakeHealthProbe(), new FakeRgbBackend(), new FakeLampClient(), new FakeRouterBackend());
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await Assert.ThrowsAsync<IOException>(() => runtime.RunAsync(stop.Token));
+        var run = runtime.RunAsync(stop.Token);
+        Assert.False(run.IsCompleted);
+        Assert.Contains(runtime.GetState(new()).Health.Warnings, w => w.Contains("fans module failed"));
+        Assert.True(runtime.GetState(new()).Lighting.Devices.All(d => d.Connected));
+        stop.Cancel(); await run;
         Assert.All(controls.Headers, header => Assert.Contains(header, controls.Restored));
     }
 
@@ -220,7 +224,7 @@ public sealed class ServiceTests
         var (client, server) = MemoryDuplex.Create();
         await using var ownedClient = client; await using var ownedServer = server;
         var processor = new CommandProcessor(new MemorySettingsStore(), new Runtime());
-        var session = new PipeSession(processor).RunAsync(server, stop.Token);
+        var session = new PipeSession(processor, verifiedApp: true).RunAsync(server, stop.Token);
         using var writer = new StreamWriter(client, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
         using var reader = new StreamReader(client, leaveOpen: true);
         async Task<Response> Send(Request request)
@@ -244,7 +248,7 @@ public sealed class ServiceTests
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         var (client, server) = MemoryDuplex.Create();
         await using var a = client; await using var b = server;
-        var session = new PipeSession(new(new MemorySettingsStore(), new Runtime())).RunAsync(server, stop.Token);
+        var session = new PipeSession(new(new MemorySettingsStore(), new Runtime()), verifiedApp: true).RunAsync(server, stop.Token);
         using var writer = new StreamWriter(client, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
         using var reader = new StreamReader(client, leaveOpen: true);
         await writer.WriteLineAsync("not json");
@@ -268,8 +272,8 @@ public sealed class ServiceTests
         var processor = new CommandProcessor(new MemorySettingsStore(), new Runtime());
         var (client1, server1) = MemoryDuplex.Create(); var (client2, server2) = MemoryDuplex.Create();
         await using var a = client1; await using var b = server1; await using var c = client2; await using var d = server2;
-        var session1 = new PipeSession(processor).RunAsync(server1, stop.Token);
-        var session2 = new PipeSession(processor).RunAsync(server2, stop.Token);
+        var session1 = new PipeSession(processor, verifiedApp: true).RunAsync(server1, stop.Token);
+        var session2 = new PipeSession(processor, verifiedApp: true).RunAsync(server2, stop.Token);
         using var writer1 = new StreamWriter(client1, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
         using var writer2 = new StreamWriter(client2, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
         using var reader1 = new StreamReader(client1, leaveOpen: true); using var reader2 = new StreamReader(client2, leaveOpen: true);
@@ -291,7 +295,7 @@ public sealed class ServiceTests
     {
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         var (client, server) = MemoryDuplex.Create(); await using var a = client; await using var b = server;
-        var session = new PipeSession(new(new MemorySettingsStore(), new Runtime())).RunAsync(server, stop.Token);
+        var session = new PipeSession(new(new MemorySettingsStore(), new Runtime()), verifiedApp: true).RunAsync(server, stop.Token);
         using var writer = new StreamWriter(client, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
         using var reader = new StreamReader(client, leaveOpen: true);
         await writer.WriteLineAsync(JsonSerializer.Serialize(Request(99, Commands.Hello, new { version = "1", client = 7 }), PipeContract.Json));
@@ -318,7 +322,7 @@ public sealed class ServiceTests
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var runtime = new Runtime { SpeedCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously) };
         var (client, server) = MemoryDuplex.Create(); await using var a = client; await using var b = server;
-        var session = new PipeSession(new(new MemorySettingsStore(), runtime)).RunAsync(server, stop.Token);
+        var session = new PipeSession(new(new MemorySettingsStore(), runtime), verifiedApp: true).RunAsync(server, stop.Token);
         using var writer = new StreamWriter(client, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
         using var reader = new StreamReader(client, leaveOpen: true);
         await writer.WriteLineAsync(JsonSerializer.Serialize(Request(1, Commands.Hello, new { version = 1, client = "app" }), PipeContract.Json));
@@ -330,6 +334,51 @@ public sealed class ServiceTests
         runtime.SpeedCompletion.SetResult(new(10, 1, 200, 30, 0));
         var speed = JsonSerializer.Deserialize<Response>((await reader.ReadLineAsync(stop.Token))!, PipeContract.Json)!;
         Assert.Equal(2, speed.Id); Assert.True(speed.Ok); Assert.Equal(200, speed.Data!.Value.GetProperty("down").GetDouble());
+        await client.DisposeAsync(); await session;
+    }
+
+    [Theory]
+    [InlineData("app", false)]
+    [InlineData("widget", false)]
+    [InlineData("widget", true)]
+    public async Task ClientClaimCannotGrantCommandsOrCookingStart(string claim, bool verified)
+    {
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var runtime = new Runtime(); var processor = new CommandProcessor(new MemorySettingsStore(), runtime);
+        var (client, server) = MemoryDuplex.Create(); await using var a = client; await using var b = server;
+        var session = new PipeSession(processor, verified).RunAsync(server, stop.Token);
+        using var writer = new StreamWriter(client, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+        using var reader = new StreamReader(client, leaveOpen: true);
+        async Task<Response> Send(Request request)
+        {
+            await writer.WriteLineAsync(JsonSerializer.Serialize(request, PipeContract.Json));
+            return JsonSerializer.Deserialize<Response>((await reader.ReadLineAsync(stop.Token))!, PipeContract.Json)!;
+        }
+        Assert.True((await Send(Request(1, Commands.Hello, new { version = 1, client = claim }))).Ok);
+        Assert.True((await Send(Request(2, Commands.GetState))).Ok);
+        Assert.Equal(verified, (await Send(Request(3, Commands.ApplyScene, new { name = "Night" }))).Ok);
+        Assert.False((await Send(Request(4, Commands.PrepareApplianceStart, new { origin = "app" }))).Ok);
+        Assert.False((await Send(Request(5, Commands.ConfirmApplianceStart, new { origin = "app", confirmed = true }))).Ok);
+        if (!verified) Assert.Null(runtime.Applied);
+        await client.DisposeAsync(); await session;
+    }
+
+    [Fact]
+    public async Task CommandsPushImmediatelyToOtherSubscribedClients()
+    {
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var processor = new CommandProcessor(new MemorySettingsStore(), new Runtime());
+        var (client, server) = MemoryDuplex.Create(); await using var a = client; await using var b = server;
+        var session = new PipeSession(processor, pushInterval: TimeSpan.FromMinutes(1)).RunAsync(server, stop.Token);
+        using var writer = new StreamWriter(client, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+        using var reader = new StreamReader(client, leaveOpen: true);
+        await writer.WriteLineAsync(JsonSerializer.Serialize(Request(1, Commands.Hello, new { version = 1, client = "widget" }), PipeContract.Json));
+        Assert.True(JsonSerializer.Deserialize<Response>((await reader.ReadLineAsync(stop.Token))!, PipeContract.Json)!.Ok);
+        await writer.WriteLineAsync(JsonSerializer.Serialize(Request(2, Commands.Subscribe), PipeContract.Json));
+        Assert.True(JsonSerializer.Deserialize<Response>((await reader.ReadLineAsync(stop.Token))!, PipeContract.Json)!.Ok);
+        Assert.True((await processor.HandleAsync(Request(3, Commands.ApplyScene, new { name = "Night" }))).Ok);
+        var state = JsonSerializer.Deserialize<StateMessage>((await reader.ReadLineAsync(stop.Token))!, PipeContract.Json)!;
+        Assert.Equal(FanMode.Silent, state.FanMode);
         await client.DisposeAsync(); await session;
     }
 

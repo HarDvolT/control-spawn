@@ -4,13 +4,14 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>Prism.Router</RootNamespace>
     <AssemblyName>Prism.Router</AssemblyName>
     <IsPackable>false</IsPackable>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
+  <ItemGroup><ProjectReference Include="../Prism.Core/Prism.Core.csproj" /></ItemGroup>
   <ItemGroup>
     <!-- DPAPI (ProtectedData) lives in this package on .NET 8. -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
