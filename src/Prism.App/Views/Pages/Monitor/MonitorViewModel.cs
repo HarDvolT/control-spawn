@@ -79,6 +79,22 @@ public sealed class MonitorViewModel : PageViewModel
     public string PowerText => State?.System is { CpuPowerW: { } cpu, GpuPowerW: { } gpu } ? $"CPU + GPU · {cpu + gpu:0} W" : "Power unavailable";
     public string PeakText { get => _peakText; private set => Set(ref _peakText, value); }
 
+    public IReadOnlyList<StatRow> CpuMiniStats => CpuStats.Where(s => s.Key is "Clock" or "Power" or "Temp").ToArray();
+    public IReadOnlyList<StatRow> GpuMiniStats => GpuStats.Where(s => s.Key is "Clock" or "Power" or "Hotspot").ToArray();
+    public IReadOnlyList<ProcessLoad> TopProcesses => State?.System.TopProcesses ?? [];
+    public bool HasProcesses => TopProcesses.Count > 0;
+    public string UptimeText => State?.System.UptimeSeconds is { } seconds ? $"{(int)(seconds / 86400)}d {(int)(seconds / 3600) % 24}h" : Format.Dash;
+    public string AverageLoad => State?.History?.Where(s => s.CpuLoad.HasValue).Select(s => s.CpuLoad!.Value).ToArray() is { Length: > 0 } values ? Format.Percent(values.Average()) : Format.Dash;
+    public string PeakCpu => Peak(s => s.CpuTemp);
+    public string PeakGpu => Peak(s => s.GpuTemp);
+    private string Peak(Func<TelemetrySample, double?> metric) => State?.History?.Select(metric).Where(v => v.HasValue).Select(v => v!.Value).ToArray() is { Length: > 0 } values ? Format.Temp(values.Max()) : Format.Dash;
+    public string ThrottlingText => State?.System.ThermalThrottling switch { true => "Detected", false => "None active", _ => "Unavailable" };
+    public string ThreadCount => $"{State?.System.CpuCoreLoads.Count ?? 0} THREADS";
+    public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp);
+    public string GpuChip => "GPU " + Format.Temp(State?.System.GpuTemp);
+    public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot);
+    public string InternetScore => $"{State?.Router?.Verdict ?? "Unavailable"} \u00b7 {State?.Router?.Score?.ToString() ?? Format.Dash}";
+
     protected override void Refresh()
     {
         var state = State;
@@ -97,9 +113,15 @@ public sealed class MonitorViewModel : PageViewModel
 
         var system = state.System;
         CpuLoad = system.CpuLoad ?? double.NaN;
-        GpuLoad = system.GpuLoad ?? 0;
+        GpuLoad = system.GpuLoad ?? double.NaN;
         CpuPercentText = Format.Percent(system.CpuLoad);
         GpuPercentText = Format.Percent(system.GpuLoad);
+        foreach (var sample in state.History ?? [])
+        {
+            _cpuSamples.Add(sample.Timestamp, sample.CpuLoad);
+            _downSamples.Add(sample.Timestamp, sample.NetDownMbps);
+            _upSamples.Add(sample.Timestamp, sample.NetUpMbps);
+        }
         _cpuSamples.Add(state.Timestamp,system.CpuLoad);
         _downSamples.Add(state.Timestamp,system.NetDownMbps);
         _upSamples.Add(state.Timestamp,system.NetUpMbps);
@@ -115,7 +137,7 @@ public sealed class MonitorViewModel : PageViewModel
         var cores = system.CpuCoreLoads ?? Array.Empty<double?>();
         for (var i = 0; i < cores.Count; i++)
         {
-            var load = Math.Clamp(cores[i] ?? 0, 0, 100);
+            var load = Math.Clamp(cores[i] ?? double.NaN, 0, 100);
             Threads.Add(new ThreadItem(load,
                 ColorUtil.ToHex(load > 75 ? ColorUtil.Accent : load > 45 ? ColorUtil.Mix(ColorUtil.Accent, ColorUtil.TextPrimary, 0.5) : ColorUtil.TextTertiary)));
         }

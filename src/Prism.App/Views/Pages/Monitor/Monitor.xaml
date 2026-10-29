@@ -2,7 +2,7 @@
   <DataTemplate DataType="{x:Type vm:MonitorViewModel}">
     <StackPanel>
       <DockPanel Margin="0,0,0,16">
-        <c:SegmentedControl DockPanel.Dock="Right" ItemsSource="{Binding Ranges}" SelectedItem="{Binding SelectedRange, Mode=TwoWay}" VerticalAlignment="Bottom" />
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom"><c:StatusChip Text="{Binding CpuChip}" Level="Ok" Margin="0,0,8,0"/><c:StatusChip Text="{Binding GpuChip}" Level="Ok" Margin="0,0,8,0"/><c:StatusChip Text="{Binding HotspotChip}" Level="Ok"/></StackPanel>
         <StackPanel>
           <TextBlock Text="MONITOR" Style="{StaticResource PageEyebrow}" />
           <TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" />
@@ -10,26 +10,20 @@
         </StackPanel>
       </DockPanel>
       <c:CardGrid>
-        <c:GlassCard Span="4" Height="300">
+        <c:GlassCard Span="4" Height="362">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <TextBlock Text="Processor" Style="{StaticResource CardTitle}" />
             </DockPanel>
             <UniformGrid Columns="2">
-              <c:RingGauge Value="{Binding CpuLoad}" Suffix="%" SweepAngle="270" Width="100" Height="100" RingColor="#36D6FF" />
-              <c:RingGauge Value="{Binding State.System.CpuTemp}" Suffix="°" SweepAngle="270" Width="100" Height="100" RingColor="#3DDC84" />
+              <c:RingGauge Value="{Binding CpuLoad}" Suffix="%" SweepAngle="270" Width="128" Height="112" RingColor="#36D6FF" />
+              <c:RingGauge Value="{Binding State.System.CpuTemp}" Suffix="°" SweepAngle="270" Width="128" Height="112" RingColor="#3DDC84" />
             </UniformGrid>
-            <ItemsControl ItemsSource="{Binding CpuStats}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <DockPanel Margin="0,3">
-                    <TextBlock Text="{Binding Value}" Style="{StaticResource Number}" FontSize="13" DockPanel.Dock="Right" />
-                    <TextBlock Text="{Binding Key}" Style="{StaticResource SmallMuted}" />
-                  </DockPanel>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
+            <ItemsControl ItemsSource="{Binding CpuMiniStats}" Margin="0,18,0,0">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><c:SpacedGrid Columns="3" Gap="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate><DataTemplate><Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="{Binding Key}" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding Value}" Style="{StaticResource Number}" FontSize="17" Margin="0,2,0,0" Foreground="{Binding ColorHex, Converter={StaticResource HexToBrush}}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate>
             </ItemsControl>
-            <TextBlock Text="THREADS" Style="{StaticResource SmallMuted}" Margin="0,10,0,6" />
+            <TextBlock Text="{Binding ThreadCount}" Style="{StaticResource SmallMuted}" Margin="0,10,0,6" />
             <ItemsControl ItemsSource="{Binding Threads}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -38,56 +32,50 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <c:GlowProgressBar Value="{Binding Percent}" BarColor="#36D6FF" Height="8" Margin="2" />
+                  <c:ThreadTile Value="{Binding Percent}" Height="24" Margin="2"/>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="4" Height="300">
+        <c:GlassCard Span="4" Height="362">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <TextBlock Text="Graphics" Style="{StaticResource CardTitle}" />
             </DockPanel>
             <UniformGrid Columns="2">
-              <c:RingGauge Value="{Binding GpuLoad}" Suffix="%" SweepAngle="270" Width="100" Height="100" RingColor="#36D6FF" />
-              <c:RingGauge Value="{Binding State.System.GpuTemp}" Suffix="°" SweepAngle="270" Width="100" Height="100" RingColor="#3DDC84" />
+              <c:RingGauge Value="{Binding GpuLoad}" Suffix="%" SweepAngle="270" Width="128" Height="112" RingColor="#36D6FF" />
+              <c:RingGauge Value="{Binding State.System.GpuTemp}" Suffix="°" SweepAngle="270" Width="128" Height="112" RingColor="#3DDC84" />
             </UniformGrid>
-            <ItemsControl ItemsSource="{Binding GpuStats}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <DockPanel Margin="0,3">
-                    <TextBlock Text="{Binding Value}" Style="{StaticResource Number}" FontSize="13" DockPanel.Dock="Right" />
-                    <TextBlock Text="{Binding Key}" Style="{StaticResource SmallMuted}" />
-                  </DockPanel>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
+            <ItemsControl ItemsSource="{Binding GpuMiniStats}" Margin="0,18,0,0">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><c:SpacedGrid Columns="3" Gap="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate><DataTemplate><Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="{Binding Key}" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding Value}" Style="{StaticResource Number}" FontSize="17" Margin="0,2,0,0" Foreground="{Binding ColorHex, Converter={StaticResource HexToBrush}}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate>
             </ItemsControl>
             <TextBlock Text="{Binding VramText}" Style="{StaticResource SmallMuted}" Margin="0,10,0,6" />
-            <c:GlowProgressBar Value="{Binding VramPercent}" BarColor="#36D6FF" Height="8" />
+            <c:SegmentMeter Value="{Binding VramPercent}" Color="#36D6FF" Height="14"/>
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="4" Height="300">
+        <c:GlassCard Span="4" Height="362">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <TextBlock Text="Memory &amp; temperatures" Style="{StaticResource CardTitle}" />
             </DockPanel>
-            <TextBlock Text="{Binding RamText}" Style="{StaticResource Number}" FontSize="24" Margin="0,4,0,10" />
-            <c:GlowProgressBar Value="{Binding RamPercent}" BarColor="#B26BFF" Height="10" Margin="0,0,0,16" />
+            <TextBlock Text="{Binding RamText}" Style="{StaticResource Number}" FontSize="24" Margin="0,4,0,10" HorizontalAlignment="Right" />
+            <c:SegmentMeter Value="{Binding RamPercent}" Color="#B26BFF" Height="14" Margin="0,0,0,16"/>
             <ItemsControl ItemsSource="{Binding Temps}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <DockPanel Margin="0,4">
                     <TextBlock Text="{Binding Value}" Style="{StaticResource SmallMuted}" DockPanel.Dock="Right" Foreground="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
                     <TextBlock Text="{Binding Name}" Style="{StaticResource SmallMuted}" DockPanel.Dock="Left" Width="86" />
-                    <c:GlowProgressBar Value="{Binding Percent}" BarColor="{Binding ColorHex, Converter={StaticResource HexToColor}}" Height="5" VerticalAlignment="Center" Margin="6,0,12,0" />
+                    <c:TemperatureRail Value="{Binding Percent}" Height="20" VerticalAlignment="Center" Margin="6,0,12,0"/>
                   </DockPanel>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="6" Height="200">
+        <c:GlassCard Span="6" Height="244">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <TextBlock Text="Fans" Style="{StaticResource CardTitle}" />
@@ -101,7 +89,7 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <StackPanel>
-                    <c:RingGauge Value="{Binding Percent}" Suffix="%" SweepAngle="270" Width="100" Height="100" RingColor="#36D6FF" />
+                    <c:NeedleDial Value="{Binding Percent}" IsPump="{Binding IsPump}" Maximum="100" Width="150" Height="100" Margin="0,15,0,0"/>
                     <TextBlock Text="{Binding RpmText}" Style="{StaticResource Number}" FontSize="18" HorizontalAlignment="Center" />
                     <TextBlock Text="{Binding Name}" Style="{StaticResource SmallMuted}" HorizontalAlignment="Center" Margin="0,4" />
                   </StackPanel>
@@ -110,50 +98,55 @@
             </ItemsControl>
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="3" Height="200">
+        <c:GlassCard Span="3" Height="244">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <TextBlock Text="Network &amp; disks" Style="{StaticResource CardTitle}" />
             </DockPanel>
-            <TextBlock Text="{Binding NetDownText}" Style="{StaticResource Number}" FontSize="19" Foreground="{StaticResource DataBrush}" />
-            <TextBlock Text="{Binding NetUpText}" Style="{StaticResource SmallMuted}" Margin="0,4" />
-            <TextBlock Text="Storage" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
-            <TextBlock Text="{Binding DiskTempText}" Style="{StaticResource SmallMuted}" />
-            <TextBlock Text="{Binding DiskReadText}" Style="{StaticResource SmallMuted}" Margin="0,4" />
-            <TextBlock Text="{Binding DiskWriteText}" Style="{StaticResource SmallMuted}" />
+            <c:SpacedGrid Columns="2" Gap="10" Margin="0,0,0,12">
+              <Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="Download" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding NetDownText}" FontSize="18" Foreground="#36D6FF"/></StackPanel></Border>
+              <Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="Upload" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding NetUpText}" FontSize="18" Foreground="#FF7A50"/></StackPanel></Border>
+            </c:SpacedGrid>
+            <ItemsControl ItemsSource="{Binding State.System.Disks}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,0,10"><DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding TempC, StringFormat={}{0:0}?}" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding Name}" Style="{StaticResource SmallMuted}" TextTrimming="CharacterEllipsis"/></DockPanel><c:GlowProgressBar Value="{Binding UsedPercent, TargetNullValue=NaN}" BarColor="#36D6FF" Height="6" Margin="0,6,0,0"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="3" Height="200">
+        <c:GlassCard Span="3" Height="244">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <TextBlock Text="Internet" Style="{StaticResource CardTitle}" />
             </DockPanel>
-            <TextBlock Text="{Binding State.Router.Verdict}" Style="{StaticResource Number}" Foreground="{StaticResource StatusWarmBrush}" FontSize="22" />
+            <TextBlock Text="{Binding InternetScore}" Style="{StaticResource Number}" Foreground="{StaticResource StatusWarmBrush}" FontSize="22" />
             <TextBlock Text="{Binding State.Router.Network}" Style="{StaticResource SmallMuted}" Margin="0,8" />
             <TextBlock Text="{Binding State.Router.Sentence}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
             <Button Content="Open →" Command="{Binding OpenPageCommand}" CommandParameter="Modem" Style="{StaticResource TextAction}" HorizontalAlignment="Left" Margin="0,12,0,0" />
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="6" MinHeight="128">
+        <c:GlassCard Span="6" Height="200">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <TextBlock Text="Top processes" Style="{StaticResource CardTitle}" />
             </DockPanel>
-            <TextBlock Text="Unavailable · Process telemetry is not supplied by the service." Style="{StaticResource Placeholder}" />
+            <ItemsControl ItemsSource="{Binding TopProcesses}"><ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,5"><Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/><ColumnDefinition Width="54"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Name}" Style="{StaticResource SmallMuted}" TextTrimming="CharacterEllipsis"/><c:GlowProgressBar Grid.Column="1" Value="{Binding CpuPercent}" BarColor="#FF4D1A" Height="8" Margin="10,0" VerticalAlignment="Center"/><TextBlock Grid.Column="2" Text="{Binding CpuPercent, StringFormat={}{0:0}%}" HorizontalAlignment="Right" FontSize="14"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+            <TextBlock Text="Waiting for process samples"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource Placeholder}"><Style.Triggers><DataTrigger Binding="{Binding HasProcesses}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="6" MinHeight="128">
+        <c:GlassCard Span="6" Height="200">
           <StackPanel>
             <DockPanel Margin="0,0,0,12">
               <TextBlock Text="Power &amp; uptime" Style="{StaticResource CardTitle}" />
             </DockPanel>
-            <TextBlock Text="{Binding PowerText}" Style="{StaticResource Number}" FontSize="18" />
-            <TextBlock Text="{Binding PeakText}" Style="{StaticResource SmallMuted}" Margin="0,8" />
-            <TextBlock Text="Unavailable · Uptime and throttling events are not supplied by the service." Style="{StaticResource Placeholder}" />
+            <c:SpacedGrid Columns="3" Gap="8">
+              <Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="CPU + GPU draw" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding PowerText}" FontSize="15" Foreground="#FF7A50"/></StackPanel></Border>
+              <Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="Uptime" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding UptimeText}" FontSize="17" Foreground="#FF7A50"/></StackPanel></Border>
+              <Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="Avg sampled load" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding AverageLoad}" FontSize="17" Foreground="#FF7A50"/></StackPanel></Border>
+            </c:SpacedGrid>
+            <DockPanel Margin="0,12,0,0"><TextBlock DockPanel.Dock="Right" Text="{Binding PeakGpu}"/><TextBlock Text="Peak GPU temperature" Style="{StaticResource SmallMuted}"/></DockPanel>
+            <DockPanel Margin="0,6,0,0"><TextBlock DockPanel.Dock="Right" Text="{Binding PeakCpu}"/><TextBlock Text="Peak CPU temperature" Style="{StaticResource SmallMuted}"/></DockPanel>
+            <DockPanel Margin="0,6,0,0"><TextBlock DockPanel.Dock="Right" Text="{Binding ThrottlingText}"/><TextBlock Text="Thermal throttling" Style="{StaticResource SmallMuted}"/></DockPanel>
           </StackPanel>
         </c:GlassCard>
       </c:CardGrid>
-      <TextBlock Text="{Binding LastError}" Style="{StaticResource Muted}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12" />
+      <TextBlock Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" Text="{Binding LastError}" Style="{StaticResource Muted}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12" />
     </StackPanel>
   </DataTemplate>
 </ResourceDictionary>

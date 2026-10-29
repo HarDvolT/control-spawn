@@ -43,6 +43,8 @@ public static class StateAssembler
                 g.FirstOrDefault(s => s.Kind == "Load")?.Value,
                 g.FirstOrDefault(s => s.Kind == "Load" && (s.Name.Contains("Activity", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Total", StringComparison.OrdinalIgnoreCase)))?.Value)).ToArray(),
             Sum(SensorCategory.Network, "Throughput", "Download", 125000), Sum(SensorCategory.Network, "Throughput", "Upload", 125000), Pick(SensorCategory.Gpu, "Temperature", "Memory"));
+        var throttle = sensors.Where(s => s.Name.Contains("Thermal Throttling", StringComparison.OrdinalIgnoreCase) && s.Value.HasValue).ToArray();
+        system = system with { ThermalThrottling = throttle.Length == 0 ? null : throttle.Any(s => s.Value > 0) };
         var fans = FanMap.Discover(sensors, controls).Select(f => new FanState(f.Header, f.Name,
             sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{f.Header - 1}"))?.Value,
             sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Control" && s.Id.EndsWith($"/control/{f.Header - 1}"))?.Value,
