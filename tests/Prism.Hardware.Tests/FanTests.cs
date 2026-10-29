@@ -91,6 +91,15 @@ public sealed class FanTests
         controller.Dispose();
         Assert.Equal(port.Headers, port.Restored);
     }
+    [Theory]
+    [InlineData(45)] [InlineData(52)] [InlineData(55)]
+    public void SilentIsBelowTheBiosIdleDutyAtIdleTemperatures(double cpu)
+    {
+        // The BIOS idles the radiator fans at about 36% duty on this board (measured 2026-10-29).
+        Assert.True(FanCurveEngine.Interpolate(FanCurveEngine.Preset(FanMode.Silent), cpu) <= 28);
+        Assert.True(FanCurveEngine.Interpolate(FanCurveEngine.Preset(FanMode.Silent), cpu) <
+                    FanCurveEngine.Interpolate(FanCurveEngine.Preset(FanMode.Standard), cpu));
+    }
     [Fact]
     public void MissingSelectedSourceCountsAsFailureAndControlsGoFull()
     {

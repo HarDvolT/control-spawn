@@ -12,7 +12,10 @@ public sealed class FanCurveEngine
     public static FanCurve Preset(FanMode mode) => new(new[] { 20d, 30, 40, 50, 60, 67, 70, 100 }
         .Zip(mode switch {
             FanMode.Standard => new[] { 20d, 26, 34, 45, 60, 80, 100, 100 },
-            FanMode.Silent => new[] { 20d, 20, 25, 35, 50, 70, 100, 100 },
+            // Tuned on the real radiator fans (2026-10-29): the BIOS idles them at ~1,365 rpm, which is about 36% duty
+            // on this header (Fan Xpert table: 30% = 1,255 rpm, 40% = 1,464 rpm). Silent sits clearly below that
+            // at the 9800X3D idle range (45-55 °C) and only ramps hard from 67 °C; the 90 °C failsafe still applies.
+            FanMode.Silent => new[] { 20d, 20, 22, 25, 30, 42, 55, 100 },
             FanMode.Turbo => new[] { 35d, 45, 55, 65, 80, 95, 100, 100 },
             FanMode.Full => Enumerable.Repeat(100d, 8).ToArray(),
             _ => throw new ArgumentException("Custom mode requires an explicit curve.", nameof(mode))
