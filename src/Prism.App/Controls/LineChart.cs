@@ -10,6 +10,9 @@ namespace Prism.App.Controls;
 /// <summary>Smooth curve on a dotted grid; supports one or two series, optional area fill and glow.</summary>
 public class LineChart : FrameworkElement
 {
+    public bool HorizontalGrid { get; set; }
+    public bool Compact { get; set; }
+    public bool Linear { get; set; }
     public static readonly DependencyProperty ValuesProperty = DependencyProperty.Register(
         nameof(Values), typeof(IEnumerable), typeof(LineChart),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, OnValuesChanged));
@@ -93,9 +96,12 @@ public class LineChart : FrameworkElement
 
         if (ShowGrid)
         {
-            for (var x = 8.0; x < width; x += 16)
-                for (var y = 8.0; y < height; y += 16)
-                    dc.DrawEllipse(GridBrush, null, new Point(x, y), 0.8, 0.8);
+            if (HorizontalGrid)
+                for (int i = 1; i < 4; i++) dc.DrawLine(new Pen(ColorUtil.Brush(Color.FromArgb(12, 255, 255, 255)), 1), new Point(0, height * i / 4), new Point(width, height * i / 4));
+            else
+                for (var x = 8.0; x < width; x += 16)
+                    for (var y = 8.0; y < height; y += 16)
+                        dc.DrawEllipse(GridBrush, null, new Point(x, y), 0.8, 0.8);
         }
 
         var first = ToPoints(Values);
@@ -103,7 +109,7 @@ public class LineChart : FrameworkElement
         var maximum = Maximum <= 0 ? 100 : Maximum;
         if (AutoScale)
         {
-            var peak = first.Concat(second).DefaultIfEmpty(0).Max();
+            var peak = first.Concat(second).Where(double.IsFinite).DefaultIfEmpty(0).Max();
             maximum = peak <= 0 ? 1 : peak * 1.15;
         }
 
@@ -114,7 +120,43 @@ public class LineChart : FrameworkElement
     private void DrawSeries(DrawingContext dc, IReadOnlyList<double> points, Color color, double width, double height,
         double maximum, bool fill)
     {
+        if (points.Any(p => !double.IsFinite(p)))
+        {
+            var run = new List<double>();
+            int start = 0;
+            for (int index = 0; index <= points.Count; index++)
+            {
+                var value = index < points.Count ? points[index] : double.NaN;
+                if (double.IsFinite(value)) { if (run.Count == 0) start = index; run.Add(value); }
+                else
+                {
+                    if (run.Count > 1)
+                    {
+                        dc.PushTransform(new TranslateTransform(width * start / Math.Max(1, points.Count - 1), 0));
+                        DrawSeries(dc, run, color, width * (run.Count - 1) / Math.Max(1, points.Count - 1), height, maximum, fill);
+                        dc.Pop();
+                    }
+                    run.Clear();
+                }
+            }
+            return;
+        }
         if (points.Count < 2) return;
+        if (Compact || Linear)
+        {
+            double min = Compact ? points.Min() : 0, max = Compact ? points.Max() : maximum;
+            var linearGeometry = new StreamGeometry();
+            using (var context = linearGeometry.Open())
+                for (int i = 0; i < points.Count; i++)
+                {
+                    double fraction = max == min ? .5 : Math.Clamp((points[i] - min) / (max - min), 0, 1);
+                    var point = new Point(i * width / (points.Count - 1), height - (Compact ? 3 : 8) - fraction * Math.Max(0, height - (Compact ? 6 : 24)));
+                    if (i == 0) context.BeginFigure(point, false, false); else context.LineTo(point, true, false);
+                }
+            dc.DrawGeometry(null, new Pen(ColorUtil.Brush(ColorUtil.WithAlpha(color, .12)), 8), linearGeometry);
+            dc.DrawGeometry(null, new Pen(ColorUtil.Brush(color), StrokeThickness) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round }, linearGeometry);
+            return;
+        }
         var geometry = BuildGeometry(points, width, height, maximum);
         var thickness = Math.Max(1, StrokeThickness);
 
@@ -199,13 +241,14 @@ public class LineChart : FrameworkElement
         {
             result.Add(item switch
             {
-                null => 0,
+                null => double.NaN,
+                double d when !double.IsFinite(d) => double.NaN,
                 double d when double.IsFinite(d) => d,
                 float f when float.IsFinite(f) => f,
                 int i => i,
                 long l => l,
                 _ => double.TryParse(System.Convert.ToString(item, CultureInfo.InvariantCulture),
-                    NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0
+                    NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) ? parsed : double.NaN
             });
         }
         return result;
@@ -215,5 +258,5 @@ public class LineChart : FrameworkElement
 /// <summary>Small single-series line chart (same drawing code as <see cref="LineChart"/>).</summary>
 public sealed class Sparkline : LineChart
 {
-    public Sparkline() { ShowGrid = false; Height = 32; MinHeight = 16; }
+    public Sparkline() { Compact = true; ShowGrid = false; Height = 32; MinHeight = 16; }
 }

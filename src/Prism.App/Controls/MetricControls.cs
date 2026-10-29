@@ -10,6 +10,7 @@ namespace Prism.App.Controls;
 /// <summary>Shared, bindable metric primitives with the same status scale and motion preference.</summary>
 public abstract class MetricControl : FrameworkElement
 {
+    public bool UseStatusGlow { get; set; } = true;
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(nameof(Value), typeof(double), typeof(MetricControl),
         new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender, Changed));
     public static readonly DependencyProperty MaximumProperty = DependencyProperty.Register(nameof(Maximum), typeof(double), typeof(MetricControl), new FrameworkPropertyMetadata(100d, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -37,6 +38,7 @@ public abstract class MetricControl : FrameworkElement
     }
     private void UpdateGlow()
     {
+        if (!UseStatusGlow) { Effect = null; return; }
         var level = Thresholds.Level(Value, SensorKind);
         Effect = Thresholds.Glow(level);
         BeginAnimation(OpacityProperty, null);

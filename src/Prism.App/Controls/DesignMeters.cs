@@ -38,6 +38,7 @@ public sealed class TemperatureRail : MetricControl
 
 public sealed class NeedleDial : MetricControl
 {
+    public NeedleDial() { UseStatusGlow = false; }
     public static readonly DependencyProperty IsPumpProperty = DependencyProperty.Register(nameof(IsPump), typeof(bool), typeof(NeedleDial), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
     public bool IsPump { get => (bool)GetValue(IsPumpProperty); set => SetValue(IsPumpProperty, value); }
     protected override void OnRender(DrawingContext dc)
@@ -54,6 +55,7 @@ public sealed class NeedleDial : MetricControl
 
 public sealed class ThreadTile : MetricControl
 {
+    public ThreadTile() { UseStatusGlow = false; }
     protected override void OnRender(DrawingContext dc)
     {
         dc.DrawRoundedRectangle(Track, null, new Rect(0, 0, ActualWidth, ActualHeight), 5, 5);
@@ -62,5 +64,20 @@ public sealed class ThreadTile : MetricControl
             double h = ActualHeight * Fraction;
             dc.DrawRoundedRectangle(StatusBrush, null, new Rect(0, ActualHeight - h, ActualWidth, h), 5, 5);
         }
+    }
+}
+
+public sealed class SignalRail : MetricControl
+{
+    protected override void OnRender(DrawingContext dc)
+    {
+        string[] colours = ["#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF"];
+        double w = Math.Max(0, (ActualWidth - 9) / 4);
+        for (int i = 0; i < 4; i++)
+        {
+            var c = (Color)ColorConverter.ConvertFromString(colours[i]);
+            dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(80, c.R, c.G, c.B)), null, new Rect(i * (w + 3), ActualHeight / 2 - 4, w, 8), 2, 2);
+        }
+        if (double.IsFinite(Value)) dc.DrawRoundedRectangle(Brushes.WhiteSmoke, null, new Rect(Math.Clamp(Fraction * ActualWidth - 3, 0, Math.Max(0, ActualWidth - 6)), ActualHeight / 2 - 8, 6, 16), 3, 3);
     }
 }

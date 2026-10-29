@@ -62,6 +62,22 @@ public sealed class ModemViewModel : PageViewModel
         Refresh();
     }
 
+    private string selectedRadio = "5G";
+    private double download = double.NaN, upload = double.NaN;
+    public double Download => download;
+    public string UploadText => "Upload " + Format.Mbps(upload);
+    public string NetworkChip => Network + " \u00b7 " + Band;
+    public string PingChip => "Ping " + Format.Ms(_ping);
+    public string ConnectionChip => Connected ? "Connected" : "Offline";
+    public IReadOnlyList<string> Radios { get; } = ["5G", "LTE anchor"];
+    public string SelectedRadio { get => selectedRadio; set { if (Set(ref selectedRadio, value)) OnPropertyChanged(nameof(RadioMetrics)); } }
+    public IReadOnlyList<MetricRow> RadioMetrics => MetricGroups.Select(g => g.Rows[SelectedRadio == "5G" ? 0 : 1] with { Net = g.Code }).Append(new("RSSI", Format.Dash, "Unavailable", "#7C808A", double.NaN)).ToArray();
+    public IReadOnlyList<double> PingHistory => _pingHistory;
+    public string AveragePing => _pingHistory.Count > 0 ? Format.Ms(_pingHistory.Average()) : Format.Dash;
+    public string JitterText => _pingHistory.Count > 1 ? Format.Ms(_pingHistory.Zip(_pingHistory.Skip(1), (a, b) => Math.Abs(a - b)).Average()) : Format.Dash;
+    public IReadOnlyList<StatRow> PingStats => [new("Now", PingNowText, "#36D6FF"), new("Average", AveragePing, "#F4F5F7"), new("Jitter", JitterText, "#F4F5F7"), new("Lost", LossText, "#3DDC84")];
+    public IReadOnlyList<StatRow> CellStats => [new("Band", Band, "#F4F5F7"), new("Bandwidth", Format.Dash, "#7C808A"), new("PCI", PciText, "#7C808A"), new("Cell ID", EnodebText, "#7C808A"), new("ARFCN", Format.Dash, "#7C808A"), new("Anchor", AnchorText, "#7C808A"), new("Carrier aggregation", Format.Dash, "#7C808A"), new("Tower distance", Format.Dash, "#7C808A")];
+
     public IReadOnlyList<string> Views { get; }
     public ObservableCollection<SimpleNetworkRow> SimpleRows { get; } = new();
     public ObservableCollection<MetricGroup> MetricGroups { get; } = new();
@@ -165,7 +181,12 @@ public sealed class ModemViewModel : PageViewModel
 
         if (double.IsFinite(_rsrp5)) Push(_rsrpHistory, Normalize(_rsrp5, -140, -44));
         if (double.IsFinite(_sinr5)) Push(_sinrHistory, Normalize(_sinr5, -10, 30));
-        if (double.IsFinite(_ping)) Push(_pingHistory, _ping);
+        if (State?.History is { } history)
+        {
+            _pingHistory.Clear();
+            _pingHistory.AddRange(history.TakeLast(60).Where(s => s.PingMs.HasValue && double.IsFinite(s.PingMs.Value)).Select(s => s.PingMs!.Value));
+        }
+        else if (double.IsFinite(_ping)) Push(_pingHistory, _ping);
 
         BuildBars();
         BuildSimpleRows();
@@ -353,8 +374,18 @@ public sealed class ModemViewModel : PageViewModel
         SpeedStatus = "Starting the test through the service…";
         try
         {
-            await RunAsync(() => Client.StartSpeedTestAsync());
-            SpeedStatus = HasError ? LastError! : "Test requested. Result telemetry is unavailable in this service protocol.";
+              await RunAsync(async () =>
+              {
+                  var response = await Client.StartSpeedTestAsync();
+                  if (response.Ok && response.Data is { } data)
+                  {
+                      static double Read(System.Text.Json.JsonElement data, string name) => data.TryGetProperty(name, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetDouble(out var reading) && double.IsFinite(reading) ? reading : double.NaN;
+                      download = Read(data, "down"); upload = Read(data, "up");
+                      OnPropertyChanged(nameof(Download)); OnPropertyChanged(nameof(UploadText));
+                  }
+                  return response;
+              });
+              SpeedStatus = HasError ? LastError! : double.IsFinite(download) ? "Test complete" : "No throughput result reported";
         }
         finally
         {
@@ -374,7 +405,7 @@ public sealed class ModemViewModel : PageViewModel
         return Math.Clamp((value - min) / (max - min) * 100, 0, 100);
     }
 
-    private static double Position(string kind, double value) => kind switch
+    private static double Position(string kind, double value) => !double.IsFinite(value) ? double.NaN : kind switch
     {
         "rsrp" => Normalize(value, -140, -44),
         "sinr" => Normalize(value, -10, 30),

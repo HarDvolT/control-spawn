@@ -119,7 +119,12 @@ public sealed record ThreadItem(double Percent, string ColorHex);
 
 public sealed record SimpleNetworkRow(string Net, IReadOnlyList<BarItem> Bars, string Text);
 
-public sealed record MetricRow(string Net, string Value, string Rating, string ColorHex, double Position);
+public sealed record MetricRow(string Net, string Value, string Rating, string ColorHex, double Position)
+{
+    public string Description => Net switch { "RSRP" => "Signal strength", "SINR" => "Signal vs noise", "RSRQ" => "Signal quality", "RSSI" => "Total received power", _ => Rating };
+    public string Number => Value.Contains(' ') ? Value[..Value.LastIndexOf(' ')] : Value;
+    public string Unit => Value.Contains(' ') ? Value[(Value.LastIndexOf(' ') + 1)..] : "";
+}
 
 public sealed record MetricGroup(string Title, string Code, IReadOnlyList<MetricRow> Rows);
 
