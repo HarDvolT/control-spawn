@@ -123,8 +123,8 @@
     </Style>
 
     <Style x:Key="SmallMuted" TargetType="{x:Type TextBlock}">
-        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="12" />
     </Style>
 
     <Style x:Key="Tiny" TargetType="{x:Type TextBlock}">
@@ -445,6 +445,7 @@
         </Setter>
     </Style>
 
+    <Style x:Key="OutlinedSegmentItem" TargetType="ListBoxItem"><Setter Property="Foreground" Value="#C9CBD1"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Tile" Background="#1E2026" BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="8,8" Margin="0,0,6,0" MinHeight="34"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Tile" Property="Background" Value="#29FF4D1A"/><Setter TargetName="Tile" Property="BorderBrush" Value="#FF4D1A"/><Setter Property="Foreground" Value="#FF8A60"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
     <Style TargetType="{x:Type controls:SegmentedControl}">
         <Setter Property="Background" Value="{StaticResource PanelDeepBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
@@ -487,7 +488,7 @@
                     <Border x:Name="Chrome" Background="{TemplateBinding Background}"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                             CornerRadius="{TemplateBinding CornerRadius}" SnapsToDevicePixels="True">
-                        <ContentPresenter Margin="{TemplateBinding Padding}" />
+                        <Border.Effect><DropShadowEffect Color="#000000" BlurRadius="40" ShadowDepth="20" Direction="270" Opacity="0.45"/></Border.Effect><Grid><Border BorderThickness="1" CornerRadius="{TemplateBinding CornerRadius}" IsHitTestVisible="False"><Border.BorderBrush><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#0DFFFFFF" Offset="0"/><GradientStop Color="#00FFFFFF" Offset="0.12"/></LinearGradientBrush></Border.BorderBrush></Border><ContentPresenter Margin="{TemplateBinding Padding}"/></Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">

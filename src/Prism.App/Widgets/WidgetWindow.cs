@@ -20,7 +20,9 @@ public sealed class WidgetWindow : Window
         WindowStyle = WindowStyle.None; AllowsTransparency = true; ShowInTaskbar = false;
         Background = Brushes.Transparent; ResizeMode = ResizeMode.NoResize;
         SizeToContent = SizeToContent.Height;
-        Content = new WidgetContent();
+        Content = vm.Kind is WidgetKind.SystemMonitor or WidgetKind.Fans or WidgetKind.Modem or WidgetKind.Lamp or WidgetKind.AirFryer
+            ? new System.Windows.Controls.Viewbox { Stretch = Stretch.Uniform, Child = new WidgetMiniature(vm) { Width = 250 } }
+            : new WidgetContent();
         SourceInitialized += (_, _) => { Place(); UpdateOptions(); };
         vm.PropertyChanged += OptionsChanged;
         Closed += (_, _) => vm.PropertyChanged -= OptionsChanged;

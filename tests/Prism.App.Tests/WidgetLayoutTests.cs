@@ -21,7 +21,7 @@ public class WidgetLayoutTests
                     new WidgetLayout
                     {
                         Id = "system", Kind = WidgetKind.SystemMonitor, Size = WidgetSize.Large,
-                        X = 1216, Y = 48, Opacity = 0.55, AlwaysOnTop = true, ClickThrough = true,
+                        X = 1216, Y = 48, Opacity = 0.55, AlwaysOnTop = true, ClickThrough = true, Enabled = false, Background = "Clear",
                         Locked = true, SnapToGrid = false, Monitor = @"\\.\DISPLAY2",
                         Metrics = { WidgetMetrics.Cpu, WidgetMetrics.Gpu, WidgetMetrics.Net }
                     },
@@ -48,6 +48,10 @@ public class WidgetLayoutTests
             Assert.True(system.ClickThrough);
             Assert.True(system.Locked);
             Assert.False(system.SnapToGrid);
+            Assert.False(system.Enabled);
+            Assert.Equal("Clear", system.Background);
+            Assert.False(system.Clone().Enabled);
+            Assert.Equal("Clear", system.Clone().Background);
             Assert.Equal(@"\\.\DISPLAY2", system.Monitor);
             Assert.Equal(new[] { WidgetMetrics.Cpu, WidgetMetrics.Gpu, WidgetMetrics.Net }, system.Metrics);
 

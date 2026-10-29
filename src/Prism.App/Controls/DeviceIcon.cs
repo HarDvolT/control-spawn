@@ -5,7 +5,7 @@ using System.Windows.Data;
 
 namespace Prism.App.Controls;
 
-public enum DeviceIconKind { Ram, Gpu, Board, Strip, Fan, Lamp, Router, Fryer, Network }
+public enum DeviceIconKind { Ram, Gpu, Board, Strip, Fan, Lamp, Router, Fryer, Network, Pump, Activity }
 public sealed class DeviceIcon : FrameworkElement
 {
     public static readonly DependencyProperty KindProperty = DependencyProperty.Register(nameof(Kind), typeof(DeviceIconKind), typeof(DeviceIcon), new FrameworkPropertyMetadata(DeviceIconKind.Board, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -17,18 +17,20 @@ public sealed class DeviceIcon : FrameworkElement
     {
         string path = Kind switch
         {
-            DeviceIconKind.Ram => "M2,9 L30,9 30,23 2,23Z M5,23 L5,27 M9,23 L9,27 M13,23 L13,27 M17,23 L17,27 M21,23 L21,27 M25,23 L25,27 M7,13 L12,13 12,19 7,19Z M19,13 L24,13 24,19 19,19Z",
-            DeviceIconKind.Gpu => "M2,7 L29,7 29,24 2,24Z M5,24 L5,28 16,28 M8,11 A5,5 0 1 1 8,21 A5,5 0 1 1 8,11 M22,11 A5,5 0 1 1 22,21 A5,5 0 1 1 22,11",
-            DeviceIconKind.Fan => "M16,3 A13,13 0 1 1 16,29 A13,13 0 1 1 16,3 M16,13 C1,1 3,20 13,17 M19,16 C31,1 12,3 15,13 M16,19 C31,31 29,12 19,15 M13,16 C1,31 20,29 17,19",
-            DeviceIconKind.Lamp => "M10,22 C10,16 5,15 5,10 A11,10 0 0 1 27,10 C27,15 22,16 22,22Z M11,26 L21,26 M13,30 L19,30",
-            DeviceIconKind.Router => "M3,18 L29,18 29,28 3,28Z M7,18 L4,3 M25,18 L28,3 M7,23 L10,23 M14,23 L17,23",
-            DeviceIconKind.Fryer => "M7,3 L25,3 Q29,3 29,9 L29,28 3,28 3,9 Q3,3 7,3Z M3,13 L29,13 M13,17 L19,17 19,23 13,23Z M12,8 L20,8",
-            DeviceIconKind.Strip => "M2,11 L30,11 30,21 2,21Z M6,14 L6,18 M12,14 L12,18 M18,14 L18,18 M24,14 L24,18",
-            DeviceIconKind.Network => "M12,2 L20,2 20,10 12,10Z M2,22 L10,22 10,30 2,30Z M22,22 L30,22 30,30 22,30Z M16,10 L16,17 M6,22 L6,17 26,17 26,22",
-            _ => "M3,2 L29,2 29,30 3,30Z M9,7 L21,7 21,19 9,19Z M7,24 L25,24 M25,6 L25,18 M7,27 L25,27"
+            DeviceIconKind.Ram => "M4 7h16v9H4zM7 16v3M11 16v3M15 16v3M7 10h2M11 10h2M15 10h2",
+            DeviceIconKind.Gpu => "M3 7h16v10H3zM19 10h2v4h-2M7 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0",
+            DeviceIconKind.Fan => "M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2",
+            DeviceIconKind.Pump => "M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z",
+            DeviceIconKind.Lamp => "M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z",
+            DeviceIconKind.Router => "M4 13h16v8H4zM8 13V5M16 13V3M8 17h1M12 17h1M16 17h1",
+            DeviceIconKind.Fryer => "M5 6h14v14H5zM8 3h8M9 10h6M12 13v4",
+            DeviceIconKind.Strip => "M3 12h18M5 10v4M9 10v4M13 10v4M17 10v4",
+            DeviceIconKind.Network => "M3 12a9 9 0 0 1 18 0M6 12a6 6 0 0 1 12 0M9 12a3 3 0 0 1 6 0M12 12v7",
+            DeviceIconKind.Activity => "M3 12h4l3-8 4 16 3-8h4",
+            _ => "M4 4h16v16H4zM8 8h4v4H8zM15 8h2M15 12h2M8 15h9"
         };
-        dc.PushTransform(new ScaleTransform(ActualWidth / 32, ActualHeight / 32));
-        dc.DrawGeometry(null, new Pen(new SolidColorBrush(Color), 1.5) { LineJoin = PenLineJoin.Round }, Geometry.Parse(path)); dc.Pop();
+        dc.PushTransform(new ScaleTransform(ActualWidth / 24, ActualHeight / 24));
+        dc.DrawGeometry(null, new Pen(new SolidColorBrush(Color), 1.8) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round }, Geometry.Parse(path)); dc.Pop();
     }
 }
 public sealed record IconChoice(string Key, string Label, DeviceIconKind Icon);

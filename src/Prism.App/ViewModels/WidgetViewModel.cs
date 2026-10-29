@@ -65,6 +65,12 @@ public sealed class WidgetViewModel : ObservableObject
     public Action? Changed { get; }
     public IPrismClient Client => _client;
 
+    private IReadOnlyList<LampState> lampStates = [];
+    public RelayCommand<string> ToggleLampByIdCommand => new(id =>
+    {
+        if (lampStates.FirstOrDefault(l => l.Id == id) is { } lamp)
+            _ = RunAsync(() => _client.SendAsync(Commands.SetLamp, new { lamp = id, on = !lamp.On }));
+    });
     public IReadOnlyList<LampRow> LampRows { get; private set; } = [];
     public bool IsAirFryer => Kind == WidgetKind.AirFryer;
     public IReadOnlyList<ApplianceState> Appliances { get; private set; } = [];
@@ -72,7 +78,24 @@ public sealed class WidgetViewModel : ObservableObject
     public string Id => Layout.Id;
     public WidgetKind Kind => Layout.Kind;
     public string Name => WidgetNames.Name(Kind);
+    public Prism.App.Controls.DeviceIconKind PreviewIcon => Kind switch { WidgetKind.SystemMonitor => Prism.App.Controls.DeviceIconKind.Activity, WidgetKind.Fans => Prism.App.Controls.DeviceIconKind.Fan, WidgetKind.Lamp => Prism.App.Controls.DeviceIconKind.Lamp, WidgetKind.AirFryer => Prism.App.Controls.DeviceIconKind.Fryer, WidgetKind.Modem => Prism.App.Controls.DeviceIconKind.Router, _ => Prism.App.Controls.DeviceIconKind.Board };
+    public string IconColor => Kind switch { WidgetKind.Modem => "#F5A524", WidgetKind.Lamp => "#FF7A3D", WidgetKind.AirFryer => "#FF4D1A", _ => "#36D6FF" };
+    public string DisplayName => Kind switch { WidgetKind.SystemMonitor => "System", WidgetKind.Modem => "Internet", WidgetKind.Lamp => "Lamps", _ => Name };
+    public string DisplaySubtitle => Kind switch { WidgetKind.SystemMonitor => "CPU, GPU and RAM at a glance", WidgetKind.Modem => "5G score and ping", WidgetKind.Fans => "Mode and live RPM", WidgetKind.Lamp => "Tap a lamp to switch it", _ => Subtitle };
+    public System.Windows.Media.Brush IconBackground
+    {
+        get { var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(IconColor); return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(64, color.R, color.G, color.B)); }
+    }
     public string Subtitle => WidgetNames.Subtitle(Kind);
+    public bool Enabled { get => Layout.Enabled; set { if (Layout.Enabled == value) return; Layout.Enabled = value; OnPropertyChanged(); Persist(); } }
+    public IReadOnlyList<string> Backgrounds { get; } = ["Glass", "Solid", "Clear"];
+    public string Background
+    {
+        get => Layout.Background;
+        set { if (!Backgrounds.Contains(value) || Layout.Background == value) return; Layout.Background = value; OnPropertyChanged(); OnPropertyChanged(nameof(BackgroundBrush)); Persist(); }
+    }
+    public System.Windows.Media.Brush BackgroundBrush => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(
+        Background == "Clear" ? (byte)0 : Background == "Solid" ? (byte)255 : (byte)(Opacity * 255), 17, 18, 22));
     public string SizeName => WidgetSizes.Name(Layout.Size);
 
     public double Width => WidgetSizes.Width(Layout.Size);
@@ -122,7 +145,7 @@ public sealed class WidgetViewModel : ObservableObject
             if (Math.Abs(Layout.Opacity - clamped) < 0.001) return;
             Layout.Opacity = clamped;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(OpacityPercent));
+            OnPropertyChanged(nameof(OpacityPercent)); OnPropertyChanged(nameof(BackgroundBrush));
             Persist();
         }
     }
@@ -223,6 +246,17 @@ public sealed class WidgetViewModel : ObservableObject
     public double GpuPercent => double.IsFinite(_gpu) ? Math.Clamp(_gpu, 0, 100) : 0;
     public string CpuText => Format.Percent(_cpu);
     public string GpuText => Format.Percent(_gpu);
+    public string CpuTemperatureLabel => Format.Temp(_cpuTemp, 0);
+    public string GpuTemperatureLabel => Format.Temp(_gpuTemp, 0);
+    public double CpuTemperature => _cpuTemp;
+    public double GpuTemperature => _gpuTemp;
+    private int? modemScore;
+    public double ModemBarCount => ModemBars.Count(b => b.ColorHex != "#3A3A40");
+    public string MiniModemVerdict => ModemVerdict + " \u00b7 " + (modemScore?.ToString() ?? Format.Dash);
+    public string MiniModemPing => PingText + " ms";
+    public string MiniFanHeading => "FANS \u00b7 " + FanMode.ToUpperInvariant();
+    public string MiniPump => "pump " + (FanRows.FirstOrDefault(f => f.IsPump)?.RpmText ?? Format.Dash);
+    public IReadOnlyList<FanRow> MiniFanRows => FanRows.Where(f => !f.IsPump).ToArray();
     public string CpuTempText => Format.Temp(_cpuTemp);
     public string GpuTempText => Format.Temp(_gpuTemp);
     public string RamText => _ramText;
@@ -321,6 +355,7 @@ public sealed class WidgetViewModel : ObservableObject
         }
 
         LampRows = LampRow.From(state);
+        lampStates = state.Lamps ?? (state.Lamp is { } first ? [first] : []);
         Appliances = state.Appliances ?? [];
         if (state.Router is { } router)
         {
@@ -333,6 +368,7 @@ public sealed class WidgetViewModel : ObservableObject
             PingColor = ColorUtil.ToHex(router.PingMs is null ? ColorUtil.TextTertiary : router.PingMs < 35 ? ColorUtil.Good : router.PingMs < 80 ? ColorUtil.Fair : ColorUtil.Poor);
             if (router.PingMs is { } ping) Push(PingHistory, ping);
 
+            modemScore = router.Score;
             ModemBars.Clear();
             var bars = router.Bars ?? 0;
             for (var i = 0; i < 5; i++)
@@ -340,6 +376,7 @@ public sealed class WidgetViewModel : ObservableObject
         }
         else
         {
+            modemScore = null;
             ModemBars.Clear();
             ModemNetwork = "5G modem";
             ModemVerdict = Format.Dash;

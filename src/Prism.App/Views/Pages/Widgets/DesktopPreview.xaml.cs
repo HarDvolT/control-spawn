@@ -35,7 +35,7 @@ public partial class DesktopPreview : UserControl
     private void CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => Rebuild();
     private void LayoutChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(WidgetViewModel.Width) or nameof(WidgetViewModel.PreviewLeft) or nameof(WidgetViewModel.PreviewTop)) Rebuild();
+        if (e.PropertyName is nameof(WidgetViewModel.Enabled) or nameof(WidgetViewModel.Width) or nameof(WidgetViewModel.PreviewLeft) or nameof(WidgetViewModel.PreviewTop)) Rebuild();
     }
     private void Rebuild()
     {
@@ -49,32 +49,35 @@ public partial class DesktopPreview : UserControl
         foreach (var item in _vm.Widgets)
         {
             item.PropertyChanged += LayoutChanged; _observed.Add(item);
-            var tile = new Border { DataContext = item, Width = item.Width, Background = System.Windows.Media.Brushes.Transparent,
-                Child = new WidgetContent { IsHitTestVisible = false } };
-            Canvas.SetLeft(tile,item.Layout.X - _originX); Canvas.SetTop(tile,item.Layout.Y - _originY);
+            if (!item.Enabled) continue;
+            var tile = new Border { DataContext = item, Width = item.Width * (item.Kind == WidgetKind.Lamp ? 1.4 : 2.1), Background = System.Windows.Media.Brushes.Transparent,
+                Child = new Viewbox { Stretch = System.Windows.Media.Stretch.Uniform, LayoutTransform = new System.Windows.Media.ScaleTransform(1, .75), IsHitTestVisible = false, Child = new WidgetMiniature(item) { Width = item.Kind == WidgetKind.Lamp ? 160 : 250 } } };
+            Canvas.SetLeft(tile,(item.Layout.X - _originX) * XScale(item)); Canvas.SetTop(tile,(item.Layout.Y - _originY) * YScale(item));
             tile.MouseLeftButtonDown += BeginDrag; tile.MouseMove += MoveDrag; tile.MouseLeftButtonUp += EndDrag;
             Surface.Children.Add(tile);
         }
     }
+    private double XScale(WidgetViewModel item) => Math.Max(.1, (Surface.Width - item.Width * (item.Kind == WidgetKind.Lamp ? 1.4 : 2.1)) / Math.Max(1, Surface.Width - item.Width));
+    private double YScale(WidgetViewModel item) => Math.Max(.1, (Surface.Height - item.Height * 2.1) / Math.Max(1, Surface.Height - item.Height));
     private void BeginDrag(object sender, MouseButtonEventArgs e)
     {
         if (_vm is null || sender is not Border tile || tile.DataContext is not WidgetViewModel widget) return;
         _vm.Selected = widget;
         if (widget.Locked) return;
-        _drag = tile; _start = e.GetPosition(Surface); _x = widget.Layout.X; _y = widget.Layout.Y;
+        _drag = tile; _start = e.GetPosition(Surface); _x = Canvas.GetLeft(tile); _y = Canvas.GetTop(tile);
         tile.CaptureMouse(); e.Handled = true;
     }
     private void MoveDrag(object sender, MouseEventArgs e)
     {
         if (_drag is null || e.LeftButton != MouseButtonState.Pressed) return;
         var delta = e.GetPosition(Surface) - _start;
-        Canvas.SetLeft(_drag,_x + delta.X - _originX); Canvas.SetTop(_drag,_y + delta.Y - _originY);
+        Canvas.SetLeft(_drag,_x + delta.X); Canvas.SetTop(_drag,_y + delta.Y);
     }
     private void EndDrag(object sender, MouseButtonEventArgs e)
     {
         if (_drag is null || _drag.DataContext is not WidgetViewModel widget) return;
         var tile = _drag; _drag = null; tile.ReleaseMouseCapture();
-        var x = Canvas.GetLeft(tile) + _originX; var y = Canvas.GetTop(tile) + _originY;
+        var x = Canvas.GetLeft(tile) / XScale(widget) + _originX; var y = Canvas.GetTop(tile) / YScale(widget) + _originY;
         if (widget.SnapToGrid) (x,y) = WidgetGrid.SnapPoint(x,y);
         widget.MoveTo(x,y,null); Rebuild(); e.Handled = true;
     }

@@ -17,6 +17,7 @@ public sealed class DesktopWidgetHost : IWidgetHost, IDisposable
         if (!IsVisible) return;
         foreach (var vm in ViewModel.Widgets)
         {
+            if (!vm.Enabled) { if (_windows.TryGetValue(vm.Id, out var hidden)) hidden.Hide(); continue; }
             if (!_windows.TryGetValue(vm.Id, out var window)) { window = new WidgetWindow(vm); _windows.Add(vm.Id, window); }
             window.RefreshPlacement();
             window.Show();

@@ -22,6 +22,8 @@ public enum WidgetSize { Small, Medium, Large }
 
 public sealed class WidgetLayout
 {
+    public bool Enabled { get; set; } = true;
+    public string Background { get; set; } = "Glass";
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public WidgetKind Kind { get; set; } = WidgetKind.SystemMonitor;
     public WidgetSize Size { get; set; } = WidgetSize.Medium;
@@ -38,6 +40,8 @@ public sealed class WidgetLayout
     public WidgetLayout Clone() => new()
     {
         Id = Id,
+        Enabled = Enabled,
+        Background = Background,
         Kind = Kind,
         Size = Size,
         X = X,
@@ -269,6 +273,7 @@ public sealed class WidgetLayoutStore
                 if (!Enum.IsDefined(widget.Size)) widget.Size = WidgetSize.Medium;
                 if (!double.IsFinite(widget.X)) widget.X = 0;
                 if (!double.IsFinite(widget.Y)) widget.Y = 0;
+                if (widget.Background is not ("Glass" or "Solid" or "Clear")) widget.Background = "Glass";
                 widget.Metrics ??= new List<string>();
                 widget.Opacity = double.IsFinite(widget.Opacity) ? Math.Clamp(widget.Opacity, 0.2, 1.0) : 0.72;
             }
