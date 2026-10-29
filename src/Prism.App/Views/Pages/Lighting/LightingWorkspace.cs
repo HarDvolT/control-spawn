@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Data;
 using System.Windows.Media;
 using Prism.App.Controls;
 using Prism.App.Common;
@@ -83,7 +84,7 @@ public sealed class LightingWorkspace : UserControl
 {
     private readonly Grid root = new();
     private readonly StackPanel canvasPanel = new(), inspector = new();
-    private readonly CaseMapPreview preview = new() { Height = 500, LedEditing = true };
+    private readonly CaseMapPreview preview = new() { Height = 350, LedEditing = false };
     private readonly LedEditor editor = new() { SharedCanvas = true };
     private readonly PaletteStrip palette = new();
     private readonly WrapPanel gallery = new(), devices = new();
@@ -99,7 +100,7 @@ public sealed class LightingWorkspace : UserControl
     public LightingWorkspace()
     {
         Content = root;
-        root.ColumnDefinitions.Add(new()); root.ColumnDefinitions.Add(new() { Width = new GridLength(370) });
+        root.ColumnDefinitions.Add(new() { Width = new GridLength(7, GridUnitType.Star) }); root.ColumnDefinitions.Add(new() { Width = new GridLength(5, GridUnitType.Star) });
         root.RowDefinitions.Add(new() { Height = GridLength.Auto }); root.RowDefinitions.Add(new() { Height = GridLength.Auto });
         root.Children.Add(canvasPanel); root.Children.Add(inspector); Grid.SetColumn(inspector, 1);
         canvasPanel.Margin = new(0, 0, 20, 0);
@@ -168,15 +169,66 @@ public sealed class LightingWorkspace : UserControl
         DataContextChanged += (_, _) => { if (model is not null) model.PropertyChanged -= Changed; model = DataContext as LightingViewModel; if (model is not null) model.PropertyChanged += Changed; BuildGallery(); Refresh(); };
         Loaded += (_, _) => { if (model is not null) { model.PropertyChanged -= Changed; model.PropertyChanged += Changed; } Refresh(); };
         Unloaded += (_, _) => { if (model is not null) model.PropertyChanged -= Changed; };
+        // Put the existing power tools behind the v2 mode selector; keep their command wiring.
+        var canvasChildren = canvasPanel.Children.Cast<UIElement>().ToArray(); canvasPanel.Children.Clear();
+        var inspectorChildren = inspector.Children.Cast<UIElement>().ToArray(); inspector.Children.Clear();
+        var host = new StackPanel(); Content = host;
+        var heading = new DockPanel { Margin = new(0, 0, 0, 16) };
+        var modes = new SegmentedControl { ItemsSource = new[] { "Whole case", "Per device", "Sensor" }, SelectedIndex = 0, VerticalAlignment = VerticalAlignment.Bottom };
+        DockPanel.SetDock(modes, Dock.Right); heading.Children.Add(modes);
+        var titles = new StackPanel();
+        var eyebrow = new TextBlock { Text = "LIGHTING" }; eyebrow.SetResourceReference(StyleProperty, "PageEyebrow"); titles.Children.Add(eyebrow);
+        var title = new TextBlock { Text = "Your whole room, in colour" }; title.SetResourceReference(StyleProperty, "H1"); titles.Children.Add(title);
+        heading.Children.Add(titles); host.Children.Add(heading);
+        host.Children.Add(canvasChildren.OfType<CaseLightingSetup>().Single()); host.Children.Add(root);
+        var previewBody = new StackPanel();
+        Header(previewBody, "LIVE PREVIEW", 11); previewBody.Children.Add(stage);
+        previewBody.Children.Add(devices);
+        canvasPanel.Children.Add(new GlassCard { Content = previewBody });
+        var tools = new StackPanel { Visibility = Visibility.Collapsed, Margin = new(0, 12, 0, 0) };
+        tools.Children.Add(mode); tools.Children.Add(transform); tools.Children.Add(editor);
+        canvasPanel.Children.Add(tools); editor.Visibility = Visibility.Collapsed;
+        var sensor = canvasChildren.OfType<SensorBindingPanel>().Single(); sensor.Visibility = Visibility.Collapsed; canvasPanel.Children.Add(sensor);
+        // The painting toolbar is only visible in per-device paint mode.
+        stage.Children[1].Visibility = Visibility.Collapsed;
+        edit.IsChecked = false;
+        edit.Click += (_, _) => stage.Children[1].Visibility = edit.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        map.Click += (_, _) => stage.Children[1].Visibility = Visibility.Collapsed;
+        modes.SelectionChanged += (_, _) => {
+            bool perDevice = modes.SelectedIndex == 1;
+            tools.Visibility = perDevice ? Visibility.Visible : Visibility.Collapsed;
+            sensor.Visibility = modes.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+            if (!perDevice) { preview.LedEditing = preview.MapEditing = false; stage.Children[1].Visibility = Visibility.Collapsed; }
+            else { preview.LedEditing = edit.IsChecked == true; preview.MapEditing = map.IsChecked == true; editor.Visibility = preview.LedEditing ? Visibility.Visible : Visibility.Collapsed; stage.Children[1].Visibility = preview.LedEditing ? Visibility.Visible : Visibility.Collapsed; }
+        };
+        edit.Content = "Paint LEDs"; map.Content = "Arrange case";
+        var effectsBody = new StackPanel(); Header(effectsBody, "Effects", 15);
+        var effectScroll = (ScrollViewer)inspectorChildren[1]; effectScroll.MaxHeight = 320; effectsBody.Children.Add(effectScroll);
+        canvasPanel.Children.Add(new GlassCard { Content = effectsBody, Margin = new(0, 16, 0, 0) });
+        var controlBody = new StackPanel(); Header(controlBody, "Colour", 15);
+        var wheel = new ColorWheel { Width = 220, Height = 220, HorizontalAlignment = HorizontalAlignment.Center };
+        wheel.SetBinding(ColorWheel.ColorHexProperty, new Binding("ColorEntry") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
+        controlBody.Children.Add(wheel);
+        var advanced = new StackPanel();
+        foreach (var child in inspectorChildren.Skip(2))
+        {
+            if (ReferenceEquals(child, devices)) continue;
+            if (ReferenceEquals(child, brightness) || ReferenceEquals(child, speed) || ReferenceEquals(child, palettes) || ReferenceEquals(child, palette) || ReferenceEquals(child, stopTools) || ReferenceEquals(child, baseColors)) controlBody.Children.Add(child);
+            else if (child is TextBlock label && (label.Text.StartsWith("Brightness") || label.Text.StartsWith("Speed") || label.Text == "Palette")) controlBody.Children.Add(child);
+            else advanced.Children.Add(child);
+        }
+        controlBody.Children.Add(wholeCase);
+        controlBody.Children.Add(new Expander { Header = "Advanced", Content = advanced, Margin = new(0, 16, 0, 0) });
+        inspector.Children.Add(new GlassCard { Content = controlBody });
         SizeChanged += (_, _) => Responsive();
     }
     private void Responsive()
     {
         bool narrow = ActualWidth < 850;
-        root.ColumnDefinitions[1].Width = narrow ? new(0) : new(370);
+        root.ColumnDefinitions[1].Width = narrow ? new(0) : new(5, GridUnitType.Star);
         Grid.SetColumn(inspector, narrow ? 0 : 1); Grid.SetRow(inspector, narrow ? 1 : 0);
         canvasPanel.Margin = narrow ? new(0, 0, 0, 24) : new(0, 0, 20, 0);
-        preview.Height = narrow ? 420 : 500;
+        preview.Height = narrow ? 300 : 350;
     }
     private static void Header(Panel panel, string text, double size) => panel.Children.Add(new TextBlock { Text = text, FontSize = size, FontWeight = FontWeights.SemiBold, Margin = new(0, 12, 0, 4) });
     private static void Button(Panel panel, string text, Action action)
@@ -197,9 +249,9 @@ public sealed class LightingWorkspace : UserControl
         foreach (var effect in model.Effects)
         {
             var content = new StackPanel();
-            content.Children.Add(new CaseMapPreview(effect.Effect) { Height = 100, Width = 146 });
+            content.Children.Add(new CaseMapPreview(effect.Effect) { Height = 72, Width = 96 });
             content.Children.Add(new TextBlock { Text = effect.Name, FontWeight = FontWeights.SemiBold, Margin = new(4, 8, 0, 2), TextWrapping = TextWrapping.Wrap });
-            var button = new Button { Content = content, Width = 166, Padding = new(6), Margin = new(0, 0, 8, 8), ToolTip = effect.Subtitle, Tag = effect };
+            var button = new Button { Content = content, Width = 116, Padding = new(6), Margin = new(0, 0, 8, 8), ToolTip = effect.Subtitle, Tag = effect };
             button.Click += (_, _) => model?.SelectEffectCommand.Execute(effect);
             gallery.Children.Add(button);
         }

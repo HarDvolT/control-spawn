@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using Prism.App.Controls;
+using Prism.App.Common;
 using Prism.App.ViewModels;
 using Prism.Core.Ipc;
 
@@ -13,13 +14,13 @@ public sealed class DevicesWorkspace : UserControl
 {
     private readonly StackPanel root = new();
     private readonly StackPanel list = new();
-    private readonly TextBlock banner = new() { FontSize = 22, Foreground = Brushes.WhiteSmoke, Margin = new(0, 0, 0, 12) };
+    private readonly TextBlock banner = new() { FontSize = 32, Foreground = Brushes.WhiteSmoke, Margin = new(0, 0, 0, 12) };
     private readonly TokenImportPanel importer = new();
     private DevicesViewModel? model;
     private readonly Dictionary<string, (DeviceNameEditor Name, TextBlock Info, WrapPanel Buttons)> cards = new();
     public DevicesWorkspace()
     {
-        root.Children.Add(new TextBlock { Text = "Devices", FontSize = 28, Foreground = Brushes.WhiteSmoke });
+        root.Children.Add(new TextBlock { Text = "DEVICES", FontSize = 11, Foreground = Brushes.WhiteSmoke });
         root.Children.Add(banner);
         var row = new WrapPanel();
         var find = new Button { Content = "Find devices", Margin = new(0, 4, 12, 12) }; find.SetBinding(Button.CommandProperty, new Binding("FindCommand"));
@@ -42,10 +43,12 @@ public sealed class DevicesWorkspace : UserControl
         if (next == signature) { UpdateCards(); return; } signature = next; list.Children.Clear(); cards.Clear();
         foreach (var group in model.Groups)
         {
-            list.Children.Add(new TextBlock { Text = FriendlyLabelConverter.Label(group.Kind), FontSize = 18, Foreground = Brushes.WhiteSmoke, Margin = new(0, 20, 0, 8) });
+            list.Children.Add(new TextBlock { Text = FriendlyLabelConverter.Label(group.Kind) + $" ? {group.Devices.Count}", FontSize = 15, Foreground = Brushes.WhiteSmoke, Margin = new(0, 20, 0, 8) });
+            var grid = new CardGrid(); list.Children.Add(grid);
             foreach (var device in group.Devices)
             {
-                var card = new StackPanel { Margin = new(12) };
+                var card = new StackPanel();
+                card.Children.Add(new DeviceIcon { Kind = device.Kind switch { DeviceKind.Lamp => DeviceIconKind.Lamp, DeviceKind.FanHeader => DeviceIconKind.Fan, DeviceKind.Appliance => DeviceIconKind.Fryer, DeviceKind.Router => DeviceIconKind.Router, _ => DeviceIconKind.Board }, Color = (Color)ColorConverter.ConvertFromString("#36D6FF"), HorizontalAlignment = HorizontalAlignment.Left, Margin = new(0, 0, 0, 12) });
                 var name = new DeviceNameEditor { DeviceId = device.Id, DisplayName = device.Name, Client = model.Client };
                 card.Children.Add(name);
                 var info = new TextBlock { Foreground = Brushes.Silver, TextWrapping = TextWrapping.Wrap, Margin = new(0, 6, 0, 6) }; card.Children.Add(info);
@@ -56,7 +59,7 @@ public sealed class DevicesWorkspace : UserControl
                     buttons.Children.Add(setup); buttons.Children.Add(dismiss); card.Children.Add(buttons);
                 }
                 cards[device.Id] = (name, info, buttons);
-                list.Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(30, 30, 34)), CornerRadius = new(10), Margin = new(0, 0, 0, 8), Child = card });
+                grid.Children.Add(new GlassCard { Span = 4, Content = card, MinHeight = 160 });
             }
         }
         UpdateCards();
@@ -67,7 +70,7 @@ public sealed class DevicesWorkspace : UserControl
             if (cards.TryGetValue(device.Id, out var card))
             {
                 card.Name.DisplayName = device.Name;
-                card.Info.Text = $"{FriendlyLabelConverter.Label(device.Status)} \u00b7 {FriendlyLabelConverter.Label(device.Source)} \u00b7 {FriendlyLabelConverter.Label(device.Kind)}";
+                card.Info.Text = $"{FriendlyLabelConverter.Label(device.Status)} ? {device.Model ?? FriendlyLabelConverter.Label(device.Source)}\n{device.Ip}";
                 card.Buttons.Visibility = device.Configured || device.Dismissed ? Visibility.Collapsed : Visibility.Visible;
             }
     }

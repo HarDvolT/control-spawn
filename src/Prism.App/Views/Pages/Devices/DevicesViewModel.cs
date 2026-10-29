@@ -13,7 +13,7 @@ public sealed class DevicesViewModel : PageViewModel
     }
     public IReadOnlyList<DeviceGroup> Groups { get; private set; } = [];
     public IReadOnlyList<DeviceState> NewDevices { get; private set; } = [];
-    public string Banner => NewDevices.Count == 0 ? "No new devices. Discovery runs every minute." : $"{NewDevices.Count} new devices found";
+    public string Banner => NewDevices.Count == 0 ? $"{State?.Devices?.Count ?? 0} devices, one place" : $"{NewDevices.Count} new devices found";
     public AsyncRelayCommand FindCommand { get; }
     public bool ImportRequested { get; private set; }
     public void RequestImport() { ImportRequested = true; OnPropertyChanged(nameof(ImportRequested)); }

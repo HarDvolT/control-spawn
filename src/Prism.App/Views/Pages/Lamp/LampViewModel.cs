@@ -18,6 +18,14 @@ public sealed class LampViewModel : PageViewModel
     private bool _suppress;
     private LampState? selectedLamp;
     private string? editLampId;
+    public System.Collections.ObjectModel.ObservableCollection<LampTileViewModel> Tiles { get; } = new();
+    public RelayCommand<string> SetBothCommand { get; }
+    public double BothBrightness
+    {
+        get => Tiles.Count > 0 ? Tiles.Average(l => l.Brightness) : 1;
+        set { foreach (var tile in Tiles) tile.Brightness = value; OnPropertyChanged(nameof(BothBrightness)); }
+    }
+    public string Headline => Tiles.Count == 2 ? "Two lamps, right here" : $"{Tiles.Count} lamps, right here";
     public IReadOnlyList<LampState> Lamps { get; private set; } = [];
     public LampState? SelectedLamp { get => selectedLamp; set { if (Set(ref selectedLamp, value)) Refresh(); } }
     public IReadOnlyList<DiscoveredLamp> Discovered { get; private set; } = [];
@@ -39,6 +47,7 @@ public sealed class LampViewModel : PageViewModel
     public LampViewModel(IPrismClient client) : base(client)
     {
         PageTitle = "Lamps";
+        SetBothCommand = new RelayCommand<string>(value => { foreach (var tile in Tiles) tile.On = value == "on"; });
         FindCommand = new RelayCommand(() => _ = FindAsync());
         RemoveCommand = new RelayCommand(() => _ = RunAsync(() => Client.SendAsync(Commands.RemoveLamp, new { lamp = selectedLamp?.Id })));
         RenameCommand = new RelayCommand(() => _ = RunAsync(() => Client.SendAsync(Commands.SetLamp, new { lamp = selectedLamp?.Id, name = LampName })));
@@ -111,6 +120,14 @@ public sealed class LampViewModel : PageViewModel
     protected override void Refresh()
     {
         Lamps = State?.Lamps ?? (State?.Lamp is { } first ? [first] : []);
+        foreach (var lampState in Lamps)
+        {
+            var id = lampState.Id ?? "";
+            var tile = Tiles.FirstOrDefault(t => t.Id == id);
+            if (tile is null) { tile = new LampTileViewModel(Client, id); Tiles.Add(tile); }
+            if (State is { } snapshot) tile.Apply(snapshot);
+        }
+        foreach (var removed in Tiles.Where(t => !Lamps.Any(l => (l.Id ?? "") == t.Id)).ToArray()) Tiles.Remove(removed);
         selectedLamp = Lamps.FirstOrDefault(l => l.Id == selectedLamp?.Id) ?? Lamps.FirstOrDefault();
         var lamp = selectedLamp;
         if (editLampId != lamp?.Id)

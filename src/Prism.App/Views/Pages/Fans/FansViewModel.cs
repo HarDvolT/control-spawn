@@ -46,6 +46,9 @@ public sealed class FansViewModel : PageViewModel
         Refresh();
     }
 
+    public string Headline => State is null ? "Waiting for your fans" : State.Health.FanFailsafeActive ? "BIOS is keeping things safe" : "Cool hardware. Quiet room.";
+    public string SafetyText => State?.Health.FanFailsafeActive == true ? "Failsafe active ? BIOS control" : "BIOS hand-back is armed";
+    public IReadOnlyList<FanGroupItem> HeaderRows => State?.Fans.Select(f => new FanGroupItem(f.Name, $"HEADER {f.Header}", Format.Rpm(f.Rpm), f.IsPump ? 100 : f.Percent ?? 0, f.IsPump, 1, f.Header)).ToArray() ?? [];
     public ObservableCollection<FanGroupItem> Fans { get; } = new();
     public ObservableCollection<FanPoint> Curve { get; } = new();
 
