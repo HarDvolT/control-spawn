@@ -76,6 +76,23 @@ internal static class Program
             var view = (FrameworkElement)template.LoadContent(); view.DataContext = model;
             Render(view, Path.Combine(output, name + ".png"), 1020);
         }
+        // Round 6: same pure renderer at fixed times, with no audio/screen capture.
+        client.SendAsync(Prism.Core.Ipc.Commands.ResizeZone, new { device = "board", zone = 1, size = 30 }).GetAwaiter().GetResult();
+        foreach (var effect in Enum.GetValues<Prism.Core.LightingEffect>())
+        {
+            client.SetLightingAsync(effect, "#FF4D1A", 0.85, 1).GetAwaiter().GetResult();
+            var mapPreview = new CaseMapPreview(effect) { DataContext = vm.Lighting, Height = 240, PreviewTime = 1.25 };
+            Render(mapPreview, Path.Combine(output, "Effect-" + effect + "-t1.png"), 360);
+            mapPreview = new CaseMapPreview(effect) { DataContext = vm.Lighting, Height = 240, PreviewTime = 2.75 };
+            Render(mapPreview, Path.Combine(output, "Effect-" + effect + "-t2.png"), 360);
+        }
+        client.SetLightingAsync(Prism.Core.LightingEffect.Aurora, "#FF4D1A", 0.85, 1).GetAwaiter().GetResult();
+        RenderPage("Lighting-Gallery-wide", vm.Lighting);
+        var narrowTemplate = (DataTemplate)app.Resources[new DataTemplateKey(typeof(LightingViewModel))];
+        var narrowView = (FrameworkElement)narrowTemplate.LoadContent(); narrowView.DataContext = vm.Lighting;
+        Render(narrowView, Path.Combine(output, "Lighting-Gallery-narrow.png"), 640);
+        var mapEditor = new CaseMapPreview { DataContext = vm.Lighting, Height = 520, MapEditing = true, PreviewTime = 1.25 };
+        Render(mapEditor, Path.Combine(output, "Lighting-Map-editor.png"), 640);
         foreach (var device in client.CurrentState.Lighting.Devices.ToArray())
         {
             var colors = Enumerable.Range(0, device.LedCount).Select(i => i % 3 == 0 ? "#FF4D1A" : i % 3 == 1 ? "#5AA7FF" : "#B26BFF").ToArray();

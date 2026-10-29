@@ -33,6 +33,11 @@ public static class Commands
     public const string SetDeviceSync = "setDeviceSync"; // args: { "device": "<id>", "enabled": true }
     public const string SetLamp = "setLamp";             // args: { "on": true, "brightness": 1..100, "follow": "pc|average|own", "color": "#RRGGBB" }
     public const string ApplyScene = "applyScene";       // args: { "name": "Gaming" }
+    public const string SetEffectParams = "setEffectParams"; // { parameters: EffectParameters }
+    public const string SetLightingMap = "setLightingMap"; // { map: LightingMap }
+    public const string SetEventEffects = "setEventEffects"; // { events: EventEffectOptions }
+    public const string NotifyLighting = "notifyLighting"; // { kind: "Notification" }
+    public const string SaveLightingScene = "saveLightingScene"; // { name: existing scene name }
     public const string StartSpeedTest = "startSpeedTest";
 
     // --- Added 2026-10-29 (protocol 1, additive) ---
@@ -72,11 +77,12 @@ public sealed record SystemState(
 
 public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent);
 public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve);
-public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices);
+public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices,
+    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null);
 public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Connected, bool Synced, int LedCount,
     IReadOnlyList<RgbZoneState>? Zones = null,
     IReadOnlyList<string>? CustomColors = null,     // "#RRGGBB" per LED when the device is in Custom, else null
-    IReadOnlyList<string>? OverlayColors = null);   // "#RRGGBBAA" per LED painted over the effect, else null
+    IReadOnlyList<string>? OverlayColors = null, bool CustomEnabled = false);   // "#RRGGBBAA" per LED painted over the effect, else null
 
 /// <summary>One OpenRGB zone. LED indexes are device-wide: this zone covers [FirstLed, FirstLed + LedCount).</summary>
 public sealed record RgbZoneState(string Name, string Type, int FirstLed, int LedCount, int MinLeds, int MaxLeds,
@@ -90,3 +96,35 @@ public sealed record RouterState(
 
 /// <summary>Conflicts and warnings the UI should surface (e.g. "AsusFanControlService is running").</summary>
 public sealed record ServiceHealth(bool Mock, bool Elevated, IReadOnlyList<string> Warnings, bool FanFailsafeActive);
+
+// Additive protocol-1 spatial lighting types. Coordinates use top-left origin.
+public sealed record MapPoint(double X, double Y);
+public sealed record DevicePlacement(string Device, double X, double Y, double Length = 0.4,
+    double Rotation = 90, bool Flip = false, int? Zone = null);
+public sealed record LightingMap(IReadOnlyList<DevicePlacement> Devices, MapPoint? Lamp = null);
+public sealed record PaletteStop(double Position, string Color);
+public sealed record EffectParameters
+{
+    public string Palette { get; init; } = "Aurora";
+    public IReadOnlyList<PaletteStop>? Stops { get; init; }
+    public double Angle { get; init; } = 90;
+    public double Scale { get; init; } = 1;
+    public double Intensity { get; init; } = 1;
+    public int CometCount { get; init; } = 1;
+    public double TailLength { get; init; } = 0.25;
+    public bool HeartbeatCpu { get; init; }
+    public IReadOnlyDictionary<string, bool>? Devices { get; init; }
+}
+public enum LightingEventKind { PingSpike, PoorSignal, FanFailsafe, SceneChange, Notification }
+public sealed record EventEffectOptions(bool PingSpike = true, bool PoorSignal = true,
+    bool FanFailsafe = true, bool SceneChange = true, bool Notification = true)
+{
+    public bool Enabled(LightingEventKind kind) => kind switch {
+        LightingEventKind.PingSpike => PingSpike, LightingEventKind.PoorSignal => PoorSignal,
+        LightingEventKind.FanFailsafe => FanFailsafe, LightingEventKind.SceneChange => SceneChange,
+        _ => Notification };
+}
+
+// Optional capture telemetry for the app preview; never contains captured pixels or audio samples.
+public sealed record ReactiveInputState(IReadOnlyList<double> AudioBands, double Beat,
+    string ScreenLeft, string ScreenCentre, string ScreenRight);

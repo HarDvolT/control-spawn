@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Media;
 using Prism.App.Common;
 using Prism.Core;
+using Prism.Core.Ipc;
+using Prism.Lighting;
 
 namespace Prism.App.Controls;
 
@@ -91,9 +93,18 @@ public class LedStrip : FrameworkElement
         var radius = Math.Max(1, Math.Min(CornerRadius, Math.Min(ledWidth, height) / 2));
         var brightness = double.IsFinite(Brightness) ? Math.Clamp(Brightness, 0, 1) : 0;
 
+        RgbColor[]? spatial = null;
+        if (EffectKind > LightingEffect.Custom)
+        {
+            var accent = ColorUtil.Parse(ColorHex, ColorUtil.Accent);
+            spatial = SpatialEffects.Render(new("Strip", EffectKind, new(accent.R, accent.G, accent.B), Math.Clamp(Speed, 0, 2)),
+                new() { Palette = Palettes.ForEffect(EffectKind) }, _phase,
+                Enumerable.Range(0, count).Select(i => new MapPoint((double)i / Math.Max(1, count - 1), 0.5)).ToArray(),
+                input: new(CpuTemp: Temperature));
+        }
         for (var i = 0; i < count; i++)
         {
-            var color = ColorAt(i, count);
+            var color = spatial is null ? ColorAt(i, count) : Color.FromRgb(spatial[i].R, spatial[i].G, spatial[i].B);
             if (brightness < 1) color = ColorUtil.Mix(Color.FromRgb(10, 10, 11), color, 0.25 + brightness * 0.75);
             var rect = new Rect(i * (ledWidth + gap), 0, ledWidth, height);
             dc.DrawRoundedRectangle(ColorUtil.Brush(color), null, rect, radius, radius);

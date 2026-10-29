@@ -13,6 +13,9 @@ namespace Prism.App.Views;
 
 public sealed class LedEditor : UserControl
 {
+    public bool SharedCanvas { get; set; }
+    private readonly WrapPanel tools = new();
+    public FrameworkElement DetachToolbar() { root.Children.Remove(tools); return tools; }
     private readonly StackPanel root = new(), layout = new();
     private readonly WrapPanel tabs = new(), swatches = new();
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 0) };
@@ -25,18 +28,23 @@ public sealed class LedEditor : UserControl
     public LedEditor()
     {
         Content = root;
-        root.Children.Add(new TextBlock { Text = "Edit LEDs", FontSize = 23, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12) });
+        root.Children.Add(new TextBlock { Text = "LED tools", FontSize = 17, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12) });
         root.Children.Add(tabs);
         mode = new ComboBox { ItemsSource = new[] { "Exact colours (Custom)", "Paint over effect (Overlay)" }, SelectedIndex = 0, Margin = new Thickness(0, 14, 0, 10) };
         mode.SelectionChanged += (_, _) => { if (model is not null) model.ActivateLayer(mode.SelectedIndex == 0 ? "custom" : "overlay"); };
         root.Children.Add(mode);
-        var tools = new WrapPanel(); root.Children.Add(tools);
-        var tool = new ComboBox { ItemsSource = new[] { "Brush", "Fill zone", "Gradient", "Eyedropper", "Eraser", "Select range" }, SelectedIndex = 0, Width = 155, Margin = new Thickness(0, 0, 8, 8) };
-        tool.SelectionChanged += (_, _) => { if (model is not null) model.Tool = tool.SelectedItem?.ToString() ?? "Brush"; };
-        tools.Children.Add(tool);
-        AddButton(tools, "Fill device", () => { SyncColor(); model?.Paint(Enumerable.Range(0, model.Device?.LedCount ?? 0)); });
-        AddButton(tools, "Apply to range", () => { SyncColor(); if (model is not null) model.Paint(Range(model.RangeStart, model.RangeEnd)); });
-        AddButton(tools, "Clear layers", () => { if (model is not null) _ = model.ClearAsync(); });
+        root.Children.Add(tools);
+        foreach (var (icon, toolName) in new[] { ("\u270E", "Brush"), ("\u25A7", "Fill zone"), ("\u25E9", "Gradient"), ("\u233E", "Eyedropper"), ("\u232B", "Eraser"), ("\u2194", "Select range") })
+        {
+            AddButton(tools, icon, () => { if (model is not null) model.Tool = toolName; });
+            ((Button)tools.Children[tools.Children.Count - 1]).ToolTip = toolName;
+        }
+        AddButton(tools, "\u25A3", () => { SyncColor(); model?.Paint(Enumerable.Range(0, model.Device?.LedCount ?? 0)); });
+        AddButton(tools, "\u2713", () => { SyncColor(); if (model is not null) model.Paint(Range(model.RangeStart, model.RangeEnd)); });
+        AddButton(tools, "\u00D7", () => { if (model is not null) _ = model.ClearAsync(); });
+        ((Button)tools.Children[6]).ToolTip = "Fill device";
+        ((Button)tools.Children[7]).ToolTip = "Apply to selected range";
+        ((Button)tools.Children[8]).ToolTip = "Clear layers";
         var picker = new WrapPanel { Margin = new Thickness(0, 6, 0, 12) }; root.Children.Add(picker);
         var wheel = new ColorWheel { Width = 110, Height = 110, Margin = new Thickness(0, 0, 18, 0) };
         wheel.ColorPicked += hex => { color.Text = hex; SyncColor(); };
@@ -45,7 +53,8 @@ public sealed class LedEditor : UserControl
         colors.Children.Add(new TextBlock { Text = "Brush / gradient start", Margin = new Thickness(0, 0, 0, 5) }); colors.Children.Add(color);
         colors.Children.Add(new TextBlock { Text = "Gradient end", Margin = new Thickness(0, 8, 0, 5) }); colors.Children.Add(second);
         StyleInput(color); StyleInput(second);
-        var brightness = new StackPanel { Width = 200, Margin = new Thickness(20, 0, 0, 0) }; picker.Children.Add(brightness);
+        color.TextChanged += (_, _) => SyncColor(); second.TextChanged += (_, _) => SyncColor();
+        var brightness = new StackPanel { Width = 150, Margin = new Thickness(12, 0, 0, 0) }; picker.Children.Add(brightness);
         brightness.Children.Add(new TextBlock { Text = "Brightness", Margin = new Thickness(0, 0, 0, 12) });
         var slider = new ThickSlider { Minimum = 0, Maximum = 100, Value = 100, Height = 18 };
         slider.ValueChanged += (_, _) => { if (model is not null) model.Brightness = slider.Value; };
@@ -70,9 +79,14 @@ public sealed class LedEditor : UserControl
     }
     private void Changed(object? sender, PropertyChangedEventArgs args)
     {
+        if (args.PropertyName == nameof(LedEditorViewModel.Color) && model is not null && color.Text != model.Color) color.Text = model.Color;
         if (args.PropertyName == nameof(LedEditorViewModel.Layer) && model is not null)
             mode.SelectedIndex = model.Layer == "custom" ? 0 : 1;
-        if (args.PropertyName == nameof(LedEditorViewModel.Device)) Build();
+        if (args.PropertyName == nameof(LedEditorViewModel.Device))
+        {
+            if (selectedZone >= (model?.Device?.Zones?.Count ?? 0)) selectedZone = null;
+            Build();
+        }
         else { UpdateDots(); if (model is not null) status.Text = model.Status; }
     }
     private void SyncColor() { if (model is not null) { model.Color = color.Text; model.SecondColor = second.Text; } }
@@ -119,13 +133,13 @@ public sealed class LedEditor : UserControl
                 var sizing = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
                 var size = new TextBox { Text = zone.LedCount.ToString(), Width = 65, Margin = new Thickness(12, 0, 8, 8) };
                 StyleInput(size);
-                var slider = new ThickSlider { Minimum = zone.MinLeds, Maximum = zone.MaxLeds, Value = zone.LedCount, Width = 260, Height = 18 };
+                var slider = new ThickSlider { Minimum = zone.MinLeds, Maximum = zone.MaxLeds, Value = zone.LedCount, Width = 140, Height = 18 };
                 slider.ValueChanged += (_, _) => size.Text = Math.Round(slider.Value).ToString();
                 sizing.Children.Add(slider); sizing.Children.Add(size);
                 AddButton(sizing, "Resize zone", () => { if (int.TryParse(size.Text, out int n)) _ = model.ResizeAsync(zoneIndex, n); }); layout.Children.Add(sizing);
             }
             var canvas = new Canvas { Height = selected.Kind == "RAM" ? Math.Max(60, zone.LedCount * 32) : zone.MatrixHeight > 0 ? zone.MatrixHeight * 32 + 12 : Math.Max(50, Math.Ceiling(zone.LedCount / 22d) * 38), Background = new SolidColorBrush(Color.FromRgb(23, 23, 27)) };
-            layout.Children.Add(canvas);
+            if (!SharedCanvas) layout.Children.Add(canvas);
             var indexes = zone.Matrix ?? Enumerable.Range(zone.FirstLed, zone.LedCount).ToArray();
             for (int cell = 0; cell < indexes.Count; cell++)
             {

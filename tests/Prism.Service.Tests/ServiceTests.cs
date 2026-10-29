@@ -171,6 +171,8 @@ public sealed class ServiceTests
         var rgb = new FakeRgbBackend(); var lamp = new FakeLampClient();
         await using var runtime = new ServiceRuntime(true, new FakeSensorSource(), controls, new FakeHealthProbe(), rgb, lamp, new FakeRouterBackend());
         var processor = new CommandProcessor(new MemorySettingsStore(), runtime);
+        // This test verifies the steady scene colour; scene sweeps are covered separately.
+        Assert.True((await processor.HandleAsync(Request(0, Commands.SetEventEffects, new { events = new EventEffectOptions(SceneChange: false) }))).Ok);
         Assert.True((await processor.HandleAsync(Request(1, Commands.ApplyScene, new { name = "Work" }))).Ok);
         using var stop = new CancellationTokenSource(); var run = runtime.RunAsync(stop.Token);
         // Initial synchronous snapshot + lighting/lamp setters have already reached the fakes.

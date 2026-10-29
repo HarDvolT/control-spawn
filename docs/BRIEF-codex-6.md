@@ -55,3 +55,12 @@ preview of the whole PC. Scenes can store an effect + params. Respect "Reduce an
 Determinism per effect at fixed times, palette interpolation, map sampling (lamp point, flipped device),
 event priority/fade, load-meter mapping, parameter validation. Render the new gallery and editor offscreen
 and check them. Finish with docs/STATUS-codex-6.md.
+
+## 6. Layout polish of the Lighting page (from the round-5 render review)
+The per-LED editor works but its layout is plain: the RAM stick is a small column floating in a large empty
+panel, the colour tools sit in a loose row, effect selection is a row of plain text buttons, and the page is a
+long single column. Rebuild the Lighting page as a two-column layout at desktop width: left = big live case-map
+preview (doubles as the per-LED canvas when "Edit LEDs" is on; RAM sticks drawn at realistic size and glow),
+right = a docked inspector (effect gallery cards with live previews, parameters, palette, device toggles,
+lamp follow). Tools become a compact floating toolbar with icons + tooltips. Stack to one column on narrow
+windows. Keep every round-5 feature working.

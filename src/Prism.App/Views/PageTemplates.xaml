@@ -231,94 +231,7 @@
     </StackPanel>
   </DataTemplate>
   <DataTemplate DataType="{x:Type vm:LightingViewModel}">
-    <StackPanel>
-      <c:GlassCard Margin="0,0,0,18"><v:LedEditor DataContext="{Binding Editor}"/></c:GlassCard>
-      <c:GlassCard Margin="0,0,0,18" StaggerIndex="0">
-        <StackPanel>
-          <TextBlock Text="{Binding EffectName}" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-          <TextBlock Text="{Binding EffectSubtitle}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-          <TextBlock Text="{Binding SyncCountText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-          <c:LedStrip Height="80" Margin="0,15" EffectKind="{Binding Effect}" ColorHex="{Binding ColorHex}" Brightness="{Binding Brightness}" Speed="{Binding Speed}" Temperature="{Binding Temperature}"/>
-        </StackPanel>
-      </c:GlassCard>
-      <c:GlassCard Margin="0,0,0,18" StaggerIndex="1">
-        <StackPanel>
-          <TextBlock Text="Effect" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-          <ItemsControl ItemsSource="{Binding Effects}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel/>
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Button Content="{Binding Name}" Command="{Binding DataContext.SelectEffectCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Style="{StaticResource BaseButton}" Margin="4"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </c:GlassCard>
-      <c:GlassCard Margin="0,0,0,18" StaggerIndex="2">
-        <StackPanel>
-          <TextBlock Text="Settings" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-          <ItemsControl ItemsSource="{Binding Swatches}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel/>
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Button Width="36" Height="36" Margin="4" Background="{Binding Converter={StaticResource HexToBrush}}" Command="{Binding DataContext.SelectColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" ToolTip="{Binding}" AutomationProperties.Name="{Binding}"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <StackPanel Margin="0,8">
-            <TextBlock Text="Brightness" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-            <DockPanel>
-              <TextBlock DockPanel.Dock="Right" Width="60" Text="{Binding BrightnessPercent, Converter={StaticResource Percent}}" TextAlignment="Right"/>
-              <c:ThickSlider Minimum="0" Maximum="100" Value="{Binding BrightnessPercent, Mode=TwoWay}" AutomationProperties.Name="Brightness" VerticalAlignment="Center"/>
-            </DockPanel>
-          </StackPanel>
-          <StackPanel Margin="0,8">
-            <TextBlock Text="Speed" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-            <DockPanel>
-              <TextBlock DockPanel.Dock="Right" Width="60" Text="{Binding SpeedPercent, Converter={StaticResource Percent}}" TextAlignment="Right"/>
-              <c:ThickSlider Minimum="0" Maximum="100" Value="{Binding SpeedPercent, Mode=TwoWay}" AutomationProperties.Name="Speed" VerticalAlignment="Center"/>
-            </DockPanel>
-          </StackPanel>
-        </StackPanel>
-      </c:GlassCard>
-      <c:GlassCard Margin="0,0,0,18" StaggerIndex="3">
-        <StackPanel>
-          <TextBlock Text="Devices in sync" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-          <ItemsControl ItemsSource="{Binding Devices}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <DockPanel Margin="0,9">
-                  <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding Synced, Mode=TwoWay}" Command="{Binding DataContext.SetDeviceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" AutomationProperties.Name="{Binding Name}"/>
-                  <StackPanel>
-                    <TextBlock Text="{Binding Name}" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,4"/>
-                    <TextBlock Text="{Binding Sub}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                  </StackPanel>
-                </DockPanel>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </c:GlassCard>
-      <c:GlassCard Margin="0,0,0,18" StaggerIndex="4">
-        <StackPanel>
-          <TextBlock Text="Yeelight lamp" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-          <WrapPanel>
-            <Button Content="Same as PC" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding SetFollowCommand}" CommandParameter="pc"/>
-            <Button Content="Average of PC colours" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding SetFollowCommand}" CommandParameter="average"/>
-            <Button Content="Own colour" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding SetFollowCommand}" CommandParameter="own"/>
-          </WrapPanel>
-        </StackPanel>
-      </c:GlassCard>
-      <TextBlock Text="{Binding LastError}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12"/>
-    </StackPanel>
+    <v:LightingWorkspace/>
   </DataTemplate>
   <DataTemplate DataType="{x:Type vm:FansViewModel}">
     <StackPanel>
@@ -724,6 +637,7 @@
         </StackPanel>
       </c:GlassCard>
       <TextBlock Text="{Binding LastError}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12"/>
+          <v:EventOptionsPanel/>
     </StackPanel>
   </DataTemplate>
   <DataTemplate DataType="{x:Type vm:WidgetsViewModel}">

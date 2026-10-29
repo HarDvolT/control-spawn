@@ -42,12 +42,14 @@ public sealed class LedEditorViewModel(IPrismClient client, LedPresetStore? pres
         Layer = target; Queue(Colors);
     }
     public string Status { get => status; private set => Set(ref status, value); }
-    public string Color { get; set; } = "#FF4D1A";
+    private string brushColor = "#FF4D1A";
+    public string Color { get => brushColor; set => Set(ref brushColor, value); }
     public string SecondColor { get; set; } = "#5AA7FF";
     public double Brightness { get; set; } = 100;
     public string Tool { get; set; } = "Brush";
     public int RangeStart { get; set; }
     public int RangeEnd { get; set; }
+    public bool HasCustomLayer => Device is not null && (drafts.ContainsKey(Device.Id + ":custom") || Device.CustomEnabled);
     public string[] Colors
     {
         get

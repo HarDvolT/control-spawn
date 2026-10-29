@@ -19,6 +19,13 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private readonly IHealthProbe healthProbe;
     private readonly ConcurrentDictionary<string, string> warnings = new();
     private readonly FakeInputs inputs = new();
+    private readonly EventEffects eventEffects = new();
+    private readonly IAudioLevels? audioLevels;
+    private readonly IScreenZones? screenZones;
+    public void TriggerLightingEvent(LightingEventKind kind) => eventEffects.Trigger(kind, clock.Elapsed.TotalSeconds);
+    private bool pingHigh, signalPoor;
+    private ReactiveFrame reactive = new();
+    private readonly ReactiveSmoother smoothing = new();
     private readonly OpenRgbProcess rgbProcess = new();
     private readonly object stateGate = new();
     private HardwareSnapshot snapshot = new(DateTimeOffset.UtcNow, []);
@@ -84,9 +91,11 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             mock ? new FakeLampClient() : null, mock ? new FakeRouterBackend() : null) { }
 
     public ServiceRuntime(bool mock, ISensorSource sensors, IFanControlPort controls, IHealthProbe healthProbe,
-        IRgbBackend rgb, ILampClient? lamp, IRouterBackend? router)
+        IRgbBackend rgb, ILampClient? lamp, IRouterBackend? router, IAudioLevels? audioLevels = null, IScreenZones? screenZones = null)
     {
         this.mock = mock;
+        this.audioLevels = audioLevels ?? (!mock && OperatingSystem.IsWindows() ? new WasapiLoopback() : null);
+        this.screenZones = screenZones ?? (!mock && OperatingSystem.IsWindows() ? new DesktopDuplication() : null);
         this.sensors = sensors; this.controls = controls; fans = new(controls);
         this.healthProbe = healthProbe; this.rgb = rgb; this.lamp = lamp; this.router = router;
         if (mock)
@@ -106,9 +115,14 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         {
             var synced = devices.Select(d => d with { Synced = value.SyncedDevices.GetValueOrDefault(d.Id, true),
                 CustomColors = value.LedLayers.TryGetValue(d.Id, out var layer) && layer.Custom is not null ? LedLayers.Resize(layer.Custom, d.LedCount, false) : null,
-                OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null }).ToArray();
+                OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null,
+                CustomEnabled = value.LedLayers.GetValueOrDefault(d.Id)?.CustomEnabled == true }).ToArray();
             var health = new ServiceHealth(mock, elevated, warnings.Values.Order().ToArray(), failsafe);
-            return StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lampState, routerState, health);
+            var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lampState, routerState, health);
+            var frame = FrameInputs();
+            static string Hex(RgbColor? color) { var c = color ?? RgbColor.Black; return $"#{c.R:X2}{c.G:X2}{c.B:X2}"; }
+            return state with { Lighting = state.Lighting with { Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
+                Hex(frame.ScreenLeft), Hex(frame.ScreenCentre), Hex(frame.ScreenRight)) } };
         }
     }
 
@@ -128,7 +142,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         AppDomain.CurrentDomain.ProcessExit += exit;
         AppDomain.CurrentDomain.UnhandledException += crash;
         Console.CancelKeyPress += cancel;
-        var loops = new[] { SensorsAsync(linked.Token), LightingAsync(linked.Token), LampAsync(linked.Token), RouterAsync(linked.Token), HealthAsync(linked.Token) };
+        var loops = new[] { SensorsAsync(linked.Token), LightingAsync(linked.Token), LampAsync(linked.Token), RouterAsync(linked.Token), HealthAsync(linked.Token), CaptureAsync(true, linked.Token), CaptureAsync(false, linked.Token) };
         try
         {
             var first = await Task.WhenAny(loops);
@@ -166,7 +180,18 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             }
             fans.Apply(next, clock.Elapsed - previous); previous = clock.Elapsed;
             var required = next.Temperature(SensorCategory.Cpu).HasValue && value.Fans.Values.All(f => FanCurveEngine.SelectTemperature(next, f.Source).HasValue);
-            lock (stateGate) { snapshot = next; failsafe = safety.Observe(next, required); inputs.Temperature = next.Temperature(SensorCategory.Cpu) ?? double.NaN; }
+            lock (stateGate)
+            {
+                snapshot = next;
+                bool nextFailsafe = safety.Observe(next, required);
+                if (nextFailsafe) TriggerLightingEvent(LightingEventKind.FanFailsafe);
+                failsafe = nextFailsafe;
+                inputs.Temperature = next.Temperature(SensorCategory.Cpu) ?? double.NaN;
+                var system = StateAssembler.Assemble(next, value, controls.Headers, [], null, null, new(mock, false, [], failsafe)).System;
+                Volatile.Write(ref reactive, new(system.CpuLoad ?? 0, system.GpuLoad ?? 0,
+                    system.RamTotalGb > 0 ? (system.RamUsedGb ?? 0) / system.RamTotalGb.Value : 0,
+                    system.CpuTemp ?? double.NaN, system.GpuTemp ?? double.NaN));
+            }
         }
         monitor.Snapshot += OnSnapshot;
         try
@@ -179,7 +204,6 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private async Task LightingAsync(CancellationToken token)
     {
         if (Observe) { warnings["observe"] = "Observe mode: fans, RGB and lamp are not controlled."; await Task.Delay(Timeout.Infinite, token); }
-        var engine = new EffectEngine(clock, inputs, inputs, inputs);
         TimeSpan reconnect = TimeSpan.Zero;
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1d / 30));
         do
@@ -224,12 +248,10 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 }
                 if (!rgbConnected) continue;
                 RgbDeviceState[] current; lock (stateGate) current = devices;
-                foreach (var device in current.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, true)))
+                foreach (var device in current.Where(d => (failsafe && value.Events.FanFailsafe) || value.SyncedDevices.GetValueOrDefault(d.Id, true) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false))
                 {
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
-                    var layer = value.LedLayers.GetValueOrDefault(device.Id);
-                    var colors = LedLayers.Composite(engine.Render(value.Lighting.ToScene(), device.LedCount),
-                        layer?.Custom, layer?.Overlay, layer?.CustomEnabled == true || value.Lighting.Effect == LightingEffect.Custom);
+                    var colors = RenderDevice(value, device, current, clock.Elapsed.TotalSeconds);
                     await rgb.SetColorsAsync(rgbIndices[device.Id], colors, timeout.Token);
                 }
                 warnings.TryRemove("rgb", out _);
@@ -246,13 +268,21 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         } while (await timer.WaitForNextTickAsync(token));
     }
 
+    private IReadOnlyList<RgbColor> RenderDevice(ServiceSettings value, RgbDeviceState device, IReadOnlyList<RgbDeviceState> current, double time)
+    {
+        var layer = value.LedLayers.GetValueOrDefault(device.Id);
+        var positions = CaseMap.Positions(device, CaseMap.Placement(value.Map, device, current), value.Map);
+        var rendered = SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, positions, device.Id, device.Kind, FrameInputs());
+        var colors = LedLayers.Composite(rendered, layer?.Custom, layer?.Overlay, layer?.CustomEnabled == true || value.Lighting.Effect == LightingEffect.Custom);
+        return eventEffects.Composite(colors, positions, time, value.Events);
+    }
+
     private async Task LampAsync(CancellationToken token)
     {
         if (Observe) await Task.Delay(Timeout.Infinite, token);
         int credentials = Volatile.Read(ref lampCredentials); string? connectedHost = null;
         LampConfiguration? applied = null; string transport = mock ? "mock" : "not configured";
         LampSync? sync = lamp is null ? null : new(lamp, clock);
-        var engine = new EffectEngine(clock, inputs, inputs, inputs);
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
         var retry = TimeSpan.Zero;
         do
@@ -291,7 +321,20 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     applied = config;
                 }
                 if (config.On && config.Follow != "own")
-                    await sync!.PushAsync(engine.Render(value.Lighting.ToScene(), 30), config.Follow == "pc" ? LampColorSelection.Main : LampColorSelection.Average, cancellationToken: token);
+                {
+                    RgbDeviceState[] current; lock (stateGate) current = devices;
+                    double time = clock.Elapsed.TotalSeconds;
+                    IReadOnlyList<RgbColor> colors;
+                    if (config.Follow == "pc")
+                    {
+                        MapPoint[] point = [CaseMap.LampPoint(value.Map, current)];
+                        var rendered = SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, point, kind: "strip", input: FrameInputs());
+                        colors = eventEffects.Composite(rendered, point, time, value.Events);
+                    }
+                    else colors = current.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, true) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false)
+                        .SelectMany(d => RenderDevice(value, d, current, time)).ToArray();
+                    await sync!.PushAsync(colors, LampColorSelection.Average, cancellationToken: token);
+                }
                 warnings.TryRemove("lamp", out _);
                 lock (stateGate) lampState = new("yeelink.light.color5", true, config.On, config.Brightness, config.Color, config.Follow, transport);
             }
@@ -324,6 +367,10 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 router ??= new RouterBackend(Volatile.Read(ref settings).RouterHost);
                 var state = await Task.Run(router.Poll, token);
                 lock (stateGate) routerState = state;
+                bool high = state.PingMs > 100, poor = state.Score < 40 || state.Bars < 2;
+                if (high && !pingHigh) TriggerLightingEvent(LightingEventKind.PingSpike);
+                if (poor && !signalPoor) TriggerLightingEvent(LightingEventKind.PoorSignal);
+                pingHigh = high; signalPoor = poor;
                 warnings.TryRemove("router", out _);
             }
             catch (Exception e) when (e is RouterError or IOException or InvalidOperationException or UnauthorizedAccessException)
@@ -334,6 +381,40 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             }
         } while (await timer.WaitForNextTickAsync(token));
     }
+
+    private async Task CaptureAsync(bool audio, CancellationToken token)
+    {
+        if (mock || Observe || !OperatingSystem.IsWindows()) { await Task.Delay(Timeout.Infinite, token); return; }
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+        do
+        {
+            bool Needed() => Volatile.Read(ref settings).Lighting.Effect is var effect && (audio
+                ? effect is LightingEffect.Music or LightingEffect.AudioSpectrum
+                : effect is LightingEffect.Adaptive or LightingEffect.ScreenAmbient);
+            if (!Needed() || (audio ? audioLevels is not WasapiLoopback : screenZones is not DesktopDuplication)) continue;
+            using var captureStop = CancellationTokenSource.CreateLinkedTokenSource(token);
+            var task = Task.Factory.StartNew(() => {
+                if (audio) ((WasapiLoopback)audioLevels!).Run(captureStop.Token);
+                else ((DesktopDuplication)screenZones!).Run(captureStop.Token);
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            try
+            {
+                while (Needed() && !task.IsCompleted && !token.IsCancellationRequested) await Task.Delay(250, token);
+            }
+            finally
+            {
+                captureStop.Cancel();
+                try { await task; warnings.TryRemove(audio ? "audio" : "screen", out _); }
+                catch (Exception e) when (e is System.Runtime.InteropServices.COMException or NotSupportedException or InvalidOperationException)
+                { warnings[audio ? "audio" : "screen"] = "Capture unavailable in this session; using silent/black input. Retrying."; }
+            }
+        } while (await timer.WaitForNextTickAsync(token));
+    }
+
+    private ReactiveFrame FrameInputs() => smoothing.Sample(Volatile.Read(ref reactive), clock.Elapsed.TotalSeconds) with {
+        Audio = audioLevels?.Bands ?? new[] { inputs.Level }, Beat = audioLevels?.Beat ?? 0,
+        ScreenLeft = screenZones?.Left ?? inputs.Average, ScreenCentre = screenZones?.Centre ?? inputs.Average,
+        ScreenRight = screenZones?.Right ?? inputs.Average };
 
     private async Task HealthAsync(CancellationToken token)
     {
@@ -347,7 +428,6 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 foreach (var warning in health.Warnings) warnings["health:" + warning] = warning;
             }
             catch (Exception) { warnings["health:query"] = "Cannot query service health."; }
-            if (!mock) { warnings["capture"] = "Audio and screen capture inputs are not configured; Music and Adaptive use fallback inputs."; }
         } while (await timer.WaitForNextTickAsync(token));
     }
 

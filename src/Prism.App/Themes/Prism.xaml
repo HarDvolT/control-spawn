@@ -293,6 +293,55 @@
         </Setter>
     </Style>
 
+    <!-- Every CheckBox renders as a toggle switch (label, then the switch), so code-built and XAML checkboxes match. -->
+    <Style TargetType="{x:Type CheckBox}">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type CheckBox}">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ContentPresenter VerticalAlignment="Center" Margin="0,0,12,0" RecognizesAccessKey="True" />
+                        <Grid Grid.Column="1" Width="44" Height="24" VerticalAlignment="Center">
+                            <Border x:Name="Track" CornerRadius="12" Background="{StaticResource TrackSoftBrush}" />
+                            <Ellipse x:Name="Knob" Width="18" Height="18" Fill="{StaticResource TextPrimaryBrush}"
+                                     HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0">
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform x:Name="KnobShift" X="0" />
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Grid>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="Track" Property="Effect">
+                                <Setter.Value>
+                                    <DropShadowEffect Color="{StaticResource AccentColor}" BlurRadius="14" ShadowDepth="0" Opacity="0.5" />
+                                </Setter.Value>
+                            </Setter>
+                            <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
+                            <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+                            <Setter TargetName="Track" Property="BorderThickness" Value="2" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Toggle switch -->
     <Style TargetType="{x:Type controls:ToggleSwitch}">
         <Setter Property="Width" Value="44" />

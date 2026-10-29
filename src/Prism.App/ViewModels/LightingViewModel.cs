@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Prism.App.Common;
 using Prism.App.Services;
 using Prism.Core;
+using Prism.Lighting;
 using Prism.Core.Ipc;
 
 namespace Prism.App.ViewModels;
@@ -41,15 +42,43 @@ public sealed class LightingViewModel : PageViewModel
             new EffectOption(LightingEffect.Off, "Off", "Lights off", "#3F3F46")
         ];
 
+        foreach (var effect in Enum.GetValues<LightingEffect>().Where(e => Effects.All(o => o.Effect != e)))
+            Effects.Add(new(effect, effect == LightingEffect.Fire ? "Fire / Lava" : effect == LightingEffect.Rain ? "Rain / Matrix" : System.Text.RegularExpressions.Regex.Replace(effect.ToString(), "([a-z])([A-Z])", "$1 $2"), "Spatial lighting", "#5AA7FF"));
         SelectEffectCommand = new RelayCommand<EffectOption>(option => _ = SelectEffectAsync(option));
         SelectColorCommand = new RelayCommand<string>(hex => _ = SelectColorAsync(hex ?? ColorHex));
         SetDeviceCommand = new RelayCommand<DeviceOption>(option => _ = SetDeviceAsync(option));
         SetFollowCommand = new RelayCommand<string>(follow => _ = SetFollowAsync(follow ?? "pc"));
-        SaveToSceneCommand = new RelayCommand(() => SavedText = "Custom scene authoring is not supported by this service protocol");
+        SaveToSceneCommand = new RelayCommand(() => _ = SaveSceneAsync());
         AddDeviceCommand = new RelayCommand(() => _ = ScanAsync());
         Refresh();
     }
 
+    public EffectParameters Parameters { get; private set; } = new();
+    public LightingMap Map { get; private set; } = new([]);
+    public EventEffectOptions Events { get; private set; } = new();
+    public string SceneName { get; set; } = "Gaming";
+    public async Task SaveSceneAsync()
+    {
+        await RunAsync(() => Client.SendAsync(Commands.SaveLightingScene, new { name = SceneName }));
+        SavedText = LastError ?? $"Saved lighting to {SceneName}";
+    }
+    public async Task SetParametersAsync(EffectParameters parameters)
+    {
+        try { LightingValidation.Parameters(parameters); }
+        catch (ArgumentException e) { SavedText = e.Message; return; }
+        Parameters = parameters; OnPropertyChanged(nameof(Parameters));
+        await RunAsync(() => Client.SendAsync(Commands.SetEffectParams, new { parameters }));
+    }
+    public async Task SetMapAsync(LightingMap map)
+    {
+        Map = map; OnPropertyChanged(nameof(Map));
+        await RunAsync(() => Client.SendAsync(Commands.SetLightingMap, new { map }));
+    }
+    public async Task SetEventsAsync(EventEffectOptions events)
+    {
+        Events = events; OnPropertyChanged(nameof(Events));
+        await RunAsync(() => Client.SendAsync(Commands.SetEventEffects, new { events }));
+    }
     public LedEditorViewModel Editor { get; }
     public ObservableCollection<EffectOption> Effects { get; }
     public ObservableCollection<DeviceOption> Devices { get; } = new();
@@ -124,6 +153,9 @@ public sealed class LightingViewModel : PageViewModel
         Editor.Apply(state);
         var lighting = state.Lighting;
         _suppress = true;
+        Parameters = lighting.Parameters ?? new() { Palette = Palettes.ForEffect(lighting.Effect) };
+        Map = lighting.Map ?? new([]);
+        Events = lighting.Events ?? new();
         Effect = lighting.Effect;
         ColorHex = lighting.Color;
         Brightness = lighting.Brightness;
@@ -173,6 +205,7 @@ public sealed class LightingViewModel : PageViewModel
         OnPropertyChanged(nameof(EffectName));
         OnPropertyChanged(nameof(EffectSubtitle));
         await PushLightingAsync();
+        if (Parameters.Stops is null) await SetParametersAsync(Parameters with { Palette = Palettes.ForEffect(Effect) });
     }
 
     private async Task SelectColorAsync(string hex)

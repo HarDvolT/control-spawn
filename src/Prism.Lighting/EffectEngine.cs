@@ -1,4 +1,5 @@
 using Prism.Core;
+using Prism.Core.Ipc;
 
 namespace Prism.Lighting;
 
@@ -7,10 +8,15 @@ public interface IScreenAverageInput { RgbColor Average { get; } }
 public interface ICpuTemperatureInput { double Temperature { get; } }
 public sealed class EffectEngine(IClock clock, IAudioLevelInput audio, IScreenAverageInput screen, ICpuTemperatureInput cpu)
 {
+    public IReadOnlyList<RgbColor> Render(Scene scene, EffectParameters parameters, double time, IReadOnlyList<MapPoint> positions,
+        string device = "", string kind = "", ReactiveFrame? input = null) => SpatialEffects.Render(scene, parameters, time, positions, device, kind, input);
     public IReadOnlyList<RgbColor> Render(Scene scene, int ledCount)
     {
         if (ledCount < 0 || ledCount > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(ledCount));
-        if (!double.IsFinite(scene.Speed) || scene.Speed <= 0 || !double.IsFinite(scene.Brightness)) throw new ArgumentOutOfRangeException(nameof(scene));
+        if (!double.IsFinite(scene.Speed) || scene.Speed < 0 || !double.IsFinite(scene.Brightness)) throw new ArgumentOutOfRangeException(nameof(scene));
+        if (scene.Effect > LightingEffect.Custom)
+            return SpatialEffects.Render(scene, new() { Palette = Palettes.ForEffect(scene.Effect) }, clock.Elapsed.TotalSeconds,
+                Enumerable.Range(0, ledCount).Select(i => new MapPoint((double)i / Math.Max(1, ledCount - 1), 0.5)).ToArray());
         double time = clock.Elapsed.TotalSeconds * scene.Speed;
         var colors = new RgbColor[ledCount];
         for (int i = 0; i < ledCount; i++)

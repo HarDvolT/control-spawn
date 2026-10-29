@@ -2,6 +2,7 @@ using System.Text.Json;
 using Prism.App.Common;
 using Prism.App.Models;
 using Prism.Core;
+using Prism.Lighting;
 using Prism.Core.Ipc;
 
 namespace Prism.App.Services;
@@ -18,6 +19,7 @@ public sealed class MockPrismClient : PrismClientBase
     private StateMessage? _last;
     private int _tick;
     private int _stripSize;
+    private readonly HashSet<string> _customEnabled = new();
     private readonly Dictionary<string, string[]> _custom = new(), _overlay = new();
     private bool _disposed;
 
@@ -34,6 +36,10 @@ public sealed class MockPrismClient : PrismClientBase
     private double _diskWrite = 40;
 
     private FanMode _fanMode = FanMode.Standard;
+    private EffectParameters _parameters = new();
+    private LightingMap _map = new([]);
+    private EventEffectOptions _events = new();
+    private readonly Dictionary<string, (LightingEffect Effect, string Color, double Brightness, double Speed, EffectParameters Parameters)> _lightingScenes = new();
     private LightingEffect _effect = LightingEffect.Smart;
     private string _lightColor = "#FF4D1A";
     private double _brightness = 0.8;
@@ -146,7 +152,7 @@ public sealed class MockPrismClient : PrismClientBase
 
         RgbDeviceState Device(string id, string name, string kind, int count, params RgbZoneState[] zones) =>
             new(id, name, kind, true, !_unsyncedDevices.Contains(id), count, zones,
-                _custom.GetValueOrDefault(id), _overlay.GetValueOrDefault(id));
+                _custom.GetValueOrDefault(id), _overlay.GetValueOrDefault(id), _customEnabled.Contains(id));
         static RgbZoneState Zone(string name, int first, int count, int max = 0) =>
             new(name, "Linear", first, count, max == 0 ? count : 0, max == 0 ? count : max,
                 Enumerable.Range(1, count).Select(i => $"LED {i}").ToArray());
@@ -159,7 +165,7 @@ public sealed class MockPrismClient : PrismClientBase
                 Zone("Board", 0, 2), Zone("LED strip / ARGB header", 2, _stripSize, 120))
         };
 
-        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices);
+        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events);
         var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "music mode");
 
         var rsrp5 = Math.Round(-97 + Math.Sin(t * 0.11) * 3);
@@ -227,6 +233,27 @@ public sealed class MockPrismClient : PrismClientBase
                     response = new Response(0, true, null,
                         JsonSerializer.SerializeToElement(_last ?? BuildState(), PipeContract.Json));
                     break;
+                case Commands.SetEffectParams:
+                case Commands.SetLightingMap:
+                case Commands.SetEventEffects:
+                    try
+                    {
+                        if (element is not { } a) throw new ArgumentException("Missing args.");
+                        if (command == Commands.SetEffectParams) { var p = a.GetProperty("parameters").Deserialize<EffectParameters>(PipeContract.Json)!; LightingValidation.Parameters(p); _parameters = p; }
+                        if (command == Commands.SetLightingMap) { var m = a.GetProperty("map").Deserialize<LightingMap>(PipeContract.Json)!; LightingValidation.Map(m); _map = m; }
+                        if (command == Commands.SetEventEffects) _events = a.GetProperty("events").Deserialize<EventEffectOptions>(PipeContract.Json) ?? throw new ArgumentException("Missing events.");
+                        publish = BuildState(); response = new(0, true);
+                    }
+                    catch (Exception e) when (e is ArgumentException or JsonException or KeyNotFoundException or InvalidOperationException)
+                    { response = new(0, false, "Invalid lighting configuration."); }
+                    break;
+                case Commands.NotifyLighting:
+                    response = TryString(element, "kind", out var eventKind) && eventKind == "Notification" ? new(0, true) : new(0, false, "Invalid notification."); break;
+                case Commands.SaveLightingScene:
+                    if (TryString(element, "name", out var lightingName) && SceneCatalog.All.Any(s => s.Name == lightingName))
+                    { _lightingScenes[lightingName] = (_effect, _lightColor, _brightness, _speed, _parameters); response = new(0, true); }
+                    else response = new(0, false, "Unknown scene.");
+                    break;
                 case Commands.SetLedColors:
                 {
                     if (!TryString(element, "device", out var id) || !TryString(element, "layer", out var layer) || layer is not ("custom" or "overlay") ||
@@ -237,13 +264,14 @@ public sealed class MockPrismClient : PrismClientBase
                     if (d is null || values.Length != d.LedCount || values.Any(c => c.Length != (layer == "custom" ? 7 : 9) || c[0] != '#' || !c.Skip(1).All(Uri.IsHexDigit)))
                     { response = new(0, false, "Provide one valid colour per LED"); break; }
                     (layer == "custom" ? _custom : _overlay)[id] = values;
+                    if (layer == "custom") _customEnabled.Add(id); else _customEnabled.Remove(id);
                     publish = BuildState(); response = new(0, true); break;
                 }
                 case Commands.ClearLedColors:
                 {
                     if (!TryString(element, "device", out var id) || !(_last ?? BuildState()).Lighting.Devices.Any(d => d.Id == id))
                     { response = new(0, false, "Unknown device"); break; }
-                    _custom.Remove(id); _overlay.Remove(id); publish = BuildState(); response = new(0, true); break;
+                    _custom.Remove(id); _overlay.Remove(id); _customEnabled.Remove(id); publish = BuildState(); response = new(0, true); break;
                 }
                 case Commands.ResizeZone:
                 {
@@ -327,6 +355,8 @@ public sealed class MockPrismClient : PrismClientBase
                     _lampBrightness = scene.LampBrightness;
                     _lampFollow = scene.LampFollow;
                     _lampColor = scene.Color;
+                    if (_lightingScenes.TryGetValue(name, out var savedLighting))
+                        (_effect, _lightColor, _brightness, _speed, _parameters) = savedLighting;
                     publish = BuildState();
                     response = new Response(0, true);
                     break;

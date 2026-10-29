@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Prism.Core;
+using Prism.Core.Ipc;
 using Prism.Hardware;
 using Prism.Lighting;
 
@@ -11,9 +12,10 @@ public sealed record FanConfiguration(FanMode Mode = FanMode.Standard, Temperatu
 {
     public FanSettings ToSettings() => new(Mode == FanMode.Custom ? new FanCurve(Points ?? []) : FanCurveEngine.Preset(Mode), Source);
 }
-public sealed record LightingConfiguration(LightingEffect Effect = LightingEffect.Static, string Color = "#FF4D1A", double Brightness = 1, double Speed = 1)
+public sealed record LightingConfiguration(LightingEffect Effect = LightingEffect.Static, string Color = "#FF4D1A", double Brightness = 1, double Speed = 1, EffectParameters? Parameters = null)
 {
-    public Scene ToScene() => new("Current", Effect, ParseColor(Color), Math.Max(0.001, Speed), Brightness);
+    public EffectParameters GetParameters() => Parameters ?? new() { Palette = Palettes.ForEffect(Effect) };
+    public Scene ToScene() => new("Current", Effect, ParseColor(Color), Speed, Brightness);
     public static RgbColor ParseColor(string color)
     {
         if (color is null || color.Length != 7 || color[0] != '#' || !int.TryParse(color.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
@@ -29,6 +31,8 @@ public sealed record ServiceSettings
 {
     public Dictionary<string, FanConfiguration> Fans { get; init; } = new() { ["Radiator"] = new(), ["Case fans"] = new() };
     public LightingConfiguration Lighting { get; init; } = new();
+    public LightingMap Map { get; init; } = new([]);
+    public EventEffectOptions Events { get; init; } = new();
     public Dictionary<string, bool> SyncedDevices { get; init; } = new();
     public Dictionary<string, LedConfiguration> LedLayers { get; init; } = new();
     public Dictionary<string, Dictionary<int, int>> ZoneSizes { get; init; } = new();
@@ -67,6 +71,8 @@ public sealed record ServiceSettings
         if (ZoneSizes.Any(d => string.IsNullOrWhiteSpace(d.Key) || d.Value is null || d.Value.Any(z => z.Key < 0 || z.Value < 0 || z.Value > ushort.MaxValue)))
             throw new ArgumentException("Invalid zone size.");
         ValidateOptions(OpenRgbPath, LaunchOpenRgb, RouterHost);
+        LightingValidation.Map(Map);
+        if (Events is null) throw new ArgumentException("Missing event options.");
         ValidateLighting(Lighting); ValidateLamp(Lamp);
         foreach (var scene in Scenes.Values)
         {
@@ -90,6 +96,7 @@ public sealed record ServiceSettings
     {
         if (value is null || !Enum.IsDefined(value.Effect) || !double.IsFinite(value.Brightness) || value.Brightness is < 0 or > 1 ||
             !double.IsFinite(value.Speed) || value.Speed is < 0 or > 2) throw new ArgumentException("Invalid lighting values.");
+        LightingValidation.Parameters(value.Parameters ?? new());
         _ = LightingConfiguration.ParseColor(value.Color);
     }
     public static void ValidateLamp(LampConfiguration value)

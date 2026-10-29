@@ -13,6 +13,7 @@ public interface IServiceRuntime
     Task<RgbDeviceState> ResizeZoneAsync(string device, int zone, int size, CancellationToken cancellationToken) =>
         Task.FromException<RgbDeviceState>(new InvalidOperationException("Zone resizing is unavailable."));
     void CredentialsChanged(bool lamp) { }
+    void TriggerLightingEvent(LightingEventKind kind) { }
     Task<SpeedTestResult?> StartSpeedTestAsync(CancellationToken cancellationToken);
 }
 
@@ -48,6 +49,21 @@ public sealed class CommandProcessor
             ServiceSettings next;
             switch (request.Command)
             {
+                case Commands.SetEffectParams:
+                    next = Settings with { Lighting = Settings.Lighting with { Parameters = a.GetProperty("parameters").Deserialize<EffectParameters>(PipeContract.Json) ?? throw new ArgumentException("Missing parameters.") } }; break;
+                case Commands.SetLightingMap:
+                    next = Settings with { Map = a.GetProperty("map").Deserialize<LightingMap>(PipeContract.Json) ?? throw new ArgumentException("Missing map.") }; break;
+                case Commands.SetEventEffects:
+                    next = Settings with { Events = a.GetProperty("events").Deserialize<EventEffectOptions>(PipeContract.Json) ?? throw new ArgumentException("Missing events.") }; break;
+                case Commands.NotifyLighting:
+                    var notification = EnumValue<LightingEventKind>(a, "kind");
+                    if (notification != LightingEventKind.Notification) throw new ArgumentException("Only Notification can be sent externally.");
+                    runtime.TriggerLightingEvent(notification); return new(request.Id, true);
+                case Commands.SaveLightingScene:
+                    var sceneName = Text(a, "name");
+                    if (!Settings.Scenes.TryGetValue(sceneName, out var saved)) throw new ArgumentException("Unknown scene.");
+                    var scenes = new Dictionary<string, SceneConfiguration>(Settings.Scenes) { [sceneName] = saved with { Lighting = Settings.Lighting } };
+                    next = Settings with { Scenes = scenes }; break;
                 case Commands.SetLedColors:
                 {
                     var device = Device(a); var layer = Text(a, "layer");
@@ -121,7 +137,7 @@ public sealed class CommandProcessor
                     next = Settings with { Fans = fans }; break;
                 }
                 case Commands.SetLighting:
-                    next = Settings with { Lighting = new(EnumValue<LightingEffect>(a, "effect"), Text(a, "color"), a.GetProperty("brightness").GetDouble(), a.GetProperty("speed").GetDouble()) }; break;
+                    next = Settings with { Lighting = new(EnumValue<LightingEffect>(a, "effect"), Text(a, "color"), a.GetProperty("brightness").GetDouble(), a.GetProperty("speed").GetDouble(), Settings.Lighting.Parameters) }; break;
                 case Commands.SetDeviceSync:
                     var sync = new Dictionary<string, bool>(Settings.SyncedDevices) { [Text(a, "device")] = a.GetProperty("enabled").GetBoolean() };
                     next = Settings with { SyncedDevices = sync }; break;
@@ -136,6 +152,7 @@ public sealed class CommandProcessor
             next.Validate(); store.Save(next); Volatile.Write(ref settings, next);
             // Once persisted, a disconnect must not leave the running adapters on the old settings.
             await runtime.ApplyAsync(next, CancellationToken.None);
+            if (request.Command == Commands.ApplyScene) runtime.TriggerLightingEvent(LightingEventKind.SceneChange);
             return new(request.Id, true);
         }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or KeyNotFoundException or JsonException or FormatException or OverflowException)
