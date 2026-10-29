@@ -93,7 +93,7 @@ public sealed class LedCommandTests
         const string token = "0123456789ABCDEF0123456789ABCDEF", password = "private-router-secret";
         byte[]? savedToken = null; string? savedPassword = null;
         var runtime = new Runtime(); var store = new MemorySettingsStore();
-        var processor = new CommandProcessor(store, runtime, t => savedToken = t, p => savedPassword = p);
+        var processor = new CommandProcessor(store, runtime, t => savedToken = t.ToArray(), p => savedPassword = p);
         using var log = new StringWriter(); using var listener = new TextWriterTraceListener(log); Trace.Listeners.Add(listener);
         try
         {

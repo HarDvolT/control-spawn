@@ -76,6 +76,16 @@ internal static class Program
             var view = (FrameworkElement)template.LoadContent(); view.DataContext = model;
             Render(view, Path.Combine(output, name + ".png"), 1020);
         }
+        // Round 7: discovered/selected second lamp, and a legacy unresolved fixture. No network or DPAPI.
+        vm.Lamp.FindCommand.Execute(null);
+        vm.Lamp.SelectedLamp = vm.Lamp.Lamps[1];
+        RenderPage("Lamp-second-discovered", vm.Lamp);
+        var lampTemplate = (DataTemplate)app.Resources[new DataTemplateKey(typeof(LampViewModel))];
+        var lampNarrow = (FrameworkElement)lampTemplate.LoadContent(); lampNarrow.DataContext = vm.Lamp;
+        Render(lampNarrow, Path.Combine(output, "Lamp-narrow.png"), 640);
+        vm.Lamp.Apply(client.CurrentState with { Lamps = [client.CurrentState.Lamps![0] with { Id = "unresolved", DeviceId = null, Connected = false, Error = "Lamp unavailable; add its device ID and token." }] });
+        RenderPage("Lamp-unresolved", vm.Lamp);
+        vm.Lamp.Apply(client.CurrentState);
         // Round 6: same pure renderer at fixed times, with no audio/screen capture.
         client.SendAsync(Prism.Core.Ipc.Commands.ResizeZone, new { device = "board", zone = 1, size = 30 }).GetAwaiter().GetResult();
         foreach (var effect in Enum.GetValues<Prism.Core.LightingEffect>())

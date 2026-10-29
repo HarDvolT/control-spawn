@@ -1,4 +1,4 @@
-# Live lamp + router test (about 2 min). Run as administrator.
+# Live lamp + router test (up to 5 min, including prompts). Run as administrator.
 # Before you start: close the Router Signal widget and any router web page (the ZLT X17M allows ONE login).
 #
 # Lamp: you paste the Mi Home token when asked (input is hidden). The service stores it DPAPI-encrypted for
@@ -16,11 +16,10 @@ $exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\Prism.Service
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 function Plain($secure) { $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure); try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) } }
 
-$tokenSecure = Read-Host "Mi Home lamp token (32 hex characters, Enter to skip)" -AsSecureString
 $passSecure = Read-Host "Router admin password (Enter to skip)" -AsSecureString
 
 $errLog = Join-Path $env:TEMP 'prism-lamp-router.err'
-$p = Start-Process $exe -ArgumentList '--console', '--exit-after', '110' -PassThru -WindowStyle Hidden -RedirectStandardError $errLog
+$p = Start-Process $exe -ArgumentList '--console', '--exit-after', '300' -PassThru -WindowStyle Hidden -RedirectStandardError $errLog
 try {
   Start-Sleep -Seconds 7
   $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
@@ -33,20 +32,28 @@ try {
   $null = Send 'hello' @{ version = 1; client = 'app' }
   foreach ($g in 'Radiator', 'Case fans') { $null = Send 'setFanMode' @{ group = $g; mode = 'Silent' } }
 
-  $token = (Plain $tokenSecure).Trim(); $tokenSecure.Dispose()
-  if ($token) {
-    $resp = Send 'setLampToken' @{ host = '192.168.0.8'; token = $token }; $token = $null
-    Log ("Lamp token saved: ok={0} {1}" -f $resp.ok, $resp.error)
-    Start-Sleep -Seconds 8
+  $discovery = Send 'discoverLamps' @{}
+  if (-not $discovery.ok) { Log "Lamp discovery failed: $($discovery.error)" }
+  foreach ($device in $discovery.data) {
+    Log ("Found lamp: IP={0} deviceId={1} configured={2}" -f $device.ip, $device.deviceId, $device.alreadyConfigured)
+  }
+  foreach ($device in $discovery.data) {
+    $tokenSecure = Read-Host "Token for device $($device.deviceId) at $($device.ip) (32 hex, Enter to skip)" -AsSecureString
+    try { $token = (Plain $tokenSecure).Trim() } finally { $tokenSecure.Dispose() }
+    if (-not $token) { Log "Lamp $($device.deviceId): skipped"; continue }
+    try { $resp = Send 'setLampToken' @{ deviceId = [string]$device.deviceId; name = "Lamp $($device.deviceId)"; token = $token } } finally { $token = $null }
+    Log ("Lamp {0} token saved: ok={1} {2}" -f $device.deviceId, $resp.ok, $resp.error)
+    if (-not $resp.ok) { continue }
+    $lampId = "lamp:$($device.deviceId)"
     $steps = @(@{ c = '#FF4D1A'; b = 80; l = 'orange' }, @{ c = '#2060FF'; b = 80; l = 'blue' }, @{ c = '#3DDC84'; b = 25; l = 'dim green' }, @{ c = '#FFB070'; b = 70; l = 'warm white' })
     foreach ($s in $steps) {
-      $resp = Send 'setLamp' @{ on = $true; brightness = $s.b; follow = 'own'; color = $s.c }
-      Write-Host "Lamp -> $($s.l)... look at the lamp" -ForegroundColor Yellow
+      $resp = Send 'setLamp' @{ lamp = $lampId; on = $true; brightness = $s.b; follow = 'own'; color = $s.c }
+      Write-Host "Lamp $lampId -> $($s.l)... look at the lamp" -ForegroundColor Yellow
       Start-Sleep -Seconds 5
-      $l = (State).lamp
-      Log ("Lamp {0,-10} ok={1} connected={2} transport={3} on={4} brightness={5} color={6}" -f $s.l, $resp.ok, $l.connected, $l.transport, $l.on, $l.brightness, $l.color)
+      $l = (State).lamps | Where-Object { $_.id -eq $lampId } | Select-Object -First 1
+      Log ("Lamp {0} {1} ok={2} connected={3} transport={4} IP={5} error={6}" -f $lampId, $s.l, $resp.ok, $l.connected, $l.transport, $l.host, $l.error)
     }
-  } else { Log "Lamp: skipped" }
+  }
 
   $pass = Plain $passSecure; $passSecure.Dispose()
   if ($pass) {
@@ -65,7 +72,7 @@ try {
   if ($warn) { Log ("Warnings: " + ($warn -join ' | ')) }
   $c.Dispose()
 } finally {
-  if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Log "WARNING: service did not exit cleanly" }
+  if (-not $p.WaitForExit(320000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Log "WARNING: service did not exit cleanly" }
   else { Log "Service exited cleanly; fans back on the BIOS." }
   Get-Content $errLog -ErrorAction SilentlyContinue | Where-Object { $_ -match 'lamp|router|miio|Lamp|Router' } | Select-Object -First 8 | ForEach-Object { Log "  log: $_" }
 }

@@ -28,6 +28,11 @@ public sealed class LampTokenStore(string? path = null, ILampSecretProtector? pr
 {
     private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Prism", "lamp.json");
     private readonly ILampSecretProtector protector = protector ?? new LampDpapiProtector();
+    private string DevicePath(uint deviceId) => path + "." + deviceId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    public void Save(uint deviceId, byte[] token) => new LampTokenStore(DevicePath(deviceId), protector).Save(token);
+    public byte[]? Load(uint deviceId) => new LampTokenStore(DevicePath(deviceId), protector).Load();
+    public void Remove(uint deviceId) { if (File.Exists(DevicePath(deviceId))) File.Delete(DevicePath(deviceId)); }
+    public void DeleteLegacy() { if (File.Exists(path)) File.Delete(path); }
     public void Save(byte[] token)
     {
         if (token.Length != 16) throw new ArgumentException("Token must contain 16 bytes.", nameof(token));

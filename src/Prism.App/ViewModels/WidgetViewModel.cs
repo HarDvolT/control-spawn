@@ -64,6 +64,7 @@ public sealed class WidgetViewModel : ObservableObject
     public Action? Changed { get; }
     public IPrismClient Client => _client;
 
+    public IReadOnlyList<LampRow> LampRows { get; private set; } = [];
     public string Id => Layout.Id;
     public WidgetKind Kind => Layout.Kind;
     public string Name => WidgetNames.Name(Kind);
@@ -315,6 +316,7 @@ public sealed class WidgetViewModel : ObservableObject
             LampColor = "#3F3F46";
         }
 
+        LampRows = LampRow.From(state);
         if (state.Router is { } router)
         {
             ModemNetwork = router.Network ?? "5G modem";

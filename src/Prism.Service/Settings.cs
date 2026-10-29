@@ -24,7 +24,7 @@ public sealed record LightingConfiguration(LightingEffect Effect = LightingEffec
     }
 }
 public sealed record LampConfiguration(string? Host = null, bool On = true, int Brightness = 60,
-    string Color = "#FF4D1A", string Follow = "own", int? Kelvin = null);
+    string Color = "#FF4D1A", string Follow = "own", int? Kelvin = null, string Id = "unresolved", string Name = "Lamp", uint? DeviceId = null, string? LastHost = null, MapPoint? MapPoint = null);
 public sealed record SceneConfiguration(FanMode Fans, LightingConfiguration Lighting, LampConfiguration Lamp);
 public sealed record LedConfiguration(string[]? Custom = null, string[]? Overlay = null, bool CustomEnabled = false);
 public sealed record ServiceSettings
@@ -37,6 +37,9 @@ public sealed record ServiceSettings
     public Dictionary<string, LedConfiguration> LedLayers { get; init; } = new();
     public Dictionary<string, Dictionary<int, int>> ZoneSizes { get; init; } = new();
     public LampConfiguration Lamp { get; init; } = new();
+    public IReadOnlyList<LampConfiguration>? Lamps { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<LampConfiguration> ConfiguredLamps => Lamps ?? [Lamp];
     public string? OpenRgbPath { get; init; }
     public bool LaunchOpenRgb { get; init; }
     public bool RouterEnabled { get; init; }
@@ -74,6 +77,8 @@ public sealed record ServiceSettings
         LightingValidation.Map(Map);
         if (Events is null) throw new ArgumentException("Missing event options.");
         ValidateLighting(Lighting); ValidateLamp(Lamp);
+        foreach (var item in ConfiguredLamps) ValidateLamp(item);
+        if (ConfiguredLamps.Select(l => l.Id).Distinct().Count() != ConfiguredLamps.Count) throw new ArgumentException("Duplicate lamp id.");
         foreach (var scene in Scenes.Values)
         {
             if (scene is null || !Enum.IsDefined(scene.Fans) || scene.Fans == FanMode.Custom) throw new ArgumentException("Invalid scene fan preset.");
@@ -101,9 +106,13 @@ public sealed record ServiceSettings
     }
     public static void ValidateLamp(LampConfiguration value)
     {
-        if (value is null || value.Brightness is < 1 or > 100 || value.Follow is not ("pc" or "average" or "own") ||
+        if (value is null || value.Brightness is < 1 or > 100 || value.Follow is not ("pc" or "average" or "own" or "map") ||
             value.Kelvin is < 1700 or > 6500) throw new ArgumentException("Invalid lamp values.");
         _ = LightingConfiguration.ParseColor(value.Color);
+        if (string.IsNullOrWhiteSpace(value.Id) || value.Id.Length > 256 || value.DeviceId is { } id && value.Id != $"lamp:{id}" || string.IsNullOrWhiteSpace(value.Name) || value.Name.Length > 100 ||
+            value.DeviceId is 0 or uint.MaxValue || value.MapPoint is { } p && (!double.IsFinite(p.X) || !double.IsFinite(p.Y) || p.X < 0 || p.X > 1 || p.Y < 0 || p.Y > 1)) throw new ArgumentException("Invalid lamp identity/map point.");
+        if (value.Host is not null) ValidateHost(value.Host);
+        if (value.LastHost is not null) ValidateHost(value.LastHost);
     }
 }
 

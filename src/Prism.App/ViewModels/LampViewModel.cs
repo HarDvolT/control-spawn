@@ -1,4 +1,5 @@
 using Prism.App.Common;
+using System.Text.Json;
 using Prism.App.Services;
 using Prism.Core.Ipc;
 
@@ -15,10 +16,33 @@ public sealed class LampViewModel : PageViewModel
     private string _model = Format.Dash;
     private string _transport = Format.Dash;
     private bool _suppress;
+    private LampState? selectedLamp;
+    private string? editLampId;
+    public IReadOnlyList<LampState> Lamps { get; private set; } = [];
+    public LampState? SelectedLamp { get => selectedLamp; set { if (Set(ref selectedLamp, value)) Refresh(); } }
+    public IReadOnlyList<DiscoveredLamp> Discovered { get; private set; } = [];
+    public RelayCommand FindCommand { get; }
+    public RelayCommand RemoveCommand { get; }
+    public RelayCommand RenameCommand { get; }
+    public string LampName { get; set; } = "Lamp";
+    public string DeviceIdText { get; set; } = "";
+    public string Host => selectedLamp?.Host ?? "Unresolved";
+    public string? LampError => selectedLamp?.Error;
+    public IReadOnlyList<string> FollowModes { get; } = ["pc", "average", "own", "map"];
+    public string SelectedFollow { get => Follow; set { if (!_suppress && value != Follow) _ = SetFollowAsync(value); } }
+    private DiscoveredLamp? selectedFound;
+    public DiscoveredLamp? SelectedFound { get => selectedFound; set { if (Set(ref selectedFound, value) && value is not null) { DeviceIdText = value.DeviceId.ToString(); OnPropertyChanged(nameof(DeviceIdText)); } } }
+    public sealed record DiscoveredLamp(string Ip, uint DeviceId, bool AlreadyConfigured)
+    { public string Label => $"{Ip} | {DeviceId} | {(AlreadyConfigured ? "configured" : "new")}"; }
+
 
     public LampViewModel(IPrismClient client) : base(client)
     {
-        PageTitle = "Lamp";
+        PageTitle = "Lamps";
+        FindCommand = new RelayCommand(() => _ = FindAsync());
+        RemoveCommand = new RelayCommand(() => _ = RunAsync(() => Client.SendAsync(Commands.RemoveLamp, new { lamp = selectedLamp?.Id })));
+        RenameCommand = new RelayCommand(() => _ = RunAsync(() => Client.SendAsync(Commands.SetLamp, new { lamp = selectedLamp?.Id, name = LampName })));
+
         ToggleCommand = new RelayCommand(() => On = !On);
         SetFollowCommand = new RelayCommand<string>(follow => _ = SetFollowAsync(follow ?? "pc"));
         SelectColorCommand = new RelayCommand<string>(hex => _ = SetColorAsync(hex ?? ColorHex));
@@ -71,20 +95,30 @@ public sealed class LampViewModel : PageViewModel
 
     public string StateText => !Connected ? "Not connected" : On ? "On · " + BrightnessText : "Off";
     public string DotColorHex => On && Connected ? ColorHex : "#3F3F46";
+    public string ColorEntry { get => ColorHex; set { if (Prism.Lighting.LedLayers.Valid(value, false) && value != ColorHex) _ = SetColorAsync(value); } }
     public string FollowText => _follow switch
     {
         "average" => "Average of PC colours",
+        "map" => "Lighting map point",
         "own" => "Own colour",
         _ => "Same as PC"
     };
 
     public string Subtitle => Connected
         ? $"{Model} · {Transport}"
-        : "Plug the lamp in and enable LAN control";
+        : "Find the Mi Home lamp and add its token";
 
     protected override void Refresh()
     {
-        var lamp = State?.Lamp;
+        Lamps = State?.Lamps ?? (State?.Lamp is { } first ? [first] : []);
+        selectedLamp = Lamps.FirstOrDefault(l => l.Id == selectedLamp?.Id) ?? Lamps.FirstOrDefault();
+        var lamp = selectedLamp;
+        if (editLampId != lamp?.Id)
+        {
+            LampName = lamp?.Name ?? "Lamp";
+            DeviceIdText = lamp?.DeviceId?.ToString() ?? "";
+            editLampId = lamp?.Id;
+        }
         _suppress = true;
         Connected = lamp?.Connected ?? false;
         On = lamp?.On ?? false;
@@ -114,5 +148,13 @@ public sealed class LampViewModel : PageViewModel
         await PushAsync();
     }
 
-    private Task PushAsync() => RunAsync(() => Client.SetLampAsync(On, (int)Math.Round(Brightness), Follow, ColorHex));
+    private async Task FindAsync()
+    {
+        await RunAsync(async () => {
+            var response = await Client.SendAsync(Commands.DiscoverLamps);
+            if (response.Ok && response.Data is { } data) { Discovered = data.Deserialize<DiscoveredLamp[]>(PipeContract.Json) ?? []; OnPropertyChanged(nameof(Discovered)); }
+            return response;
+        });
+    }
+    private Task PushAsync() => RunAsync(() => Client.SendAsync(Commands.SetLamp, new { lamp = selectedLamp?.Id, on = On, brightness = (int)Math.Round(Brightness), follow = Follow, color = ColorHex }));
 }

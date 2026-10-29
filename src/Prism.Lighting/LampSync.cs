@@ -8,6 +8,7 @@ public sealed class LampSync(ILampClient lamp, IClock clock)
     private readonly SemaphoreSlim gate = new(1, 1);
     private TimeSpan? last;
     private RgbColor? previous;
+    public RgbColor? LastColor => previous;
     public async Task<bool> PushAsync(IReadOnlyList<RgbColor> colors, LampColorSelection selection = LampColorSelection.Average,
         double smoothingSeconds = 0.25, CancellationToken cancellationToken = default)
     {

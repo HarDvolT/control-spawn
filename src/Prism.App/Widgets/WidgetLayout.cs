@@ -104,7 +104,7 @@ public static class WidgetSizes
             WidgetKind.Gpu => 150,
             WidgetKind.Fans => 185,
             WidgetKind.Lighting => 160,
-            WidgetKind.Lamp => 92,
+            WidgetKind.Lamp => 150,
             WidgetKind.Modem => 150,
             WidgetKind.Ping => 150,
             WidgetKind.Network => 140,

@@ -12,7 +12,10 @@ public interface IServiceRuntime
     Task ApplyAsync(ServiceSettings settings, CancellationToken cancellationToken);
     Task<RgbDeviceState> ResizeZoneAsync(string device, int zone, int size, CancellationToken cancellationToken) =>
         Task.FromException<RgbDeviceState>(new InvalidOperationException("Zone resizing is unavailable."));
+    Task<IReadOnlyList<MiioDevice>> DiscoverLampsAsync(CancellationToken token) => Task.FromResult<IReadOnlyList<MiioDevice>>([]);
+    void SetLampResolutionHandler(Func<string, MiioDevice, Task> handler) { }
     void CredentialsChanged(bool lamp) { }
+    void LampCredentialsChanged(string id) => CredentialsChanged(true);
     void TriggerLightingEvent(LightingEventKind kind) { }
     Task<SpeedTestResult?> StartSpeedTestAsync(CancellationToken cancellationToken);
 }
@@ -24,15 +27,55 @@ public sealed class CommandProcessor
     private readonly IServiceRuntime runtime;
     private readonly Action<byte[]> saveLampToken;
     private readonly Action<string> saveRouterPassword;
+    private readonly Action<uint, byte[]> saveDeviceToken;
+    private readonly Action<uint> removeDeviceToken;
+    private readonly LampTokenStore lampTokens;
     private readonly SemaphoreSlim gate = new(1, 1);
     private ServiceSettings settings;
     public ServiceSettings Settings => Volatile.Read(ref settings);
-    public CommandProcessor(ISettingsStore store, IServiceRuntime runtime, Action<byte[]>? saveLampToken = null, Action<string>? saveRouterPassword = null)
+    public CommandProcessor(ISettingsStore store, IServiceRuntime runtime, Action<byte[]>? saveLampToken = null, Action<string>? saveRouterPassword = null, Action<uint, byte[]>? saveDeviceToken = null, Action<uint>? removeDeviceToken = null, LampTokenStore? lampTokens = null)
     {
+        this.lampTokens = lampTokens ?? new LampTokenStore();
         this.store = store; this.runtime = runtime;
-        this.saveLampToken = saveLampToken ?? (token => new LampTokenStore().Save(token));
+        this.saveDeviceToken = saveDeviceToken ?? ((id, token) => this.lampTokens.Save(id, token));
+        this.removeDeviceToken = removeDeviceToken ?? (id => this.lampTokens.Remove(id));
+        this.saveLampToken = saveLampToken ?? (token => this.lampTokens.Save(token));
         this.saveRouterPassword = saveRouterPassword ?? (password => { var credentials = new CredentialStore(); credentials.SavePassword(password); credentials.ForgetSession(); });
         settings = store.Load(); Settings.Validate();
+        runtime.SetLampResolutionHandler(CacheLampAsync);
+    }
+    private async Task CacheLampAsync(string id, MiioDevice found)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var lamps = Settings.ConfiguredLamps.ToList(); var index = lamps.FindIndex(l => l.Id == id);
+            if (index < 0) return;
+            var current = lamps[index];
+            if (current.DeviceId is { } expected && expected != found.DeviceId) return;
+            if (current.DeviceId is null)
+            {
+                if (lamps.Any(l => l.DeviceId == found.DeviceId))
+                {
+                    // A newly provisioned identity takes precedence over its redundant legacy record.
+                    lamps.RemoveAt(index);
+                    var merged = Settings with { Lamps = lamps, Lamp = lamps[0] };
+                    merged.Validate(); store.Save(merged); Volatile.Write(ref settings, merged);
+                    await runtime.ApplyAsync(merged, CancellationToken.None); lampTokens.DeleteLegacy(); return;
+                }
+                var legacy = lampTokens.Load();
+                if (legacy is not null)
+                {
+                    try { saveDeviceToken(found.DeviceId, legacy); }
+                    finally { System.Security.Cryptography.CryptographicOperations.ZeroMemory(legacy); }
+                }
+            }
+            lamps[index] = current with { Id = $"lamp:{found.DeviceId}", DeviceId = found.DeviceId, LastHost = found.Ip };
+            var next = Settings with { Lamps = lamps, Lamp = lamps[0] };
+            next.Validate(); store.Save(next); Volatile.Write(ref settings, next); await runtime.ApplyAsync(next, CancellationToken.None);
+            if (current.DeviceId is null) lampTokens.DeleteLegacy();
+        }
+        finally { gate.Release(); }
     }
     public StateMessage GetState() => runtime.GetState(Settings);
     public async Task<Response> HandleAsync(Request request, CancellationToken cancellationToken = default)
@@ -43,16 +86,24 @@ public sealed class CommandProcessor
         try
         {
             if (request.Command == Commands.GetState) return new(request.Id, true, Data: JsonSerializer.SerializeToElement(GetState(), PipeContract.Json));
+            if (request.Command == Commands.DiscoverLamps)
+            {
+                var found = await runtime.DiscoverLampsAsync(cancellationToken);
+                return new(request.Id, true, Data: JsonSerializer.SerializeToElement(found.Select(d => new { ip = d.Ip, deviceId = d.DeviceId, alreadyConfigured = Settings.ConfiguredLamps.Any(l => l.DeviceId == d.DeviceId) }), PipeContract.Json));
+            }
             var args = request.Args;
             if (args is null || args.Value.ValueKind != JsonValueKind.Object) throw new ArgumentException("Command args must be an object.");
             var a = args.Value;
             ServiceSettings next;
+            uint? removedToken = null;
+            bool removedLegacyToken = false;
             switch (request.Command)
             {
                 case Commands.SetEffectParams:
                     next = Settings with { Lighting = Settings.Lighting with { Parameters = a.GetProperty("parameters").Deserialize<EffectParameters>(PipeContract.Json) ?? throw new ArgumentException("Missing parameters.") } }; break;
                 case Commands.SetLightingMap:
-                    next = Settings with { Map = a.GetProperty("map").Deserialize<LightingMap>(PipeContract.Json) ?? throw new ArgumentException("Missing map.") }; break;
+                    var map = a.GetProperty("map").Deserialize<LightingMap>(PipeContract.Json) ?? throw new ArgumentException("Missing map.");
+                    next = Settings with { Map = map, Lamps = Settings.Lamps?.Select(l => l with { MapPoint = map.Lamps?.GetValueOrDefault(l.Id) }).ToArray() }; break;
                 case Commands.SetEventEffects:
                     next = Settings with { Events = a.GetProperty("events").Deserialize<EventEffectOptions>(PipeContract.Json) ?? throw new ArgumentException("Missing events.") }; break;
                 case Commands.NotifyLighting:
@@ -100,12 +151,36 @@ public sealed class CommandProcessor
                 }
                 case Commands.SetLampToken:
                 {
-                    var host = Text(a, "host"); ServiceSettings.ValidateHost(host);
+                    var host = a.TryGetProperty("host", out var h) ? h.GetString() : null;
+                    if (host is not null) ServiceSettings.ValidateHost(host);
+                    uint? deviceId = a.TryGetProperty("deviceId", out var did) && did.ValueKind != JsonValueKind.Null ? ParseDeviceId(did) : null;
+                    if (deviceId is null && host is not null) deviceId = (await runtime.DiscoverLampsAsync(cancellationToken)).FirstOrDefault(d => d.Ip == host)?.DeviceId;
+                    if (deviceId is null && host is null) throw new ArgumentException("Device id or host required.");
                     var token = Text(a, "token");
                     if (token.Length != 32 || !token.All(Uri.IsHexDigit)) throw new ArgumentException("Token must be 32 hexadecimal digits.");
-                    saveLampToken(Convert.FromHexString(token));
-                    runtime.CredentialsChanged(true);
-                    next = Settings with { Lamp = Settings.Lamp with { Host = host } }; break;
+                    var lamps = Settings.ConfiguredLamps.ToList();
+                    var id = deviceId is { } d ? $"lamp:{d}" : "unresolved";
+                    var index = lamps.FindIndex(l => l.Id == id);
+                    if (index < 0 && lamps.Count == 1 && lamps[0] is { Id: "unresolved", Host: null, LastHost: null }) index = 0;
+                    var existing = index >= 0 ? lamps[index] : new LampConfiguration();
+                    var config = existing with { Id = id, DeviceId = deviceId, Host = host ?? existing.Host, LastHost = host ?? existing.LastHost, Name = a.TryGetProperty("name", out var n) ? n.GetString() ?? "Lamp" : existing.Name };
+                    ServiceSettings.ValidateLamp(config);
+                    var secret = Convert.FromHexString(token);
+                    try { if (deviceId is { } key) saveDeviceToken(key, secret); else saveLampToken(secret); }
+                    finally { System.Security.Cryptography.CryptographicOperations.ZeroMemory(secret); }
+                    if (index < 0) lamps.Add(config); else lamps[index] = config;
+                    runtime.LampCredentialsChanged(id);
+                    next = Settings with { Lamps = lamps, Lamp = lamps[0] }; break;
+                }
+                case Commands.RemoveLamp:
+                {
+                    var id = Text(a, "lamp"); var lamps = Settings.ConfiguredLamps.ToList();
+                    var target = lamps.FirstOrDefault(l => l.Id == id) ?? throw new ArgumentException("Unknown lamp.");
+                    lamps.Remove(target);
+                    next = Settings with { Lamps = lamps, Lamp = lamps.FirstOrDefault() ?? new(),
+                        Map = Settings.Map with { Lamps = Settings.Map.Lamps?.Where(p => p.Key != id).ToDictionary(p => p.Key, p => p.Value) } };
+                    removedToken = target.DeviceId; removedLegacyToken = target.DeviceId is null;
+                    break;
                 }
                 case Commands.SetRouterPassword:
                 {
@@ -142,16 +217,32 @@ public sealed class CommandProcessor
                     var sync = new Dictionary<string, bool>(Settings.SyncedDevices) { [Text(a, "device")] = a.GetProperty("enabled").GetBoolean() };
                     next = Settings with { SyncedDevices = sync }; break;
                 case Commands.SetLamp:
-                    next = Settings with { Lamp = Settings.Lamp with { On = a.GetProperty("on").GetBoolean(), Brightness = a.GetProperty("brightness").GetInt32(), Follow = Text(a, "follow"), Color = Text(a, "color"), Kelvin = null } }; break;
+                {
+                    var lamps = Settings.ConfiguredLamps.ToList();
+                    var id = a.TryGetProperty("lamp", out var selected) ? selected.GetString() ?? lamps.FirstOrDefault()?.Id : lamps.FirstOrDefault()?.Id;
+                    var index = lamps.FindIndex(l => l.Id == id);
+                    if (index < 0) throw new ArgumentException("Unknown lamp.");
+                    var current = lamps[index];
+                    lamps[index] = current with { On = a.TryGetProperty("on", out var on) ? on.GetBoolean() : current.On,
+                        Brightness = a.TryGetProperty("brightness", out var brightness) ? brightness.GetInt32() : current.Brightness,
+                        Follow = a.TryGetProperty("follow", out var follow) ? follow.GetString()! : current.Follow,
+                        Color = a.TryGetProperty("color", out var color) ? color.GetString()! : current.Color, Kelvin = a.TryGetProperty("color", out _) ? null : current.Kelvin,
+                        Name = a.TryGetProperty("name", out var name) ? name.GetString()! : current.Name };
+                    next = Settings with { Lamps = lamps, Lamp = lamps[0] }; break;
+                }
                 case Commands.ApplyScene:
                     if (!Settings.Scenes.TryGetValue(Text(a, "name"), out var scene)) throw new ArgumentException("Unknown scene.");
                     next = Settings with { Fans = Settings.Fans.ToDictionary(f => f.Key, f => f.Value with { Mode = scene.Fans }),
-                        Lighting = scene.Lighting, Lamp = scene.Lamp with { Host = Settings.Lamp.Host } }; break;
+                        Lighting = scene.Lighting, Lamp = scene.Lamp with { Host = Settings.Lamp.Host },
+                        Lamps = Settings.Lamps?.Select(l => l with { On = scene.Lamp.On, Brightness = scene.Lamp.Brightness, Color = scene.Lamp.Color, Follow = scene.Lamp.Follow, Kelvin = scene.Lamp.Kelvin }).ToArray() }; break;
                 default: throw new ArgumentException("Unknown command.");
             }
+            if (next.Lamps is not null) next = next with { Lamp = next.Lamps.FirstOrDefault() ?? new() };
             next.Validate(); store.Save(next); Volatile.Write(ref settings, next);
             // Once persisted, a disconnect must not leave the running adapters on the old settings.
             await runtime.ApplyAsync(next, CancellationToken.None);
+            if (removedToken is { } removed) removeDeviceToken(removed);
+            if (removedLegacyToken) lampTokens.DeleteLegacy();
             if (request.Command == Commands.ApplyScene) runtime.TriggerLightingEvent(LightingEventKind.SceneChange);
             return new(request.Id, true);
         }
@@ -178,6 +269,14 @@ public sealed class CommandProcessor
         var id = Text(a, "device");
         return runtime.GetState(Settings).Lighting.Devices.FirstOrDefault(d => d.Id == id && d.Connected)
             ?? throw new ArgumentException("Unknown or disconnected device.");
+    }
+    public static uint ParseDeviceId(JsonElement value)
+    {
+        var text = value.ValueKind == JsonValueKind.Number ? value.GetRawText() : (value.GetString() ?? "").Trim();
+        var hex = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
+        if (!uint.TryParse(hex ? text[2..] : text, hex ? System.Globalization.NumberStyles.HexNumber : System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out var id) || id is 0 or uint.MaxValue) throw new ArgumentException("Invalid device id.");
+        return id;
     }
     private static string Text(JsonElement a, string key) => a.GetProperty(key).GetString() ?? throw new ArgumentException($"Missing {key}.");
     private static T EnumValue<T>(JsonElement a, string key) where T : struct, Enum =>

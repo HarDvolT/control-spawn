@@ -48,6 +48,9 @@ public sealed class MockPrismClient : PrismClientBase
     private readonly Dictionary<string, IReadOnlyList<FanPoint>> _curves = new(StringComparer.OrdinalIgnoreCase);
     private string _curveSource = "Cpu";
 
+    private readonly Dictionary<string, LampState> extraLamps = new() { ["lamp:470124183"] = new("yeelink.light.color5", true, true, 60, "#5AA7FF", "own", "miio", "lamp:470124183", "Desk lamp", 470124183, "192.0.2.2") };
+    private string firstLampName = "Room lamp";
+    private bool firstRemoved;
     private bool _lampOn = true;
     private int _lampBrightness = 70;
     private string _lampFollow = "pc";
@@ -166,7 +169,7 @@ public sealed class MockPrismClient : PrismClientBase
         };
 
         var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events);
-        var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "music mode");
+        var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "miio", "lamp:470875761", firstLampName, 470875761, "192.0.2.1");
 
         var rsrp5 = Math.Round(-97 + Math.Sin(t * 0.11) * 3);
         var rsrp4 = Math.Round(-92 + Math.Sin(t * 0.09) * 3);
@@ -187,8 +190,9 @@ public sealed class MockPrismClient : PrismClientBase
             rsrp5, sinr5, rsrq5, rsrp4, sinr4, rsrq4,
             Math.Round(_ping), 0, null);
 
-        return new StateMessage(now, system, fans, _fanMode, lighting, lamp, router,
-            new ServiceHealth(true, false, Array.Empty<string>(), false));
+        var lamps = (firstRemoved ? Array.Empty<LampState>() : new[] { lamp }).Concat(extraLamps.Values).ToArray();
+        return new StateMessage(now, system, fans, _fanMode, lighting, lamps.FirstOrDefault(), router,
+            new ServiceHealth(true, false, Array.Empty<string>(), false), Lamps: lamps);
     }
 
     private static double RpmFor(double idleRpm, FanMode mode)
@@ -283,10 +287,32 @@ public sealed class MockPrismClient : PrismClientBase
                     if (_overlay.TryGetValue(id, out var o)) _overlay[id] = ViewModels.LedEditorViewModel.Resize(o, 2 + _stripSize, "overlay");
                     publish = BuildState(); response = new(0, true); break;
                 }
+                case Commands.DiscoverLamps:
+                    response = new(0, true, Data: JsonSerializer.SerializeToElement(new[] {
+                        new { ip = "192.0.2.1", deviceId = 470875761u, alreadyConfigured = !firstRemoved },
+                        new { ip = "192.0.2.2", deviceId = 470124183u, alreadyConfigured = extraLamps.ContainsKey("lamp:470124183") } }, PipeContract.Json)); break;
+                case Commands.RemoveLamp:
+                    if (TryString(element, "lamp", out var removed) && (removed == "lamp:470875761" && !firstRemoved || extraLamps.ContainsKey(removed)))
+                    { if (removed == "lamp:470875761") firstRemoved = true; else extraLamps.Remove(removed); publish = BuildState(); response = new(0, true); }
+                    else response = new(0, false, "Unknown lamp");
+                    break;
                 case Commands.SetLampToken:
-                    response = TryString(element, "host", out var host) && Uri.CheckHostName(host) != UriHostNameType.Unknown &&
-                        TryString(element, "token", out var token) && token.Length == 32 && token.All(Uri.IsHexDigit)
-                        ? new(0, true) : new(0, false, "Invalid lamp credential"); break;
+                    if (TryString(element, "token", out var token) && token.Length == 32 && token.All(Uri.IsHexDigit) &&
+                        (TryString(element, "deviceId", out _) || TryNumber(element, "deviceId", out _) || TryString(element, "host", out _)))
+                    {
+                        if (TryString(element, "deviceId", out var did) || TryNumber(element, "deviceId", out _))
+                        {
+                            if (string.IsNullOrEmpty(did)) did = element!.Value.GetProperty("deviceId").GetRawText();
+                            bool hex = did.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
+                            if (!uint.TryParse(hex ? did[2..] : did, hex ? System.Globalization.NumberStyles.HexNumber : System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var key) || key is 0 or uint.MaxValue)
+                            { response = new(0, false, "Invalid lamp credential"); break; }
+                            var id = $"lamp:{key}"; var name = TryString(element, "name", out var named) ? named : "Lamp";
+                            if (key == 470875761) { firstRemoved = false; firstLampName = name; }
+                            else extraLamps[id] = new("yeelink.light.color5", true, true, 60, "#FF4D1A", "own", "miio", id, name, key, "192.0.2.2");
+                        }
+                        publish = BuildState(); response = new(0, true);
+                    }
+                    else response = new(0, false, "Invalid lamp credential"); break;
                 case Commands.SetRouterPassword:
                     response = TryString(element, "password", out var password) && !string.IsNullOrWhiteSpace(password) && password.Length <= 1024
                         ? new(0, true) : new(0, false, "Invalid router credential"); break;
@@ -336,6 +362,20 @@ public sealed class MockPrismClient : PrismClientBase
                     else response = new Response(0, false, "device and enabled are required");
                     break;
                 case Commands.SetLamp:
+                    var target = TryString(element, "lamp", out var selectedLamp) ? selectedLamp : firstRemoved ? extraLamps.Keys.FirstOrDefault() : "lamp:470875761";
+                    if (target is null) { response = new(0, false, "Unknown lamp"); break; }
+                    if (target != "lamp:470875761")
+                    {
+                        if (!extraLamps.TryGetValue(target, out var current)) { response = new(0, false, "Unknown lamp"); break; }
+                        extraLamps[target] = current with {
+                            On = TryBool(element, "on", out var powered) ? powered : current.On,
+                            Brightness = TryNumber(element, "brightness", out var level) ? (int)Math.Clamp(level, 1, 100) : current.Brightness,
+                            Color = TryString(element, "color", out var colour) ? colour : current.Color,
+                            Follow = TryString(element, "follow", out var followed) ? followed : current.Follow,
+                            Name = TryString(element, "name", out var renamed) ? renamed : current.Name };
+                        publish = BuildState(); response = new(0, true); break;
+                    }
+                    if (TryString(element, "name", out var firstName)) firstLampName = firstName;
                     if (TryBool(element, "on", out var on)) _lampOn = on;
                     if (TryNumber(element, "brightness", out var lampBrightness)) _lampBrightness = (int)Math.Clamp(lampBrightness, 1, 100);
                     if (TryString(element, "follow", out var follow)) _lampFollow = follow;
@@ -355,6 +395,7 @@ public sealed class MockPrismClient : PrismClientBase
                     _lampBrightness = scene.LampBrightness;
                     _lampFollow = scene.LampFollow;
                     _lampColor = scene.Color;
+                    foreach (var key in extraLamps.Keys.ToArray()) extraLamps[key] = extraLamps[key] with { On = scene.LampOn, Brightness = scene.LampBrightness, Follow = scene.LampFollow, Color = scene.Color };
                     if (_lightingScenes.TryGetValue(name, out var savedLighting))
                         (_effect, _lightColor, _brightness, _speed, _parameters) = savedLighting;
                     publish = BuildState();

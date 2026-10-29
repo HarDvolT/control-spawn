@@ -278,3 +278,10 @@ public sealed class SceneCardItem : ObservableObject
 
     public string ButtonLabel => IsActive ? "Active" : "Apply";
 }
+
+public sealed record LampRow(string Id, string Name, string Color, string Status)
+{
+    public static IReadOnlyList<LampRow> From(StateMessage state) => (state.Lamps ?? (state.Lamp is { } first ? [first] : []))
+        .Select(l => new LampRow(l.Id ?? "unresolved", l.Name ?? "Lamp", l.Connected && l.On ? l.Color : "#3F3F46",
+            !l.Connected ? "Offline" : l.On ? $"{l.Brightness}% | {l.Transport}" : "Off")).ToArray();
+}

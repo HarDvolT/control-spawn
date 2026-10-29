@@ -80,7 +80,14 @@
           </c:GlassCard>
           <c:GlassCard Margin="0,0,0,18" StaggerIndex="4">
             <StackPanel>
-              <TextBlock Text="Yeelight lamp" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+              <TextBlock Text="Mi Home lamps" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+              <ItemsControl ItemsSource="{Binding LampRows}" Margin="0,6"><ItemsControl.ItemTemplate><DataTemplate>
+                <DockPanel Margin="0,5">
+                  <Ellipse DockPanel.Dock="Left" Width="10" Height="10" Fill="{Binding Color}" Margin="0,0,8,0"/>
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding Status}" FontSize="11" Foreground="#A1A1AA"/>
+                  <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+              </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
               <DockPanel Margin="0,9">
                 <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding LampOn, Mode=TwoWay}" AutomationProperties.Name="On"/>
                 <TextBlock Text="On" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
@@ -291,7 +298,43 @@
     </StackPanel>
   </DataTemplate>
   <DataTemplate DataType="{x:Type vm:LampViewModel}">
+    <DataTemplate.Resources>
+      <Style x:Key="LampListStyle" TargetType="ListBox">
+        <Setter Property="Background" Value="#18181B"/><Setter Property="Foreground" Value="#F4F4F5"/>
+        <Setter Property="BorderBrush" Value="#3F3F46"/><Setter Property="Padding" Value="6"/>
+      </Style>
+      <Style x:Key="LampListItemStyle" TargetType="ListBoxItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="Row" Padding="8" Margin="0,2" CornerRadius="6" Background="Transparent"><ContentPresenter/></Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#252529"/></Trigger>
+            <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="#3D2823"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+    </DataTemplate.Resources>
     <StackPanel>
+      <Button Content="Find lamps" Command="{Binding FindCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+      <ListBox Style="{StaticResource LampListStyle}" ItemContainerStyle="{StaticResource LampListItemStyle}" ItemsSource="{Binding Discovered}" SelectedItem="{Binding SelectedFound}" DisplayMemberPath="Label" MaxHeight="150"/>
+      <ListBox Style="{StaticResource LampListStyle}" ItemContainerStyle="{StaticResource LampListItemStyle}" ItemsSource="{Binding Lamps}" SelectedItem="{Binding SelectedLamp}" Margin="0,12" MaxHeight="220">
+        <ListBox.ItemTemplate><DataTemplate><StackPanel Orientation="Horizontal" Margin="4,8">
+          <Ellipse Width="12" Height="12" Fill="{Binding Color}" Margin="0,0,12,0"/>
+          <TextBlock Text="{Binding Name}" Margin="0,0,12,0"/>
+          <TextBlock Text="{Binding Connected}" Margin="0,0,12,0"/>
+          <TextBlock Text="{Binding Transport}" Margin="0,0,12,0"/>
+          <TextBlock Text="{Binding Host}"/>
+        </StackPanel></DataTemplate></ListBox.ItemTemplate>
+      </ListBox>
+      <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding LampName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Lamp name"/>
+      <StackPanel Orientation="Horizontal" Margin="0,8">
+        <Button Content="Rename" Command="{Binding RenameCommand}"/>
+        <Button Content="Remove" Command="{Binding RemoveCommand}" Margin="12,0"/>
+      </StackPanel>
+      <TextBlock Text="{Binding Host}"/>
+      <TextBlock Text="{Binding LampError}" Foreground="#FF8A8A"/>
+      <ComboBox ItemsSource="{Binding FollowModes}" SelectedItem="{Binding SelectedFollow}" Margin="0,8"/>
+
       <c:GlassCard Margin="0,0,0,18" StaggerIndex="1">
         <StackPanel>
           <TextBlock Text="Yeelight colour bulb" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
@@ -320,6 +363,7 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+          <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding ColorEntry}" AutomationProperties.Name="Lamp hex colour" Margin="0,8"/>
           <WrapPanel>
             <Button Content="Same as PC" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding SetFollowCommand}" CommandParameter="pc"/>
             <Button Content="Average colours" Style="{StaticResource BaseButton}" Margin="0,5,8,5" Command="{Binding SetFollowCommand}" CommandParameter="average"/>
@@ -330,7 +374,7 @@
       </c:GlassCard>
       <c:GlassCard Margin="0,0,0,18" StaggerIndex="2">
         <StackPanel>
-          <TextBlock Text="Mi Home token" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
+          <TextBlock Text="Add token for selected device" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
           <v:TokenEntry/>
           <TextBlock Text="{Binding TokenNote}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
         </StackPanel>

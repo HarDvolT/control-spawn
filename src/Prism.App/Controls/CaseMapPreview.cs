@@ -26,6 +26,8 @@ public sealed class CaseMapPreview : FrameworkElement
     private int anchor = -1;
     private string? anchorDevice;
     private bool draggingLamp;
+    private string? draggedLampId;
+    private readonly List<(Point Pixel, string Id)> lampHits = new();
     private readonly List<(Point Pixel, RgbDeviceState Device, int Index, DevicePlacement Placement)> hits = new();
     public bool MapEditing { get; set; }
     public bool LedEditing { get; set; }
@@ -58,7 +60,7 @@ public sealed class CaseMapPreview : FrameworkElement
             var saved = model?.Map ?? new([]);
             var placements = CaseMap.Default(devices).Devices.Select(d => saved.Devices.FirstOrDefault(p => p.Device == d.Device && p.Zone == d.Zone) ?? d)
                 .Concat(saved.Devices.Where(d => !CaseMap.Default(devices).Devices.Any(p => p.Device == d.Device && p.Zone == d.Zone))).ToArray();
-            return draft ?? new(placements, saved.Lamp);
+            return draft ?? new(placements, saved.Lamp, saved.Lamps);
         }
     }
     public static IReadOnlyList<RgbDeviceState> DemoDevices { get; } = [new("ram1", "RAM 1", "RAM", true, true, 10), new("ram2", "RAM 2", "RAM", true, true, 10),
@@ -150,9 +152,18 @@ public sealed class CaseMapPreview : FrameworkElement
         }
         if (!mini)
         {
+            lampHits.Clear();
+            var lamps = model?.State?.Lamps;
+            foreach (var item in lamps ?? [])
+            {
+                var lp = Pixel(CaseMap.LampPoint(map, devices, item.Id ?? "unresolved", lampHits.Count));
+                lampHits.Add((lp, item.Id ?? "unresolved"));
+                dc.DrawEllipse(Brush(item.Color), new Pen(Brush("#E4E4E7"), 1.5), lp, 10, 10);
+                Label(dc, item.Name ?? "Lamp", new(lp.X > ActualWidth * 0.7 ? lp.X - 76 : lp.X + 14, lp.Y - 22), 10, Brush("#E4E4E7"));
+            }
             var point = Pixel(CaseMap.LampPoint(map, devices));
-            dc.DrawEllipse(null, new Pen(Brush("#E4E4E7"), 1.5), point, 10, 10);
-            Label(dc, "LAMP", new(point.X + 14, point.Y - 9), 10, Brush("#E4E4E7"));
+            if (lamps is not { Count: > 0 }) dc.DrawEllipse(null, new Pen(Brush("#E4E4E7"), 1.5), point, 10, 10);
+            if (lamps is not { Count: > 0 }) Label(dc, "LAMP", new(point.X + 14, point.Y - 9), 10, Brush("#E4E4E7"));
             Label(dc, MapEditing ? "DRAG TO ARRANGE" : LedEditing ? "PER-LED CANVAS" : "LIVE CASE MAP", new(18, h - 26), 10, Brush("#A1A1AA"));
         }
     }
@@ -162,7 +173,9 @@ public sealed class CaseMapPreview : FrameworkElement
     {
         if (model is null || effect.HasValue) return;
         var point = e.GetPosition(this);
-        if (MapEditing && (point - Pixel(CaseMap.LampPoint(CurrentMap, model.State?.Lighting.Devices ?? DemoDevices))).Length < 16)
+        if (MapEditing && lampHits.FirstOrDefault(h => (h.Pixel - point).Length < 16) is var hitLamp && hitLamp.Id is not null)
+        { draggingLamp = true; draggedLampId = hitLamp.Id; CaptureMouse(); return; }
+        if (MapEditing && model.State?.Lamps is not { Count: > 0 } && (point - Pixel(CaseMap.LampPoint(CurrentMap, model.State?.Lighting.Devices ?? DemoDevices))).Length < 16)
         { draggingLamp = true; CaptureMouse(); return; }
         var hit = Nearest(point); if (hit is null) return;
         if (MapEditing)
@@ -185,7 +198,12 @@ public sealed class CaseMapPreview : FrameworkElement
     {
         if (!IsMouseCaptured || model is null) return;
         var point = e.GetPosition(this);
-        if (draggingLamp) draft = CurrentMap with { Lamp = new(Math.Clamp((point.X - 22) / Math.Max(1, ActualWidth - 44), 0, 1), Math.Clamp((point.Y - 22) / Math.Max(1, ActualHeight - 44), 0, 1)) };
+        if (draggingLamp)
+        {
+            var position = new MapPoint(Math.Clamp((point.X - 22) / Math.Max(1, ActualWidth - 44), 0, 1), Math.Clamp((point.Y - 22) / Math.Max(1, ActualHeight - 44), 0, 1));
+            if (draggedLampId is null) draft = CurrentMap with { Lamp = position };
+            else { var points = new Dictionary<string, MapPoint>(CurrentMap.Lamps ?? new Dictionary<string, MapPoint>()) { [draggedLampId] = position }; draft = CurrentMap with { Lamps = points }; }
+        }
         else if (dragged is { } selected)
         {
             var moved = selected with { X = Math.Clamp(selected.X + (point.X - dragStart.X) / Math.Max(1, ActualWidth - 44), 0, 1), Y = Math.Clamp(selected.Y + (point.Y - dragStart.Y) / Math.Max(1, ActualHeight - 44), 0, 1) };
@@ -208,7 +226,7 @@ public sealed class CaseMapPreview : FrameworkElement
             var indices = Enumerable.Range(Math.Min(anchor, hit.Index), Math.Abs(hit.Index - anchor) + 1);
             model.Editor.Paint(anchor > hit.Index ? indices.Reverse() : indices, gradient: true);
         }
-        dragged = null; draggingLamp = false; ReleaseMouseCapture(); InvalidateVisual();
+        dragged = null; draggingLamp = false; draggedLampId = null; ReleaseMouseCapture(); InvalidateVisual();
     }
     private void Paint(RgbDeviceState device, int index)
     {

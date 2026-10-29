@@ -47,6 +47,8 @@ public sealed class DashboardViewModel : PageViewModel
 
     public IReadOnlyList<string> FanModes { get; } = ["Silent", "Standard", "Turbo", "Full speed"];
 
+    public IReadOnlyList<LampRow> LampRows => State is { } s ? LampRow.From(s) : [];
+
     public string Greeting
     {
         get
@@ -175,6 +177,7 @@ public sealed class DashboardViewModel : PageViewModel
             ? (lamp.Follow switch { "pc" => "Synced to PC", "average" => "Average of PC colours", _ => "Own colour" })
               + " · " + lamp.Transport
             : "Not connected";
+
 
         ActiveScene = SceneCatalog.All
             .FirstOrDefault(s => s.Effect == state.Lighting.Effect && s.FanMode == state.FanMode)?.Name ?? "Custom";

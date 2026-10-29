@@ -32,7 +32,30 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private ServiceSettings settings = new();
     private IRgbBackend rgb;
     private ILampClient? lamp;
-    private LampState? lampState;
+
+    private readonly Dictionary<string, LampState> lampStates = new();
+    private readonly MiioDiscovery miioDiscovery;
+    private readonly bool useMockDiscovery;
+    private readonly SemaphoreSlim discoveryGate = new(1, 1);
+    private IReadOnlyList<MiioDevice> discoveredLamps = [];
+    private TimeSpan nextDiscovery;
+    private Func<string, MiioDevice, Task>? lampResolutionHandler;
+    public void SetLampResolutionHandler(Func<string, MiioDevice, Task> handler) => lampResolutionHandler = handler;
+    public async Task<IReadOnlyList<MiioDevice>> DiscoverLampsAsync(CancellationToken token)
+    {
+        if (useMockDiscovery) return [new("192.0.2.1", 470875761, 1), new("192.0.2.2", 470124183, 1)];
+        await discoveryGate.WaitAsync(token);
+        try
+        {
+            if (clock.Elapsed >= nextDiscovery)
+            {
+                nextDiscovery = clock.Elapsed + TimeSpan.FromSeconds(30);
+                discoveredLamps = await miioDiscovery.DiscoverAsync(token, Volatile.Read(ref settings).ConfiguredLamps.Where(l => l.DeviceId is null && l.Host is not null).Select(l => l.Host!));
+            }
+            return discoveredLamps;
+        }
+        finally { discoveryGate.Release(); }
+    }
     private RouterState? routerState;
     private RgbDeviceState[] devices = [];
     private Dictionary<string, uint> rgbIndices = new();
@@ -46,6 +69,8 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private bool disposed;
     private readonly SemaphoreSlim rgbGate = new(1, 1);
     private int lampCredentials, routerCredentials;
+    private readonly ConcurrentDictionary<string, int> lampRevisions = new();
+    public void LampCredentialsChanged(string id) => lampRevisions.AddOrUpdate(id, 1, (_, revision) => revision + 1);
     public void CredentialsChanged(bool lamp) { if (lamp) Interlocked.Increment(ref lampCredentials); else Interlocked.Increment(ref routerCredentials); }
 
     public async Task<RgbDeviceState> ResizeZoneAsync(string device, int zone, int size, CancellationToken cancellationToken)
@@ -91,9 +116,12 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             mock ? new FakeLampClient() : null, mock ? new FakeRouterBackend() : null) { }
 
     public ServiceRuntime(bool mock, ISensorSource sensors, IFanControlPort controls, IHealthProbe healthProbe,
-        IRgbBackend rgb, ILampClient? lamp, IRouterBackend? router, IAudioLevels? audioLevels = null, IScreenZones? screenZones = null)
+        IRgbBackend rgb, ILampClient? lamp, IRouterBackend? router, IAudioLevels? audioLevels = null, IScreenZones? screenZones = null, MiioDiscovery? miioDiscovery = null, IClock? clock = null)
     {
         this.mock = mock;
+        this.miioDiscovery = miioDiscovery ?? new(new UdpMiioDiscoveryTransport());
+        useMockDiscovery = mock && miioDiscovery is null;
+        if (clock is not null) this.clock = clock;
         this.audioLevels = audioLevels ?? (!mock && OperatingSystem.IsWindows() ? new WasapiLoopback() : null);
         this.screenZones = screenZones ?? (!mock && OperatingSystem.IsWindows() ? new DesktopDuplication() : null);
         this.sensors = sensors; this.controls = controls; fans = new(controls);
@@ -118,7 +146,8 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null,
                 CustomEnabled = value.LedLayers.GetValueOrDefault(d.Id)?.CustomEnabled == true }).ToArray();
             var health = new ServiceHealth(mock, elevated, warnings.Values.Order().ToArray(), failsafe);
-            var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lampState, routerState, health);
+            var lamps = value.ConfiguredLamps.Select(c => lampStates.GetValueOrDefault(c.Id) ?? new LampState("yeelink.light.color5", false, c.On, c.Brightness, c.Color, c.Follow, "not configured", c.Id, c.Name, c.DeviceId, c.LastHost ?? c.Host)).ToArray();
+            var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lamps.FirstOrDefault(), routerState, health) with { Lamps = lamps };
             var frame = FrameInputs();
             static string Hex(RgbColor? color) { var c = color ?? RgbColor.Black; return $"#{c.R:X2}{c.G:X2}{c.B:X2}"; }
             return state with { Lighting = state.Lighting with { Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
@@ -204,7 +233,7 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private async Task LightingAsync(CancellationToken token)
     {
         if (Observe) { warnings["observe"] = "Observe mode: fans, RGB and lamp are not controlled."; await Task.Delay(Timeout.Infinite, token); }
-        TimeSpan reconnect = TimeSpan.Zero, nextRefresh = TimeSpan.Zero;
+        TimeSpan reconnect = TimeSpan.Zero, nextRefresh = TimeSpan.Zero, nextOfflineLog = TimeSpan.Zero;
         var pacer = new DeviceFramePacer();
         static (RgbDeviceState[] Devices, Dictionary<string, uint> Indices) Identify(OpenRgbClient client)
         {
@@ -293,8 +322,11 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             {
                 rgbConnected = false; reconnect = clock.Elapsed + TimeSpan.FromSeconds(5);
                 warnings["rgb"] = $"OpenRGB connection lost ({e.GetType().Name}: {e.Message}); reconnecting in 5 s.";
-                System.Diagnostics.Trace.TraceWarning("RGB reconnect: " + e);
-                Console.Error.WriteLine($"[rgb] reconnect after {e.GetType().Name}: {e.Message}");
+                if (e is SocketException { SocketErrorCode: SocketError.ConnectionRefused } || e is OperationCanceledException)
+                {
+                    if (clock.Elapsed >= nextOfflineLog) { Console.Error.WriteLine("[rgb] OpenRGB not reachable"); nextOfflineLog = clock.Elapsed + TimeSpan.FromMinutes(1); }
+                }
+                else { System.Diagnostics.Trace.TraceWarning("RGB reconnect: " + e); Console.Error.WriteLine($"[rgb] reconnect after {e.GetType().Name}: {e.Message}"); }
                 lock (stateGate) devices = devices.Select(d => d with { Connected = false }).ToArray();
                 await rgb.DisposeAsync(); rgb = mock ? new FakeRgbBackend() : new OpenRgbClient(new TcpConnectionFactory());
                 rgbConnected = mock;
@@ -314,73 +346,126 @@ public sealed class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 
     private async Task LampAsync(CancellationToken token)
     {
+        var workers = new Dictionary<string, (CancellationTokenSource Stop, Task Task)>();
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+        try
+        {
+            do
+            {
+                var configs = Volatile.Read(ref settings).ConfiguredLamps;
+                foreach (var id in workers.Keys.Where(id => configs.All(c => c.Id != id)).ToArray())
+                {
+                    var worker = workers[id]; worker.Stop.Cancel();
+                    try { await worker.Task; } catch (OperationCanceledException) { }
+                    worker.Stop.Dispose(); workers.Remove(id);
+                    lock (stateGate) lampStates.Remove(id);
+                    warnings.TryRemove(id, out _);
+                }
+                foreach (var config in configs.Where(c => !workers.ContainsKey(c.Id)))
+                {
+                    var source = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    var initial = workers.Count == 0 ? lamp : null; lamp = null;
+                    workers[config.Id] = (source, LampWorkerAsync(config.Id, initial, source.Token));
+                }
+            } while (await timer.WaitForNextTickAsync(token));
+        }
+        finally
+        {
+            foreach (var worker in workers.Values) worker.Stop.Cancel();
+            foreach (var worker in workers.Values) { try { await worker.Task; } catch (OperationCanceledException) { } finally { worker.Stop.Dispose(); } }
+        }
+    }
+
+    private async Task LampWorkerAsync(string lampId, ILampClient? initial, CancellationToken token)
+    {
         if (Observe) await Task.Delay(Timeout.Infinite, token);
-        int credentials = Volatile.Read(ref lampCredentials); string? connectedHost = null;
+        ILampClient? lamp = initial;
+        int credentials = Volatile.Read(ref lampCredentials), revision = lampRevisions.GetValueOrDefault(lampId); string? connectedHost = null;
         LampConfiguration? applied = null; string transport = mock ? "mock" : "not configured";
         LampSync? sync = lamp is null ? null : new(lamp, clock);
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
         var retry = TimeSpan.Zero;
-        do
+        var nextPoll = TimeSpan.Zero;
+        try
         {
-            var value = Volatile.Read(ref settings); var config = value.Lamp;
-            try
+            do
             {
-                if (credentials != Volatile.Read(ref lampCredentials) || (applied is not null && config.Host != connectedHost))
+                var value = Volatile.Read(ref settings); var config = value.ConfiguredLamps.FirstOrDefault(c => c.Id == lampId);
+                if (config is null) return;
+                try
                 {
-                    if (lamp is not null) await lamp.DisposeAsync();
-                    lamp = null; applied = null; retry = TimeSpan.Zero;
-                    credentials = Volatile.Read(ref lampCredentials);
-                }
-                if (lamp is null && clock.Elapsed >= retry)
-                {
-                    if (mock) { lamp = new FakeLampClient(); transport = "mock"; sync = new(lamp, clock); }
-                    else
+                    if (credentials != Volatile.Read(ref lampCredentials) || revision != lampRevisions.GetValueOrDefault(lampId) || (applied is not null && config.DeviceId != applied.DeviceId))
                     {
-                        var factory = new LampFactory(new TcpConnectionFactory(), new(new UdpDiscoveryTransport()), clock);
-                        var connection = await factory.CreateAsync(config.Host, new LampTokenStore().Load(), token);
-                        lamp = connection.Client; transport = connection.Transport;
-                        if (lamp is null) { warnings["lamp"] = "Lamp not configured."; retry = clock.Elapsed + TimeSpan.FromSeconds(5); continue; }
-                        sync = new(lamp, clock);
+                        if (lamp is not null) await lamp.DisposeAsync();
+                        lamp = null; applied = null; retry = TimeSpan.Zero;
+                        credentials = Volatile.Read(ref lampCredentials); revision = lampRevisions.GetValueOrDefault(lampId);
                     }
-                }
-                if (lamp is null) continue;
-                connectedHost = config.Host;
-                if (config != applied)
-                {
-                    await lamp.SetPowerAsync(config.On, token);
-                    if (lamp is MiioLampClient m)
-                    { await m.SetBrightnessAsync(config.Brightness, token); if (config.Kelvin is { } k) await m.SetColorTemperatureAsync(k, token); }
-                    if (lamp is YeelightClient y)
-                    { await y.SetBrightnessAsync(config.Brightness, token); if (config.Kelvin is { } k) await y.SetColorTemperatureAsync(k, token); }
-                    if (config.Follow == "own" && config.Kelvin is null) await lamp.SetColorAsync(LightingConfiguration.ParseColor(config.Color), token);
-                    applied = config;
-                }
-                if (config.On && config.Follow != "own")
-                {
-                    RgbDeviceState[] current; lock (stateGate) current = devices;
-                    double time = clock.Elapsed.TotalSeconds;
-                    IReadOnlyList<RgbColor> colors;
-                    if (config.Follow == "pc")
+                    if (lamp is null && clock.Elapsed >= retry)
                     {
-                        MapPoint[] point = [CaseMap.LampPoint(value.Map, current)];
-                        var rendered = SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, point, kind: "strip", input: FrameInputs());
-                        colors = eventEffects.Composite(rendered, point, time, value.Events);
+                        if (mock) { lamp = new FakeLampClient(); transport = "mock"; sync = new(lamp, clock); }
+                        else
+                        {
+                            var found = await DiscoverLampsAsync(token);
+                            var resolved = config.DeviceId is { } did ? found.FirstOrDefault(d => d.DeviceId == did) : found.FirstOrDefault(d => d.Ip == config.Host);
+                            if (resolved is null) throw new IOException("Lamp not discovered.");
+                            if (lampResolutionHandler is not null && (config.DeviceId is null || config.LastHost != resolved.Ip))
+                            {
+                                await lampResolutionHandler(config.Id, resolved);
+                                if (config.DeviceId is null) return;
+                            }
+                            var store = new LampTokenStore();
+                            var secret = config.DeviceId is { } key ? store.Load(key) : store.Load();
+                            if (secret is null) throw new IOException("Lamp token missing.");
+                            try { lamp = new MiioLampClient(new UdpMiioTransport(resolved.Ip), secret, clock, resolved.DeviceId); }
+                            finally { System.Security.Cryptography.CryptographicOperations.ZeroMemory(secret); }
+                            connectedHost = resolved.Ip; transport = "miio";
+                            sync = new(lamp, clock);
+                        }
                     }
-                    else colors = current.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, true) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false)
-                        .SelectMany(d => RenderDevice(value, d, current, time)).ToArray();
-                    await sync!.PushAsync(colors, LampColorSelection.Average, cancellationToken: token);
+                    if (lamp is null) continue;
+                    if (mock) connectedHost = config.Host;
+                    if (config != applied)
+                    {
+                        await lamp.SetPowerAsync(config.On, token);
+                        if (lamp is MiioLampClient m)
+                        { await m.SetBrightnessAsync(config.Brightness, token); if (config.Kelvin is { } k) await m.SetColorTemperatureAsync(k, token); }
+                        if (lamp is YeelightClient y)
+                        { await y.SetBrightnessAsync(config.Brightness, token); if (config.Kelvin is { } k) await y.SetColorTemperatureAsync(k, token); }
+                        if (config.Follow == "own" && config.Kelvin is null) await lamp.SetColorAsync(LightingConfiguration.ParseColor(config.Color), token);
+                        applied = config;
+                    }
+                    if (config.On && config.Follow != "own")
+                    {
+                        RgbDeviceState[] current; lock (stateGate) current = devices;
+                        double time = clock.Elapsed.TotalSeconds;
+                        IReadOnlyList<RgbColor> colors;
+                        if (config.Follow is "pc" or "map")
+                        {
+                            MapPoint[] point = [value.Map.Lamps?.GetValueOrDefault(lampId) ?? config.MapPoint ?? CaseMap.LampPoint(value.Map, current, lampId, value.ConfiguredLamps.ToList().FindIndex(l => l.Id == lampId))];
+                            var rendered = SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, point, kind: "strip", input: FrameInputs());
+                            colors = eventEffects.Composite(rendered, point, time, value.Events);
+                        }
+                        else colors = current.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, true) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false)
+                            .SelectMany(d => RenderDevice(value, d, current, time)).ToArray();
+                        await sync!.PushAsync(colors, LampColorSelection.Average, cancellationToken: token);
+                    }
+                    if (lamp is MiioLampClient poll && clock.Elapsed >= nextPoll)
+                    {
+                        await poll.GetPropertiesAsync(token); nextPoll = clock.Elapsed + TimeSpan.FromSeconds(30);
+                    }
+                    warnings.TryRemove(lampId, out _);
+                    lock (stateGate) lampStates[lampId] = new("yeelink.light.color5", true, config.On, config.Brightness, config.Follow != "own" && sync?.LastColor is { } live ? $"#{live.R:X2}{live.G:X2}{live.B:X2}" : config.Color, config.Follow, transport, config.Id, config.Name, config.DeviceId, connectedHost);
                 }
-                warnings.TryRemove("lamp", out _);
-                lock (stateGate) lampState = new("yeelink.light.color5", true, config.On, config.Brightness, config.Color, config.Follow, transport);
-            }
-            catch (Exception e) when (!token.IsCancellationRequested && e is IOException or SocketException or OperationCanceledException or InvalidOperationException or System.Security.Cryptography.CryptographicException or System.Text.Json.JsonException or KeyNotFoundException)
-            {
-                warnings["lamp"] = "Lamp unavailable; check transport and token configuration.";
-                lock (stateGate) if (lampState is not null) lampState = lampState with { Connected = false };
-                if (lamp is not null) await lamp.DisposeAsync(); lamp = null; applied = null;
-                retry = clock.Elapsed + TimeSpan.FromSeconds(5);
-            }
-        } while (await timer.WaitForNextTickAsync(token));
+                catch (Exception e) when (!token.IsCancellationRequested && e is IOException or SocketException or OperationCanceledException or InvalidOperationException or System.Security.Cryptography.CryptographicException or System.Text.Json.JsonException or KeyNotFoundException or UnauthorizedAccessException)
+                {
+                    warnings[lampId] = $"{config.Name}: lamp unavailable; check transport and token configuration.";
+                    lock (stateGate) lampStates[lampId] = new("yeelink.light.color5", false, config.On, config.Brightness, config.Color, config.Follow, transport, config.Id, config.Name, config.DeviceId, connectedHost, "Lamp unavailable; check token and discovery.");
+                    if (lamp is not null) await lamp.DisposeAsync(); lamp = null; applied = null;
+                    retry = clock.Elapsed + TimeSpan.FromSeconds(30);
+                }
+            } while (await timer.WaitForNextTickAsync(token));
+        }
+        finally { if (lamp is not null) await lamp.DisposeAsync(); }
     }
 
     private async Task RouterAsync(CancellationToken token)

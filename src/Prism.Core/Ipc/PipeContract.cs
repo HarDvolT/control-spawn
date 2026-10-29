@@ -31,7 +31,7 @@ public static class Commands
     public const string SetFanCurve = "setFanCurve";     // args: { "group": "...", "points": [[t,%] x8], "source": "Cpu|Motherboard|Gpu|Maximum" }
     public const string SetLighting = "setLighting";     // args: { "effect": "Static|...", "color": "#RRGGBB", "brightness": 0..1, "speed": 0..2 }
     public const string SetDeviceSync = "setDeviceSync"; // args: { "device": "<id>", "enabled": true }
-    public const string SetLamp = "setLamp";             // args: { "on": true, "brightness": 1..100, "follow": "pc|average|own", "color": "#RRGGBB" }
+    public const string SetLamp = "setLamp";             // args: { "lamp"?: id (default first), "on"?: true, "brightness"?: 1..100, "follow"?: "pc|average|own|map", "color"?: "#RRGGBB", "name"?: string }
     public const string ApplyScene = "applyScene";       // args: { "name": "Gaming" }
     public const string SetEffectParams = "setEffectParams"; // { parameters: EffectParameters }
     public const string SetLightingMap = "setLightingMap"; // { map: LightingMap }
@@ -46,7 +46,9 @@ public static class Commands
                                                          //   overlay = colours with alpha "#RRGGBBAA" painted over the running effect; "#00000000" = untouched
     public const string ClearLedColors = "clearLedColors"; // args: { "device": "<id>" }  removes custom/overlay colours for that device
     public const string ResizeZone = "resizeZone";       // args: { "device": "<id>", "zone": 0, "size": 30 }  ARGB headers start at 0 LEDs
-    public const string SetLampToken = "setLampToken";   // args: { "host": "192.168.x.x", "token": "<32 hex>" }  stored DPAPI-encrypted by the service, never echoed back
+    public const string DiscoverLamps = "discoverLamps"; // returns [{ ip, deviceId, alreadyConfigured }]
+    public const string RemoveLamp = "removeLamp"; // { lamp: id }
+    public const string SetLampToken = "setLampToken";   // args: { "deviceId"?: decimal uint or "0x...", "name"?: string, "host"?: string, "token": "<32 hex>" }  stored DPAPI-encrypted by the service, never echoed back
     public const string SetRouterPassword = "setRouterPassword"; // args: { "password": "..." }  stored DPAPI-encrypted, never echoed back
     public const string SetServiceOptions = "setServiceOptions"; // args: { "openRgbPath": "...", "launchOpenRgb": true, "routerEnabled": true, "routerHost": "192.168.0.1" }
 }
@@ -64,7 +66,7 @@ public sealed record StateMessage(
     LampState? Lamp,
     RouterState? Router,
     ServiceHealth Health,
-    string Type = "state");
+    string Type = "state", IReadOnlyList<LampState>? Lamps = null);
 
 public sealed record SystemState(
     double? CpuLoad, IReadOnlyList<double?> CpuCoreLoads, double? CpuClockMhz, double? CpuTemp, double? CpuPowerW,
@@ -88,7 +90,7 @@ public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Co
 public sealed record RgbZoneState(string Name, string Type, int FirstLed, int LedCount, int MinLeds, int MaxLeds,
     IReadOnlyList<string>? LedNames = null,
     int MatrixWidth = 0, int MatrixHeight = 0, IReadOnlyList<int>? Matrix = null); // Matrix: LED index per cell, -1 = empty
-public sealed record LampState(string Model, bool Connected, bool On, int Brightness, string Color, string Follow, string Transport);
+public sealed record LampState(string Model, bool Connected, bool On, int Brightness, string Color, string Follow, string Transport, string? Id = null, string? Name = null, uint? DeviceId = null, string? Host = null, string? Error = null);
 public sealed record RouterState(
     bool Connected, string? Network, string? Band, int? Score, int? Bars, string? Verdict, string? Sentence,
     double? Rsrp5g, double? Sinr5g, double? Rsrq5g, double? Rsrp4g, double? Sinr4g, double? Rsrq4g,
@@ -101,7 +103,7 @@ public sealed record ServiceHealth(bool Mock, bool Elevated, IReadOnlyList<strin
 public sealed record MapPoint(double X, double Y);
 public sealed record DevicePlacement(string Device, double X, double Y, double Length = 0.4,
     double Rotation = 90, bool Flip = false, int? Zone = null);
-public sealed record LightingMap(IReadOnlyList<DevicePlacement> Devices, MapPoint? Lamp = null);
+public sealed record LightingMap(IReadOnlyList<DevicePlacement> Devices, MapPoint? Lamp = null, IReadOnlyDictionary<string, MapPoint>? Lamps = null);
 public sealed record PaletteStop(double Position, string Color);
 public sealed record EffectParameters
 {

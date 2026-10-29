@@ -23,7 +23,8 @@ public static class LightingValidation
             map.Devices.Any(d => d is null || string.IsNullOrWhiteSpace(d.Device) || d.Device.Length > 256 ||
                 d.Zone is < 0 || !Finite(d.X, 0, 1) || !Finite(d.Y, 0, 1) || !Finite(d.Length, 0.01, 1) || !Finite(d.Rotation, 0, 360)) ||
             map.Devices.Select(d => (d.Device, d.Zone)).Distinct().Count() != map.Devices.Count ||
-            map.Lamp is { } lamp && (!Finite(lamp.X, 0, 1) || !Finite(lamp.Y, 0, 1)))
+            map.Lamp is { } lamp && (!Finite(lamp.X, 0, 1) || !Finite(lamp.Y, 0, 1)) ||
+            map.Lamps is not null && (map.Lamps.Count > 256 || map.Lamps.Any(p => string.IsNullOrWhiteSpace(p.Key) || p.Value is null || !Finite(p.Value.X, 0, 1) || !Finite(p.Value.Y, 0, 1))))
             throw new ArgumentException("Invalid case map.");
     }
     private static bool Finite(double x, double min, double max) => double.IsFinite(x) && x >= min && x <= max;
@@ -76,6 +77,11 @@ public static class CaseMap
             result[i] = new(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1));
         }
         return result;
+    }
+    public static MapPoint LampPoint(LightingMap? map, IReadOnlyList<RgbDeviceState> devices, string id, int index)
+    {
+        if (map?.Lamps?.GetValueOrDefault(id) is { } point) return point;
+        return index == 0 ? LampPoint(map, devices) : new(0.82, Math.Min(0.9, 0.65 + (index - 1) * 0.12));
     }
     public static MapPoint LampPoint(LightingMap? map, IReadOnlyList<RgbDeviceState> devices)
     {

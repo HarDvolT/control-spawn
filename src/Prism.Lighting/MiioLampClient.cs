@@ -34,10 +34,12 @@ public sealed class MiioLampClient : ILampClient
     private bool sent;
     private int id;
     private bool disposed;
+    private readonly uint? expectedDeviceId;
     public bool IsMusicMode => false;
-    public MiioLampClient(IMiioTransport transport, byte[] token, IClock clock)
+    public MiioLampClient(IMiioTransport transport, byte[] token, IClock clock, uint? expectedDeviceId = null)
     {
         if (token.Length != 16) throw new ArgumentException("Token must contain 16 bytes.", nameof(token));
+        this.expectedDeviceId = expectedDeviceId;
         this.transport = transport; this.token = token.ToArray(); this.clock = clock;
     }
     public Task SetPowerAsync(bool on, CancellationToken cancellationToken = default) =>
@@ -74,7 +76,9 @@ public sealed class MiioLampClient : ILampClient
                     {
                         var hello = await ExchangeAsync(MiioProtocol.Hello(), cancellationToken);
                         if (hello.Length != 32) throw new InvalidDataException("Expected miIO hello reply.");
-                        header = MiioProtocol.ReadHeader(hello); stampAt = clock.Elapsed;
+                        header = MiioProtocol.ReadHeader(hello);
+                        if (expectedDeviceId is { } expected && header.DeviceId != expected) throw new InvalidOperationException("Unexpected miIO device.");
+                        stampAt = clock.Elapsed;
                     }
                     var wait = TimeSpan.FromMilliseconds(500) - (clock.Elapsed - lastSent);
                     if (sent && wait > TimeSpan.Zero) await clock.DelayAsync(wait, cancellationToken);
