@@ -20,6 +20,11 @@ public sealed class LampViewModel : PageViewModel
     private string? editLampId;
     public System.Collections.ObjectModel.ObservableCollection<LampTileViewModel> Tiles { get; } = new();
     public RelayCommand<string> SetBothCommand { get; }
+    public RelayCommand<string> BothColorCommand => new(hex => { if (hex is not null) foreach (var tile in Tiles) tile.ColorEntry = hex; });
+    public RelayCommand<string> BothFollowCommand => new(follow => { if (follow is not null) foreach (var tile in Tiles) tile.Follow = follow; });
+    public RelayCommand ToggleBothCommand => new(() => { bool next = !Tiles.Any(t => t.On); foreach (var tile in Tiles) tile.On = next; });
+    public string ToggleBothText => Tiles.Any(t => t.On) ? "Turn both off" : "Turn both on";
+    public IReadOnlyList<string> SharedSwatches { get; } = ["#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF"];
     public double BothBrightness
     {
         get => Tiles.Count > 0 ? Tiles.Average(l => l.Brightness) : 1;

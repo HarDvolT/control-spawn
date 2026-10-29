@@ -9,15 +9,17 @@ public sealed class LampTileViewModel : PageViewModel
     private bool on, connected, suppress;
     private double brightness;
     private string color = "#FFFFFF", follow = "pc", name = "Lamp";
+    private string? host;
     public LampTileViewModel(IPrismClient client, string id) : base(client) { Id = id; ToggleCommand = new RelayCommand(() => On = !On); SelectColorCommand = new RelayCommand<string>(hex => { if (hex is not null) ColorEntry = hex; }); SetBrightnessCommand = new RelayCommand<string>(value => { if (double.TryParse(value, out var level)) Brightness = level; }); }
     public string Id { get; }
     public string Name => name;
     public bool Connected => connected;
-    public string ConnectionText => connected ? "Connected" : "Offline";
+    public string ConnectionText => connected ? "Connected · " + host : "Offline";
+    public string PowerText => On ? "ON" : "OFF";
     public RelayCommand ToggleCommand { get; }
     public RelayCommand<string> SelectColorCommand { get; }
     public RelayCommand<string> SetBrightnessCommand { get; }
-    public IReadOnlyList<string> Swatches { get; } = ["#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF"];
+    public IReadOnlyList<string> Swatches { get; } = ["#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF", "#FF4DB8"];
     public IReadOnlyList<string> FollowModes { get; } = ["pc", "average", "own", "map"];
     public bool On { get => on; set { if (Set(ref on, value) && !suppress) _ = PushAsync(); } }
     public double Brightness { get => brightness; set { if (Set(ref brightness, Math.Clamp(Math.Round(value), 1, 100)) && !suppress) _ = PushAsync(); } }
@@ -28,7 +30,7 @@ public sealed class LampTileViewModel : PageViewModel
         var lamp = (State?.Lamps ?? (State?.Lamp is { } first ? [first] : [])).FirstOrDefault(l => l.Id == Id);
         if (lamp is null) return;
         suppress = true;
-        name = lamp.Name ?? lamp.Model; connected = lamp.Connected;
+        name = lamp.Name ?? lamp.Model; connected = lamp.Connected; host = lamp.Host;
         On = lamp.On; Brightness = lamp.Brightness; ColorEntry = lamp.Color; Follow = lamp.Follow;
         suppress = false; NotifyAll();
     }
