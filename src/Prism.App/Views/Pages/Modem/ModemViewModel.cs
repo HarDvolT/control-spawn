@@ -176,7 +176,7 @@ public sealed class ModemViewModel : PageViewModel
         BarCount = router.Bars ?? 0;
         Verdict = router.Verdict ?? Format.Dash;
         Sentence = router.Sentence ?? string.Empty;
-        VerdictColor = ColorUtil.ToHex(Verdict == "Good" ? ColorUtil.Good : Verdict == "Fair" ? ColorUtil.Fair : Verdict == "Poor" ? ColorUtil.Poor : ColorUtil.TextTertiary);
+        VerdictColor = ColorUtil.ToHex(ColorUtil.ForVerdict(Verdict));
 
         _rsrp5 = router.Rsrp5g ?? double.NaN;
         _sinr5 = router.Sinr5g ?? double.NaN;
@@ -237,7 +237,7 @@ public sealed class ModemViewModel : PageViewModel
     }
 
     private System.Windows.Media.Color RatingColorFromVerdict() =>
-        Verdict == "Good" ? ColorUtil.Good : Verdict == "Fair" ? ColorUtil.Fair : ColorUtil.Poor;
+        ColorUtil.ForVerdict(Verdict);
 
     private void BuildSimpleRows()
     {

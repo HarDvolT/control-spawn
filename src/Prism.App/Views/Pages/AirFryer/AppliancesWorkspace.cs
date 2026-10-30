@@ -37,8 +37,8 @@ public sealed class AppliancesWorkspace : UserControl
         title.SetResourceReference(StyleProperty, "H1"); root.Children.Add(title);
         root.Children.Add(new TextBlock { Text = "Cooking starts only after you confirm here.", Foreground = Brushes.Silver, TextWrapping = TextWrapping.Wrap });
         var error = new TextBlock { Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap }; error.SetBinding(VisibilityProperty, new Binding("LastError") { Converter = new StringToVisibilityConverter() }); error.SetBinding(TextBlock.TextProperty, new Binding("LastError")); root.Children.Add(error);
-        if (model.Appliances.Count == 0) root.Children.Add(new TextBlock { Text = "Find your fryer on the Devices page, then import its token.", Foreground = Brushes.Silver, Margin = new(0, 24, 0, 24) });
         var grid = new CardGrid { Margin = new(0, 16, 0, 0) }; root.Children.Add(grid);
+        if (model.Appliances.Count == 0) AddNotConnected(grid);
         foreach (var appliance in model.Appliances)
         {
             var panel = new StackPanel();
@@ -134,16 +134,8 @@ public sealed class AppliancesWorkspace : UserControl
             for (int i = 0; i < 6; i++) presetGrid.Children.Add(new Border { Height = 60, CornerRadius = new(14), Background = new SolidColorBrush(Color.FromRgb(23, 24, 29)), Child = new TextBlock { Text = "\u2014", Foreground = Brushes.Gray, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
             presets.Children.Add(presetGrid);
             aside.Children.Add(new GlassCard { Content = presets, MinHeight = 358 });
-            var safety = new StackPanel(); safety.Children.Add(new TextBlock { Text = "Safety", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 16) });
-            foreach (var (label, copy) in new[] { ("Start always asks twice", "Heating needs explicit confirmation here."), ("Settings lock while cooking", "Temperature and time lock until you stop."), ("Stop stays available", "Pause or cancel while the fryer is cooking."), ("Scenes cannot start cooking", "No scene or automation starts heating.") })
-            {
-                var row = new DockPanel { Margin = new(0, 0, 0, 14) };
-                var check = new Border { Width = 26, Height = 26, CornerRadius = new(9), Background = new SolidColorBrush(Color.FromArgb(30, 61, 220, 132)), Margin = new(0, 0, 12, 0), Child = new TextBlock { Text = "\u2713", Foreground = new SolidColorBrush(Color.FromRgb(61, 220, 132)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } }; DockPanel.SetDock(check, Dock.Left); row.Children.Add(check);
-                var copyPanel = new StackPanel(); copyPanel.Children.Add(new TextBlock { Text = label, FontWeight = FontWeights.SemiBold }); copyPanel.Children.Add(new TextBlock { Text = copy, FontSize = 12, Foreground = Brushes.Gray, Margin = new(0, 3, 0, 0), TextWrapping = TextWrapping.Wrap }); row.Children.Add(copyPanel); safety.Children.Add(row);
-            }
-            var safetyCard = new GlassCard { Span = 5, MinHeight = 308, Content = safety };
             grid.Children.Add(aside);
-            grid.Children.Add(safetyCard);
+            grid.Children.Add(SafetyCard(308));
             var recent = Info("Recent cooks", "Observed by the Prism service");
             foreach (var record in appliance.History?.Take(4) ?? [])
             {
@@ -157,6 +149,38 @@ public sealed class AppliancesWorkspace : UserControl
         }
         UpdateReadings();
     }
+    private static GlassCard SafetyCard(double minHeight)
+    {
+        var safety = new StackPanel(); safety.Children.Add(new TextBlock { Text = "Safety", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 16) });
+        foreach (var (label, copy) in new[] { ("Start always asks twice", "Heating needs explicit confirmation here."), ("Settings lock while cooking", "Temperature and time lock until you stop."), ("Stop stays available", "Pause or cancel while the fryer is cooking."), ("Scenes cannot start cooking", "No scene or automation starts heating.") })
+        {
+            var row = new DockPanel { Margin = new(0, 0, 0, 14) };
+            var check = new Border { Width = 26, Height = 26, CornerRadius = new(9), Background = new SolidColorBrush(Color.FromArgb(30, 61, 220, 132)), Margin = new(0, 0, 12, 0), Child = new TextBlock { Text = "✓", Foreground = new SolidColorBrush(Color.FromRgb(61, 220, 132)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } }; DockPanel.SetDock(check, Dock.Left); row.Children.Add(check);
+            var copyPanel = new StackPanel(); copyPanel.Children.Add(new TextBlock { Text = label, FontWeight = FontWeights.SemiBold }); copyPanel.Children.Add(new TextBlock { Text = copy, FontSize = 12, Foreground = Brushes.Gray, Margin = new(0, 3, 0, 0), TextWrapping = TextWrapping.Wrap }); row.Children.Add(copyPanel); safety.Children.Add(row);
+        }
+        return new GlassCard { Span = 5, MinHeight = minHeight, Content = safety };
+    }
+
+    // Same layout as a connected fryer, so the page never looks empty: a dimmed timer with a way to set one up.
+    private void AddNotConnected(CardGrid grid)
+    {
+        var panel = new DockPanel();
+        var ring = new RingGauge { Width = 205, Height = 205, TickCount = 60, Thickness = 14, ShowValue = false, Value = 0, Maximum = 1, RingColor = Color.FromRgb(37, 39, 46), Margin = new(0, 0, 26, 0) };
+        DockPanel.SetDock(ring, Dock.Left); panel.Children.Add(ring);
+        var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var heading = new TextBlock { Text = "No air fryer connected", FontSize = 20, FontWeight = FontWeights.SemiBold };
+        copy.Children.Add(heading);
+        copy.Children.Add(new TextBlock { Text = "Prism finds your fryer on the Wi-Fi. Add its token once on the Devices page, then the timer, temperature and presets appear here.", Foreground = Brushes.Silver, TextWrapping = TextWrapping.Wrap, Margin = new(0, 8, 0, 18) });
+        var open = new Button { Content = "Set up on Devices →", HorizontalAlignment = HorizontalAlignment.Left, MinHeight = 44, Padding = new(20, 0, 20, 0) };
+        open.SetResourceReference(StyleProperty, "PrimaryPillButton");
+        open.SetBinding(System.Windows.Controls.Primitives.ButtonBase.CommandProperty, new Binding("OpenPageCommand"));
+        open.CommandParameter = "Devices";
+        copy.Children.Add(open);
+        panel.Children.Add(copy);
+        grid.Children.Add(new GlassCard { Span = 7, MinHeight = 308, Content = panel });
+        grid.Children.Add(SafetyCard(308));
+    }
+
     private void UpdateReadings()
     {
         if (model is null) return;

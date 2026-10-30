@@ -209,6 +209,8 @@ public sealed class FansViewModel : PageViewModel
             _sourceName = config.Source switch { TemperatureSource.Cpu => "CPU", TemperatureSource.Gpu => "GPU", TemperatureSource.Motherboard => "Motherboard", _ => "Highest" };
             _minSpeed = config.Minimum;
         }
+        // The pump runs at a fixed 100%, so its curve is always the flat full-speed line.
+        else if (IsPumpSelected && !Curve.SequenceEqual(DefaultCurves[FanMode.Full])) LoadCurve(_mode);
         UpdateNow();
         NotifyAll();
     }

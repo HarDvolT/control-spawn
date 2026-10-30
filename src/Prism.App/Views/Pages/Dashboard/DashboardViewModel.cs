@@ -46,6 +46,7 @@ public sealed class DashboardViewModel : PageViewModel
     public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp, 0);
     public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot, 0);
     public string NetworkChip => State?.Router is { } router ? (router.Network ?? "Unavailable") + " " + router.Band : "Unavailable";
+    public string InternetColor => ColorUtil.ToHex(ColorUtil.ForVerdict(State?.Router?.Verdict));
     public string InternetScore => $"{State?.Router?.Verdict ?? "Unavailable"} · {State?.Router?.Score?.ToString() ?? Format.Dash}";
     public string InternetDetail => "Ping " + Format.Number(State?.Router?.PingMs) + " ms · ↓ " + Format.Mbps(State?.System.NetDownMbps);
     public string FanSubtitle => SelectedFanMode switch { "Silent" => "Quiet · you will barely hear it", "Turbo" => "Performance cooling", _ => "Automatic temperature control" };
@@ -73,6 +74,7 @@ public sealed class DashboardViewModel : PageViewModel
     public string Headline => State is null ? "Waiting for your system" : State.Health.Warnings.Count > 0 ? "Your system needs attention" :
         State.System.CpuTemp is null && State.System.GpuTemp is null ? "Waiting for live readings" :
         State.System.CpuTemp >= 85 || State.System.GpuTemp >= 85 ? "Your system is running hot" : "Everything is running cool";
+    public string FryerRingText => FryerStatus == "Not connected" ? Format.Dash : FryerStatus;
     public string FryerStatus => State?.Appliances?.FirstOrDefault() is { } fryer ? !fryer.Connected ? "Offline" : fryer.Status == "idle" ? "Ready" : fryer.Status : "Not connected";
     public string FryerDetail => State?.Appliances?.FirstOrDefault() is { } fryer ? fryer.Name + " \u00b7 " + fryer.Status : "Add your air fryer in Devices";
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }

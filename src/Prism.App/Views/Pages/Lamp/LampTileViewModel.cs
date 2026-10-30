@@ -19,7 +19,7 @@ public sealed class LampTileViewModel : PageViewModel
     public string Id { get; }
     public string Name => name;
     public bool Connected => connected;
-    public string ConnectionText => connected ? "Connected · " + host : "Offline";
+    public string ConnectionText => connected ? (string.IsNullOrWhiteSpace(host) ? "Connected" : "Connected · " + host) : "Offline";
     public string PowerText => On ? "ON" : "OFF";
     public RelayCommand ToggleCommand { get; }
     public RelayCommand<string> SelectColorCommand { get; }

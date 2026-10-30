@@ -8,9 +8,12 @@ public sealed class SpacedGrid : Panel
 {
     public int Columns { get; set; } = 4;
     public double Gap { get; set; } = 12;
+    /// <summary>Use fewer columns when there are fewer children, so one item fills the row.</summary>
+    public bool FitToCount { get; set; }
+    private int ColumnCount => Math.Max(1, FitToCount ? Math.Min(Columns, InternalChildren.Count) : Columns);
     protected override Size MeasureOverride(Size availableSize)
     {
-        var columns = Math.Max(1, Columns);
+        var columns = ColumnCount;
         double width = double.IsFinite(availableSize.Width) ? availableSize.Width : 1200;
         double cell = Math.Max(0, (width - Gap * (columns - 1)) / columns), height = 0;
         foreach (UIElement child in InternalChildren) { child.Measure(new Size(cell, availableSize.Height)); height = Math.Max(height, child.DesiredSize.Height); }
@@ -19,7 +22,7 @@ public sealed class SpacedGrid : Panel
     }
     protected override Size ArrangeOverride(Size finalSize)
     {
-        int columns = Math.Max(1, Columns), rows = Math.Max(1, (InternalChildren.Count + columns - 1) / columns);
+        int columns = ColumnCount, rows = Math.Max(1, (InternalChildren.Count + columns - 1) / columns);
         double width = Math.Max(0, (finalSize.Width - Gap * (columns - 1)) / columns);
         double height = Math.Max(0, (finalSize.Height - Gap * (rows - 1)) / rows);
         for (int i = 0; i < InternalChildren.Count; i++) InternalChildren[i].Arrange(new Rect(i % columns * (width + Gap), i / columns * (height + Gap), width, height));

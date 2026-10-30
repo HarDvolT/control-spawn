@@ -39,7 +39,7 @@
           <TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" TextWrapping="Wrap" />
         </StackPanel>
       </DockPanel>
-      <c:GlassCard Margin="0,0,0,16" Padding="18,16">
+      <c:GlassCard Margin="0,0,0,16" Padding="18,16" Visibility="{Binding ShowSharedBar, Converter={StaticResource BoolToVisibility}}">
         <DockPanel>
           <c:SegmentedControl DockPanel.Dock="Right" ItemsSource="{Binding SharedFollowModes}" SelectedItem="{Binding SharedFollowLabel, Mode=TwoWay}" VerticalAlignment="Center"/>
           <ItemsControl DockPanel.Dock="Left" Width="62" ItemsSource="{Binding SharedLampRows}" Margin="0,0,14,0" VerticalAlignment="Center"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><c:LampOrb Width="36" Height="36" RadiusInset="0" GlowRadius="12" ColorHex="{Binding Color}" Margin="0,0,-10,0"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
@@ -51,7 +51,7 @@
       <ItemsControl ItemsSource="{Binding Tiles}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <c:SpacedGrid Columns="2" Gap="16"/>
+            <c:SpacedGrid Columns="2" Gap="16" FitToCount="True"/>
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>

@@ -143,14 +143,14 @@
               <Button Content="Details →" Command="{Binding OpenPageCommand}" CommandParameter="Modem" Style="{StaticResource TextAction}" DockPanel.Dock="Right" />
               <TextBlock Text="Internet" Style="{StaticResource CardTitle}" />
             </DockPanel>
-            <DockPanel><c:SignalBars DockPanel.Dock="Left" Value="{Binding State.Router.Bars, TargetNullValue=NaN, FallbackValue=NaN}" Margin="0,0,12,0"/><StackPanel><TextBlock Text="{Binding InternetScore}" Style="{StaticResource Number}" FontSize="26" Foreground="#F5A524"/><TextBlock Text="{Binding InternetDetail}" Style="{StaticResource SmallMuted}" Margin="0,2,0,0"/></StackPanel></DockPanel>
+            <DockPanel><c:SignalBars DockPanel.Dock="Left" Value="{Binding State.Router.Bars, TargetNullValue=NaN, FallbackValue=NaN}" BarColor="{Binding InternetColor, Converter={StaticResource HexToColor}}" Margin="0,0,12,0"/><StackPanel><TextBlock Text="{Binding InternetScore}" Style="{StaticResource Number}" FontSize="26" Foreground="{Binding InternetColor, Converter={StaticResource HexToBrush}}"/><TextBlock Text="{Binding InternetDetail}" Style="{StaticResource SmallMuted}" Margin="0,2,0,0"/></StackPanel></DockPanel>
             <c:Sparkline Values="{Binding PingHistory}" Height="35" MinHeight="0" ShowGrid="False" Color="#36D6FF" Margin="0,8,0,0" />
           </StackPanel>
         </c:GlassCard>
         <c:GlassCard Span="4" Height="180">
           <StackPanel>
             <DockPanel VerticalAlignment="Center" Margin="0,26,0,0">
-              <c:RingGauge Width="92" Height="92" DockPanel.Dock="Left" Value="0" ShowValue="False" Caption="{Binding FryerStatus}" Margin="0,0,18,0" />
+              <c:RingGauge Width="92" Height="92" DockPanel.Dock="Left" Value="0" ShowValue="False" Caption="{Binding FryerRingText}" Margin="0,0,18,0" />
               <StackPanel>
                 <TextBlock Text="Air fryer" Style="{StaticResource CardTitle}" />
                 <TextBlock Text="{Binding FryerStatus}" Style="{StaticResource SmallMuted}" Margin="0,8" />

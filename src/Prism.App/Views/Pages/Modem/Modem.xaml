@@ -11,7 +11,7 @@
       </DockPanel>
       <c:CardGrid>
         <c:GlassCard Span="4" Height="340"><StackPanel>
-          <c:RingGauge Width="200" Height="200" ValueFontSize="56" Thickness="16" Value="{Binding Score}" Caption="{Binding Verdict}" SweepAngle="270" RingColor="#F5A524" Margin="0,14,0,8"/>
+          <c:RingGauge Width="200" Height="200" ValueFontSize="56" Thickness="16" Value="{Binding Score}" Caption="{Binding Verdict}" SweepAngle="270" RingColor="{Binding VerdictColor, Converter={StaticResource HexToColor}}" Margin="0,14,0,8"/>
           <ItemsControl ItemsSource="{Binding Bars}" HorizontalAlignment="Center"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Width="10" Height="{Binding Height}" Background="{Binding ColorHex, Converter={StaticResource HexToBrush}}" CornerRadius="3" Margin="2,0" VerticalAlignment="Bottom"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
           <TextBlock Text="{Binding Sentence}" Style="{StaticResource SmallMuted}" TextAlignment="Center" TextWrapping="Wrap" Margin="24,12,24,0"/>
         </StackPanel></c:GlassCard>

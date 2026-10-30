@@ -15,7 +15,7 @@
         <ItemsControl ItemsSource="{Binding NavigationGroups}" Margin="0,4,0,0"><ItemsControl.ItemTemplate><DataTemplate><StackPanel>
           <TextBlock Text="{Binding Name}" Style="{StaticResource SectionLabel}" Margin="12,16,0,6"/>
           <ItemsControl ItemsSource="{Binding Items}"><ItemsControl.ItemTemplate><DataTemplate>
-            <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Definition.Key}" Margin="0,1" Style="{StaticResource ShellNav}">
+            <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Definition.Key}" AutomationProperties.Name="{Binding Title}" Margin="0,1" Style="{StaticResource ShellNav}">
               <StackPanel Orientation="Horizontal"><Path Data="{Binding Icon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="18" Height="18" Stretch="Uniform" Margin="0,0,12,0"/><TextBlock Text="{Binding Title}" FontSize="14"/></StackPanel>
             </Button>
           </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>

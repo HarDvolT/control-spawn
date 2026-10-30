@@ -43,7 +43,10 @@ public sealed class DevicesWorkspace : UserControl
         if (model is null) return;
         banner.Text = $"{model.State?.Devices?.Count ?? 0} devices, all in one place";
         discoveries.Children.Clear();
-        foreach (var found in model.NewDevices.Where(d => !d.Dismissed))
+        // RGB devices already work through OpenRGB, so they never need a setup prompt.
+        var pending = model.NewDevices.Where(d => !d.Dismissed && !IsRgb(d)).ToList();
+        var pendingIds = pending.Select(d => d.Id).ToHashSet();
+        foreach (var found in pending)
         {
             var body = new DockPanel();
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
@@ -60,13 +63,16 @@ public sealed class DevicesWorkspace : UserControl
             discoveries.Children.Add(new Border { Child = body, CornerRadius = new(20), Padding = new(20, 16, 20, 16), Margin = new(0, 6, 0, 0), BorderThickness = new(1), BorderBrush = new SolidColorBrush(Color.FromArgb(100, 255, 77, 26)), Background = new LinearGradientBrush(Color.FromArgb(40, 255, 77, 26), Color.FromArgb(6, 255, 77, 26), 0) });
         }
         if (model.ImportRequested) importer.Visibility = Visibility.Visible;
-        var next = string.Join(";", model.Groups.SelectMany(g => g.Devices).Select(d => $"{d.Id}:{d.Kind}"));
+        var next = string.Join(";", model.Groups.SelectMany(g => g.Devices).Select(d => $"{d.Id}:{d.Kind}")) + "|" + string.Join(",", pendingIds);
         if (next == signature) { UpdateCards(); return; } signature = next; list.Children.Clear(); cards.Clear();
         foreach (var group in model.Groups)
         {
-            list.Children.Add(new TextBlock { Text = (group.Kind == "PC" ? "This PC" : group.Kind == "Lamps" ? "Home" : group.Kind) + $" · {group.Devices.Count} devices", FontSize = 15, Foreground = Brushes.WhiteSmoke, Margin = new(0, 16, 0, 8) });
+            // A device waiting in a "New device found" banner shows there only, not twice.
+            var shown = group.Devices.Where(d => !pendingIds.Contains(d.Id)).ToList();
+            if (shown.Count == 0) continue;
+            list.Children.Add(new TextBlock { Text = (group.Kind == "PC" ? "This PC" : group.Kind == "Lamps" ? "Home" : group.Kind) + $" · {shown.Count} device{(shown.Count == 1 ? "" : "s")}", FontSize = 15, Foreground = Brushes.WhiteSmoke, Margin = new(0, 16, 0, 8) });
             var grid = new CardGrid(); list.Children.Add(grid);
-            foreach (var device in group.Devices)
+            foreach (var device in shown)
             {
                 var card = new StackPanel();
                 var top = new DockPanel { Margin = new(0, 0, 0, 16) };
@@ -110,9 +116,10 @@ public sealed class DevicesWorkspace : UserControl
                 card.Swatch.Visibility = lamp is not null || rgb is not null ? Visibility.Visible : Visibility.Collapsed;
                 card.Swatch.Background = new SolidColorBrush(ColorUtil.Parse(lamp?.Color ?? model?.State?.Lighting.Color, Colors.Transparent));
                 card.Info.Text = device.Model ?? device.DetectedName ?? (model?.State?.Lighting.Devices.FirstOrDefault(d => d.Id == device.Id) is { } rgbInfo ? $"{rgbInfo.Kind} \u00b7 {rgbInfo.LedCount} LEDs" : device.Ip ?? FriendlyLabelConverter.Label(device.Source));
-                card.Buttons.Visibility = device.Configured || device.Dismissed ? Visibility.Collapsed : Visibility.Visible;
+                card.Buttons.Visibility = device.Configured || device.Dismissed || IsRgb(device) ? Visibility.Collapsed : Visibility.Visible;
             }
     }
+    private bool IsRgb(DeviceState d) => model?.State?.Lighting.Devices.Any(r => r.Id == d.Id) == true;
     private DeviceIconKind Icon(DeviceState d) => model?.State?.Lighting.Devices.FirstOrDefault(r => r.Id == d.Id)?.Kind.ToLowerInvariant() switch
     {
         "ram" => DeviceIconKind.Ram, "gpu" => DeviceIconKind.Gpu, "strip" => DeviceIconKind.Strip, _ => d.Kind switch

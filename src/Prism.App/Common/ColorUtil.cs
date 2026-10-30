@@ -12,6 +12,13 @@ public static class ColorUtil
     public static readonly Color Good = Color.FromRgb(0x3D, 0xDC, 0x84);
     public static readonly Color Fair = Color.FromRgb(0xF5, 0xA5, 0x24);
     public static readonly Color Poor = Color.FromRgb(0xFF, 0x4D, 0x4F);
+    public static readonly Color Excellent = Color.FromRgb(0x36, 0xD6, 0xFF);
+
+    /// <summary>Signal verdict colour: excellent cyan, good green, fair amber, poor red, anything else muted.</summary>
+    public static Color ForVerdict(string? verdict) => verdict switch
+    {
+        "Excellent" => Excellent, "Good" => Good, "Fair" => Fair, "Poor" or "Bad" => Poor, _ => TextTertiary
+    };
     public static readonly Color TextPrimary = Color.FromRgb(0xF4, 0xF4, 0xF5);
     public static readonly Color TextSecondary = Color.FromRgb(0xA1, 0xA1, 0xAA);
     public static readonly Color TextTertiary = Color.FromRgb(0x8A, 0x8A, 0x93);

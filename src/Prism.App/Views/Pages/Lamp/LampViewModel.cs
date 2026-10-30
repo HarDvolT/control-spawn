@@ -41,7 +41,9 @@ public sealed class LampViewModel : PageViewModel
         get => Tiles.Count > 0 ? Tiles.Average(l => l.Brightness) : 1;
         set { foreach (var tile in Tiles) tile.Brightness = value; OnPropertyChanged(nameof(BothBrightness)); }
     }
-    public string Headline => Tiles.Count == 2 ? "Two lamps, right here" : $"{Tiles.Count} lamps, right here";
+    /// <summary>The "Both lamps" bar only makes sense with two or more lamps.</summary>
+    public bool ShowSharedBar => Tiles.Count >= 2;
+    public string Headline => Tiles.Count switch { 0 => "No lamps yet", 1 => "One lamp, right here", 2 => "Two lamps, right here", _ => $"{Tiles.Count} lamps, right here" };
     public IReadOnlyList<LampState> Lamps { get; private set; } = [];
     public LampState? SelectedLamp { get => selectedLamp; set { if (Set(ref selectedLamp, value)) Refresh(); } }
     public IReadOnlyList<DiscoveredLamp> Discovered { get; private set; } = [];
