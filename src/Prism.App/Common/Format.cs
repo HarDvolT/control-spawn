@@ -24,10 +24,10 @@ public static class Format
         value is { } v && double.IsFinite(v) ? v.ToString("N0", Inv) : Dash;
 
     public static string Temp(double? value, int decimals = 1) =>
-        value is { } v && double.IsFinite(v) ? v.ToString("F" + decimals, Inv) + "°" : Dash;
+        value is { } v && double.IsFinite(v) ? DisplayPreferences.Temperature(v).ToString("F" + decimals, Inv) + "\u00b0" : Dash;
 
     public static string TempUnit(double? value, int decimals = 1) =>
-        value is { } v && double.IsFinite(v) ? v.ToString("F" + decimals, Inv) + " °C" : Dash;
+        value is { } v && double.IsFinite(v) ? DisplayPreferences.Temperature(v).ToString("F" + decimals, Inv) + " " + DisplayPreferences.Unit : Dash;
 
     public static string Gb(double? value, int decimals = 1) =>
         value is { } v && double.IsFinite(v) ? v.ToString("F" + decimals, Inv) + " GB" : Dash;

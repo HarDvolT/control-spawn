@@ -242,8 +242,8 @@ public sealed class WidgetViewModel : ObservableObject
     public RelayCommand ToggleLampCommand { get; }
     public RelayCommand<string> ApplySceneCommand { get; }
 
-    public double CpuPercent => double.IsFinite(_cpu) ? Math.Clamp(_cpu, 0, 100) : 0;
-    public double GpuPercent => double.IsFinite(_gpu) ? Math.Clamp(_gpu, 0, 100) : 0;
+    public double CpuPercent => double.IsFinite(_cpu) ? Math.Clamp(_cpu, 0, 100) : double.NaN;
+    public double GpuPercent => double.IsFinite(_gpu) ? Math.Clamp(_gpu, 0, 100) : double.NaN;
     public string CpuText => Format.Percent(_cpu);
     public string GpuText => Format.Percent(_gpu);
     public string CpuTemperatureLabel => Format.Temp(_cpuTemp, 0);
@@ -317,26 +317,39 @@ public sealed class WidgetViewModel : ObservableObject
         _gpu = system.GpuLoad ?? double.NaN;
         _cpuTemp = system.CpuTemp ?? double.NaN;
         _gpuTemp = system.GpuTemp ?? double.NaN;
-        _ramPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : 0;
+        _ramPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : double.NaN;
         _ramText = Format.GbPair(system.RamUsedGb, system.RamTotalGb);
         _downText = Format.Mbps(system.NetDownMbps);
         _upText = Format.Mbps(system.NetUpMbps);
-        Push(NetDownHistory, system.NetDownMbps ?? 0);
-        Push(NetUpHistory, system.NetUpMbps ?? 0);
+        if (state.History is { } history)
+        {
+            NetDownHistory.Clear(); NetUpHistory.Clear(); PingHistory.Clear();
+            foreach (var sample in history.TakeLast(40))
+            {
+                Push(NetDownHistory, sample.NetDownMbps ?? double.NaN);
+                Push(NetUpHistory, sample.NetUpMbps ?? double.NaN);
+                Push(PingHistory, sample.PingMs ?? double.NaN);
+            }
+        }
+        else
+        {
+            Push(NetDownHistory, system.NetDownMbps ?? double.NaN);
+            Push(NetUpHistory, system.NetUpMbps ?? double.NaN);
+        }
 
         _fanMode = Format.FanModeName(state.FanMode);
         FanRows.Clear();
         foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
         {
             FanRows.Add(new FanRow(fan.Name, fan.IsPump ? "Fixed" : "Curve",
-                Format.RpmShort(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? 0, 0, 100), fan.IsPump));
+                Format.RpmShort(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump));
         }
 
         LightingEffectKind = state.Lighting.Effect;
         LightingColor = state.Lighting.Color;
         Brightness = state.Lighting.Brightness;
         Speed = state.Lighting.Speed;
-        Temperature = system.CpuTemp ?? 45;
+        Temperature = system.CpuTemp ?? double.NaN;
 
         if (state.Lamp is { } lamp)
         {
@@ -366,7 +379,7 @@ public sealed class WidgetViewModel : ObservableObject
             ModemSinr = Format.Db(router.Sinr5g);
             PingText = Format.MsValue(router.PingMs);
             PingColor = ColorUtil.ToHex(router.PingMs is null ? ColorUtil.TextTertiary : router.PingMs < 35 ? ColorUtil.Good : router.PingMs < 80 ? ColorUtil.Fair : ColorUtil.Poor);
-            if (router.PingMs is { } ping) Push(PingHistory, ping);
+            if (state.History is null && router.PingMs is { } ping) Push(PingHistory, ping);
 
             modemScore = router.Score;
             ModemBars.Clear();

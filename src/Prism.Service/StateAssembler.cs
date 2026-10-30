@@ -40,13 +40,15 @@ public static class StateAssembler
                 g.First().Name.Split(':')[0], g.FirstOrDefault(s => s.Kind == "Temperature")?.Value,
                 g.FirstOrDefault(s => s.Kind == "Throughput" && s.Name.Contains("Read"))?.Value / 1_000_000,
                 g.FirstOrDefault(s => s.Kind == "Throughput" && s.Name.Contains("Write"))?.Value / 1_000_000,
-                g.FirstOrDefault(s => s.Kind == "Load")?.Value,
+                g.FirstOrDefault(s => s.Kind == "Load" && s.Name.Contains("Used Space", StringComparison.OrdinalIgnoreCase))?.Value,
                 g.FirstOrDefault(s => s.Kind == "Load" && (s.Name.Contains("Activity", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Total", StringComparison.OrdinalIgnoreCase)))?.Value)).ToArray(),
             Sum(SensorCategory.Network, "Throughput", "Download", 125000), Sum(SensorCategory.Network, "Throughput", "Upload", 125000), Pick(SensorCategory.Gpu, "Temperature", "Memory"));
         var throttle = sensors.Where(s => s.Name.Contains("Thermal Throttling", StringComparison.OrdinalIgnoreCase) && s.Value.HasValue).ToArray();
         string? Name(SensorCategory category) => sensors.FirstOrDefault(s => s.Category == category && s.Name.Contains(':'))?.Name.Split(':')[0].Trim();
         system = system with { ThermalThrottling = throttle.Length == 0 ? null : throttle.Any(s => s.Value > 0),
-            CpuName = Name(SensorCategory.Cpu), GpuName = Name(SensorCategory.Gpu), BoardName = Name(SensorCategory.Motherboard) };
+            CpuName = Name(SensorCategory.Cpu), GpuName = Name(SensorCategory.Gpu), BoardName = Name(SensorCategory.Motherboard),
+            CpuCcdTemp = Pick(SensorCategory.Cpu, "Temperature", "CCD"),
+            FanChipName = sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind is "Fan" or "Control" && s.Name.Contains(':'))?.Name.Split(':')[0].Trim() };
         var fans = FanMap.Discover(sensors, controls).Select(f => new FanState(f.Header, f.Name,
             sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{f.Header - 1}"))?.Value,
             sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Control" && s.Id.EndsWith($"/control/{f.Header - 1}"))?.Value,

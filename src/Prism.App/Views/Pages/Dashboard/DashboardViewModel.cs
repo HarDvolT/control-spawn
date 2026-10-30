@@ -43,8 +43,9 @@ public sealed class DashboardViewModel : PageViewModel
     public ObservableCollection<double> GpuHistory { get; } = new();
     public ObservableCollection<double> PingHistory { get; } = new();
     public IReadOnlyList<string> Swatches { get; } = ["#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF"];
-    public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp);
-    public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot);
+    public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp, 0);
+    public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot, 0);
+    public string NetworkChip => State?.Router is { } router ? (router.Network ?? "Unavailable") + " " + router.Band : "Unavailable";
     public string InternetScore => $"{State?.Router?.Verdict ?? "Unavailable"} · {State?.Router?.Score?.ToString() ?? Format.Dash}";
     public string InternetDetail => "Ping " + Format.Number(State?.Router?.PingMs) + " ms · ↓ " + Format.Mbps(State?.System.NetDownMbps);
     public string FanSubtitle => SelectedFanMode switch { "Silent" => "Quiet · you will barely hear it", "Turbo" => "Performance cooling", _ => "Automatic temperature control" };
@@ -54,7 +55,7 @@ public sealed class DashboardViewModel : PageViewModel
     public ObservableCollection<FanRow> Fans { get; } = new();
     public ObservableCollection<SceneOption> Scenes { get; } = new();
 
-    public IReadOnlyList<string> FanModes { get; } = ["Silent", "Standard", "Turbo", "Full speed"];
+    public IReadOnlyList<string> FanModes { get; } = ["Silent", "Balanced", "Turbo", "Full"];
 
     public IReadOnlyList<LampRow> LampRows => State is { } s ? LampRow.From(s) : [];
 
@@ -67,14 +68,13 @@ public sealed class DashboardViewModel : PageViewModel
         }
     }
 
-    public string MachineLine => $"{Environment.MachineName} · {State?.Lighting.Devices.Count ?? 0} lighting devices · {LampRows.Count} lamps";
+    public string MachineLine => string.Join(" · ", new[] { State?.System.BoardName, State?.System.CpuName, State?.System.GpuName }.Where(n => !string.IsNullOrWhiteSpace(n)).DefaultIfEmpty(Environment.MachineName)) + $" · {LampRows.Count} lamps" + (State?.Appliances?.Count > 0 ? " · air fryer" : "");
     public string GreetingLabel => $"{Greeting}, {Environment.UserName}".ToUpperInvariant();
     public string Headline => State is null ? "Waiting for your system" : State.Health.Warnings.Count > 0 ? "Your system needs attention" :
         State.System.CpuTemp is null && State.System.GpuTemp is null ? "Waiting for live readings" :
         State.System.CpuTemp >= 85 || State.System.GpuTemp >= 85 ? "Your system is running hot" : "Everything is running cool";
-    public string FryerStatus => State?.Appliances?.FirstOrDefault()?.Status ?? "Not connected";
-    public string FryerDetail => State?.Appliances?.FirstOrDefault() is { } fryer
-        ? $"{fryer.TargetTemperature:0} °C · {fryer.RemainingMinutes:0} min remaining" : "Add your air fryer in Devices";
+    public string FryerStatus => State?.Appliances?.FirstOrDefault() is { } fryer ? !fryer.Connected ? "Offline" : fryer.Status == "idle" ? "Ready" : fryer.Status : "Not connected";
+    public string FryerDetail => State?.Appliances?.FirstOrDefault() is { } fryer ? fryer.Name + " \u00b7 " + fryer.Status : "Add your air fryer in Devices";
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
     public string ActiveScene { get => _activeScene; private set => Set(ref _activeScene, value); }
 
@@ -155,7 +155,7 @@ public sealed class DashboardViewModel : PageViewModel
         Push(GpuHistory, system.GpuLoad ?? double.NaN);
 
 
-        SetGauge(0, new GaugeItem("CPU load", Format.Percent(system.CpuLoad), "8 cores · 16 threads",
+        SetGauge(0, new GaugeItem("CPU load", Format.Percent(system.CpuLoad), "Processor",
             ColorUtil.ToHex(Controls.Thresholds.Color(Controls.Thresholds.Level(system.CpuLoad ?? double.NaN, Controls.SensorKind.Load))), Math.Clamp(system.CpuLoad ?? double.NaN, 0, 100)));
         SetGauge(1, new GaugeItem("CPU temp", Format.Temp(system.CpuTemp), "Tctl / Tdie",
             ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp)), Math.Clamp(system.CpuTemp ?? double.NaN, 0, 100)));
@@ -183,14 +183,14 @@ public sealed class DashboardViewModel : PageViewModel
         {
             Fans.Add(new FanRow(
                 fan.Name,
-                fan.Name == "Case fans" ? "front 3 + rear" : fan.IsPump ? "Fixed at 100%" : "CPU_FAN",
+                fan.IsPump ? "Fixed at 100%" : $"Header {fan.Header}",
                 Format.Rpm(fan.Rpm),
-                fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? 0, 0, 100),
+                fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100),
                 fan.IsPump));
         }
 
         _suppressMode = true;
-        SelectedFanMode = Format.FanModeName(state.FanMode);
+        SelectedFanMode = state.FanMode == FanMode.Standard ? "Balanced" : state.FanMode == FanMode.Full ? "Full" : Format.FanModeName(state.FanMode);
         _suppressMode = false;
 
         _lightingEffect = state.Lighting.Effect;
@@ -226,7 +226,7 @@ public sealed class DashboardViewModel : PageViewModel
     private void BuildEmptyGauges()
     {
         if (Gauges.Count > 0) return;
-        Gauges.Add(new GaugeItem("CPU load", Format.Dash, "8 cores · 16 threads", ColorUtil.ToHex(ColorUtil.TextPrimary), 0));
+        Gauges.Add(new GaugeItem("CPU load", Format.Dash, "Processor", ColorUtil.ToHex(ColorUtil.TextPrimary), double.NaN));
         Gauges.Add(new GaugeItem("CPU temp", Format.Dash, "Tctl / Tdie", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
         Gauges.Add(new GaugeItem("GPU load", Format.Dash, "Graphics processor", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
         Gauges.Add(new GaugeItem("GPU temp", Format.Dash, "Graphics temperature", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
@@ -241,7 +241,7 @@ public sealed class DashboardViewModel : PageViewModel
 
     private async Task ApplyFanModeAsync(string name)
     {
-        var normalized = name == "Full speed" ? "Full" : name;
+        var normalized = name == "Full speed" ? "Full" : name == "Balanced" ? "Standard" : name;
         if (!Enum.TryParse<FanMode>(normalized, ignoreCase: true, out var mode)) return;
         await RunAsync(() => Client.SetFanModeAsync("Radiator", mode));
         await RunAsync(() => Client.SetFanModeAsync("Case fans", mode));

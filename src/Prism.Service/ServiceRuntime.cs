@@ -161,7 +161,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 CustomColors = value.LedLayers.TryGetValue(d.Id, out var layer) && layer.Custom is not null ? LedLayers.Resize(layer.Custom, d.LedCount, false) : null,
                 OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null,
                 CustomEnabled = value.LedLayers.GetValueOrDefault(d.Id)?.CustomEnabled == true }).ToArray();
-            var health = new ServiceHealth(mock, elevated, warnings.Values.Order().ToArray(), failsafe);
+            var health = new ServiceHealth(mock, elevated, warnings.Values.Order().ToArray(), failsafe,
+                typeof(ServiceRuntime).Assembly.GetName().Version?.ToString());
             var lamps = value.ConfiguredLamps.Select(c => (lampStates.TryGetValue(c.Id, out var liveLamp) ? liveLamp with { On = c.On, Brightness = c.Brightness, Follow = c.Follow, Color = c.Color, Name = c.Name } : null) ?? new LampState("yeelink.light.color5", false, c.On, c.Brightness, c.Color, c.Follow, "not configured", c.Id, c.Name, c.DeviceId, c.LastHost ?? c.Host)).ToArray();
             var state = StateAssembler.Assemble(snapshot, value, controls.Headers, synced, lamps.FirstOrDefault(), routerState, health) with { Lamps = lamps, History = sampleHistory.ToArray() };
             state = state with { System = state.System with { TopProcesses = processLoads, UptimeSeconds = mock ? null : Environment.TickCount64 / 1000d,
@@ -250,7 +251,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     sampleHistory.Enqueue(new(next.Timestamp, system.CpuLoad, system.CpuTemp, system.GpuLoad,
                         system.GpuTemp, routerState?.PingMs, system.NetDownMbps, system.NetUpMbps,
                         FanMap.Discover(next.Sensors, controls.Headers).ToDictionary(f => f.Header,
-                            f => next.Sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{f.Header - 1}"))?.Value)));
+                            f => next.Sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{f.Header - 1}"))?.Value),
+                        system.Disks.FirstOrDefault()?.ReadMBps, routerState?.Rsrp5g, routerState?.Sinr5g));
                     while (sampleHistory.Count > 3600) sampleHistory.Dequeue();
                 }
                 Volatile.Write(ref reactive, new(system.CpuLoad ?? 0, system.GpuLoad ?? 0,

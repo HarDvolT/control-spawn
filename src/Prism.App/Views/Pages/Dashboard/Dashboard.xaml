@@ -56,11 +56,11 @@
           <DataTemplate>
             <c:GlassCard Padding="16" Margin="0" Height="114">
               <DockPanel>
-                <c:RingGauge DockPanel.Dock="Left" Width="92" Height="80" SweepAngle="270" Value="{Binding Percent}" Suffix="{Binding Suffix}" RingColor="{Binding ColorHex, Converter={StaticResource HexToColor}}" Margin="0,0,14,0" />
+                <c:RingGauge DockPanel.Dock="Left" Width="92" Height="80" ValueFontSize="22" SweepAngle="294" Value="{Binding Percent}" Suffix="{Binding Suffix}" RingColor="{Binding ColorHex, Converter={StaticResource HexToColor}}" Margin="0,0,14,0" />
                 <StackPanel VerticalAlignment="Center">
                   <TextBlock Text="{Binding Label}" Style="{StaticResource SmallMuted}" />
                   <TextBlock Text="{Binding LevelText}" Style="{StaticResource SmallMuted}" Foreground="{Binding ColorHex, Converter={StaticResource HexToBrush}}" Margin="0,2,0,8" />
-                  <c:LineChart Values="{Binding History}" MinHeight="0" ShowGrid="False" Height="32" Color="{Binding ColorHex, Converter={StaticResource HexToColor}}" />
+                  <c:Sparkline Values="{Binding History}" MinHeight="0" ShowGrid="False" Height="32" Color="{Binding ColorHex, Converter={StaticResource HexToColor}}" />
                 </StackPanel>
               </DockPanel>
             </c:GlassCard>
@@ -76,11 +76,11 @@
               <TextBlock Text="Lighting" Style="{StaticResource CardTitle}" />
             </DockPanel>
             <TextBlock Text="{Binding LightingTitle}" Style="{StaticResource SmallMuted}" />
-            <c:LedStrip EffectKind="{Binding LightingEffect}" ColorHex="{Binding LightingColorHex}" Brightness="{Binding LightingBrightness}" Speed="{Binding LightingSpeed}" Temperature="{Binding CpuTemp}" LedCount="28" Height="55" Margin="0,16,0,16" />
+            <c:LedStrip WaveHeights="True" EffectKind="{Binding LightingEffect}" ColorHex="{Binding LightingColorHex}" Brightness="{Binding LightingBrightness}" Speed="{Binding LightingSpeed}" Temperature="{Binding CpuTemp}" LedCount="28" Height="55" Margin="0,16,0,16" />
             <DockPanel>
               <Button DockPanel.Dock="Right" Content="Lights off" Command="{Binding LightsOffCommand}" Style="{StaticResource PillButton}" MinHeight="36" Padding="18,0"/>
               <ItemsControl ItemsSource="{Binding Swatches}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
-                <Button Width="30" Height="30" MinHeight="30" Padding="0" Margin="0,0,10,0" Background="{Binding Converter={StaticResource HexToBrush}}" Command="{Binding DataContext.PickColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" ToolTip="{Binding}" AutomationProperties.Name="{Binding}"><Button.Template><ControlTemplate TargetType="Button"><Border CornerRadius="10" Background="{TemplateBinding Background}"/></ControlTemplate></Button.Template></Button>
+                <c:ColorSwatch Width="30" Height="30" ColorHex="{Binding}" SelectedHex="{Binding DataContext.LightingColorHex, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Margin="0,0,10,0" Command="{Binding DataContext.PickColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
               </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
             </DockPanel>
           </StackPanel>
@@ -129,7 +129,7 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <StackPanel HorizontalAlignment="Center">
-                    <c:LampOrb Width="100" Height="100" ColorHex="{Binding Color}" Margin="0,-6,0,0" />
+                    <c:LampOrb Width="108" Height="108" ColorHex="{Binding Color}" Margin="0,-6,0,0" />
                     <TextBlock Text="{Binding Name}" Style="{StaticResource SmallMuted}" />
                   </StackPanel>
                 </DataTemplate>
@@ -143,16 +143,14 @@
               <Button Content="Details →" Command="{Binding OpenPageCommand}" CommandParameter="Modem" Style="{StaticResource TextAction}" DockPanel.Dock="Right" />
               <TextBlock Text="Internet" Style="{StaticResource CardTitle}" />
             </DockPanel>
-            <TextBlock Text="{Binding InternetScore}" Style="{StaticResource NumberLarge}" Foreground="{StaticResource StatusWarmBrush}" />
-            <TextBlock Text="{Binding State.Router.Network}" Style="{StaticResource SmallMuted}" Margin="0,6" />
-            <TextBlock Text="{Binding InternetDetail}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
-            <c:LineChart Values="{Binding PingHistory}" Height="35" MinHeight="0" ShowGrid="False" Color="#36D6FF" Margin="0,8,0,0" />
+            <DockPanel><c:SignalBars DockPanel.Dock="Left" Value="{Binding State.Router.Bars, TargetNullValue=NaN, FallbackValue=NaN}" Margin="0,0,12,0"/><StackPanel><TextBlock Text="{Binding InternetScore}" Style="{StaticResource Number}" FontSize="26" Foreground="#F5A524"/><TextBlock Text="{Binding InternetDetail}" Style="{StaticResource SmallMuted}" Margin="0,2,0,0"/></StackPanel></DockPanel>
+            <c:Sparkline Values="{Binding PingHistory}" Height="35" MinHeight="0" ShowGrid="False" Color="#36D6FF" Margin="0,8,0,0" />
           </StackPanel>
         </c:GlassCard>
         <c:GlassCard Span="4" Height="180">
           <StackPanel>
             <DockPanel VerticalAlignment="Center" Margin="0,26,0,0">
-              <c:RingGauge Width="82" Height="82" DockPanel.Dock="Left" Value="0" ShowValue="False" Caption="{Binding FryerStatus}" Margin="0,0,18,0" />
+              <c:RingGauge Width="92" Height="92" DockPanel.Dock="Left" Value="0" ShowValue="False" Caption="{Binding FryerStatus}" Margin="0,0,18,0" />
               <StackPanel>
                 <TextBlock Text="Air fryer" Style="{StaticResource CardTitle}" />
                 <TextBlock Text="{Binding FryerStatus}" Style="{StaticResource SmallMuted}" Margin="0,8" />

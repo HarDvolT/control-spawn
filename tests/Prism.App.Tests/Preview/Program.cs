@@ -63,20 +63,24 @@ internal static class Program
         if (args.Contains("--v2"))
         {
             var previewClient = new MockPrismClient();
-            var previewModel = new MainViewModel(previewClient, new AppSettings { ReduceAnimations = true },
+            var previewModel = new MainViewModel(previewClient, new AppSettings(),
                 new SettingsStore(Path.Combine(output, "settings.json")), new InMemoryStartupRegistry(),
                 new WidgetLayoutStore(Path.Combine(output, "widgets.json")), new NullWidgetHost());
             Motion.ReduceAnimations = true;
             var previewWindow = new MainWindow(previewModel);
             var previewShell = (FrameworkElement)previewWindow.Content;
-            foreach (var page in Enum.GetValues<PageKey>())
+            foreach (var page in Enum.GetValues<PageKey>().Where(p => !args.Any(a => a.StartsWith("--page=")) || args.Contains("--page=" + p)))
             {
                 previewModel.Navigate(page);
+                previewWindow.Close();
+                previewWindow = new MainWindow(previewModel);
+                previewShell = (FrameworkElement)previewWindow.Content;
                 var designName = page switch { PageKey.Lamp => "Lamps", PageKey.Appliances => "Fryer", _ => page.ToString() };
                 var reference = BitmapFrame.Create(new Uri(Path.GetFullPath($"docs/design-v2/V2{designName}.png")));
                 var height = reference.PixelHeight;
                 previewShell.Measure(new Size(1440, height)); previewShell.Arrange(new Rect(0, 0, 1440, height)); previewShell.UpdateLayout();
                 Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Render);
+                previewShell.InvalidateMeasure(); previewShell.UpdateLayout();
                 var bitmap = new RenderTargetBitmap(1440, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(previewShell);
                 var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
                 using var stream = File.Create(Path.Combine(output, "V2-" + page + ".png")); encoder.Save(stream);

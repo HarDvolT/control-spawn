@@ -41,8 +41,12 @@ public class FanCurveEditor : FrameworkElement
     public int SelectedIndex { get => (int)GetValue(SelectedIndexProperty); set => SetValue(SelectedIndexProperty, value); }
     private const double Pad = 12;
 
+    private void PreferencesChanged(object? sender, EventArgs e) => InvalidateVisual();
+
     public FanCurveEditor()
     {
+        Loaded += (_, _) => DisplayPreferences.Changed += PreferencesChanged;
+        Unloaded += (_, _) => DisplayPreferences.Changed -= PreferencesChanged;
         MinHeight = 160;
         Cursor = Cursors.Cross;
         Focusable = false;
@@ -135,6 +139,7 @@ public class FanCurveEditor : FrameworkElement
         temperature = Math.Clamp(Math.Round(temperature), low, high);
 
         points[_dragIndex] = new FanPoint(temperature, Math.Round(percent));
+        if (DataContext is Prism.App.ViewModels.FansViewModel model) model.OnCurveEdited();
         InvalidateVisual();
         PointsChanged?.Invoke(this, EventArgs.Empty);
         e.Handled = true;
@@ -196,7 +201,7 @@ public class FanCurveEditor : FrameworkElement
         dc.DrawLine(dash, new Point(x, Pad), new Point(x, height - Pad));
 
         var percent = double.IsFinite(NowPercent) ? NowPercent : PercentAt(points, NowTemperature);
-        var text = $"{NowTemperature.ToString("F1", CultureInfo.InvariantCulture)}° · {Math.Round(percent).ToString("F0", CultureInfo.InvariantCulture)}%";
+        var text = $"{DisplayPreferences.Temperature(NowTemperature).ToString("F1", CultureInfo.InvariantCulture)}° · {Math.Round(percent).ToString("F0", CultureInfo.InvariantCulture)}%";
         var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             new Typeface(new FontFamily("Space Grotesk, Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
             11.5, ColorUtil.Brush(Color.FromRgb(10, 10, 11)), VisualTreeHelper.GetDpi(this).PixelsPerDip);

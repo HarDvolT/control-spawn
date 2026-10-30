@@ -32,7 +32,7 @@
     <StackPanel>
       <DockPanel Margin="0,0,0,16">
         <StackPanel DockPanel.Dock="Right" VerticalAlignment="Bottom">
-          <Button Content="Find lamps" Command="{Binding FindCommand}" Style="{StaticResource PillButton}" Margin="0,4,8,4" />
+          <Button Content="Add or fix a lamp" Command="{Binding ShowSetupCommand}" Style="{StaticResource PillButton}" Margin="0,4,8,4" />
         </StackPanel>
         <StackPanel>
           <TextBlock Text="LAMPS" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
@@ -41,10 +41,11 @@
       </DockPanel>
       <c:GlassCard Margin="0,0,0,16" Padding="18,16">
         <DockPanel>
-          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"><Button Content="Own" Command="{Binding BothFollowCommand}" CommandParameter="own" Style="{StaticResource TextAction}" Margin="8,0"/><Button Content="Same as PC" Command="{Binding BothFollowCommand}" CommandParameter="pc" Style="{StaticResource TextAction}" Margin="8,0"/><Button Content="Average" Command="{Binding BothFollowCommand}" CommandParameter="average" Style="{StaticResource TextAction}" Margin="8,0"/></StackPanel>
+          <c:SegmentedControl DockPanel.Dock="Right" ItemsSource="{Binding SharedFollowModes}" SelectedItem="{Binding SharedFollowLabel, Mode=TwoWay}" VerticalAlignment="Center"/>
+          <ItemsControl DockPanel.Dock="Left" Width="62" ItemsSource="{Binding SharedLampRows}" Margin="0,0,14,0" VerticalAlignment="Center"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><c:LampOrb Width="36" Height="36" RadiusInset="0" GlowRadius="12" ColorHex="{Binding Color}" Margin="0,0,-10,0"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
           <StackPanel DockPanel.Dock="Left" Margin="0,0,18,0" VerticalAlignment="Center"><TextBlock Text="Both lamps" Style="{StaticResource CardTitle}"/><TextBlock Text="One tap changes both" Style="{StaticResource SmallMuted}" Margin="0,2,0,0"/></StackPanel>
           <Button DockPanel.Dock="Left" Content="{Binding ToggleBothText}" Command="{Binding ToggleBothCommand}" Style="{StaticResource PillButton}" Margin="0,0,18,0"/>
-          <ItemsControl ItemsSource="{Binding SharedSwatches}" VerticalAlignment="Center"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Button Width="30" Height="30" MinHeight="30" Padding="0" Margin="0,0,8,0" Background="{Binding Converter={StaticResource HexToBrush}}" Command="{Binding DataContext.BothColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" ToolTip="{Binding}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+          <ItemsControl ItemsSource="{Binding SharedSwatches}" VerticalAlignment="Center"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><c:ColorSwatch Width="30" Height="30" Margin="0,0,8,0" ColorHex="{Binding}" SelectedHex="{Binding DataContext.SharedColor, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.BothColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
         </DockPanel>
       </c:GlassCard>
       <ItemsControl ItemsSource="{Binding Tiles}">
@@ -66,21 +67,21 @@
                 </DockPanel>
                 <DockPanel Margin="0,8,0,8">
                   <Button Command="{Binding ToggleCommand}" Style="{StaticResource TextAction}" HorizontalAlignment="Left" Margin="0,0,16,0">
-                    <Grid Width="165" Height="165"><c:LampOrb ColorHex="{Binding ColorEntry}"/><TextBlock Text="{Binding PowerText}" Foreground="#AA07080A" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/></Grid>
+                    <Grid Width="174" Height="174"><c:LampOrb ColorHex="{Binding ColorEntry}"/><TextBlock Text="{Binding PowerText}" Foreground="#AA07080A" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/></Grid>
                   </Button>
                   <StackPanel Margin="0,8">
                     <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding Brightness, StringFormat={}{0:0}%}" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Brightness" Style="{StaticResource SmallMuted}" VerticalAlignment="Center"/></DockPanel>
-                    <c:ThickSlider Minimum="1" Maximum="100" Value="{Binding Brightness, Mode=TwoWay}" AutomationProperties.Name="Brightness" Margin="0,8,0,0" />
+                    <c:ThickSlider UseGradient="True" Glow="False" AccentColor="{Binding ColorEntry, Converter={StaticResource HexToColor}}" Minimum="1" Maximum="100" Value="{Binding Brightness, Mode=TwoWay}" AutomationProperties.Name="Brightness" Margin="0,8,0,0" />
 
                     <UniformGrid Columns="4" Margin="0,12,0,0">
-                      <Button Content="10%" Command="{Binding SetBrightnessCommand}" CommandParameter="10" MinHeight="32" Padding="4,0" Margin="0,0,5,0" />
-                      <Button Content="45%" Command="{Binding SetBrightnessCommand}" CommandParameter="45" MinHeight="32" Padding="4,0" Margin="0,0,5,0" />
-                      <Button Content="70%" Command="{Binding SetBrightnessCommand}" CommandParameter="70" MinHeight="32" Padding="4,0" Margin="0,0,5,0" />
-                      <Button Content="Max" Command="{Binding SetBrightnessCommand}" CommandParameter="100" MinHeight="32" Padding="4,0" Margin="0,0,5,0" />
+                      <c:ChoiceButton Choice="10" Selection="{Binding Brightness}" Content="10%" Command="{Binding SetBrightnessCommand}" CommandParameter="10" MinHeight="32" Padding="4,0" Margin="0,0,5,0" />
+                      <c:ChoiceButton Choice="45" Selection="{Binding Brightness}" Content="45%" Command="{Binding SetBrightnessCommand}" CommandParameter="45" MinHeight="32" Padding="4,0" Margin="0,0,5,0" />
+                      <c:ChoiceButton Choice="70" Selection="{Binding Brightness}" Content="70%" Command="{Binding SetBrightnessCommand}" CommandParameter="70" MinHeight="32" Padding="4,0" Margin="0,0,5,0" />
+                      <c:ChoiceButton Choice="100" Selection="{Binding Brightness}" Content="Max" Command="{Binding SetBrightnessCommand}" CommandParameter="100" MinHeight="32" Padding="4,0" Margin="0,0,5,0" />
                     </UniformGrid>
                   </StackPanel>
                 </DockPanel>
-                <TextBlock Text="COLOUR" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/><ItemsControl ItemsSource="{Binding Swatches}">
+                <DockPanel Margin="0,0,0,10"><Button x:Name="CustomColorButton" DockPanel.Dock="Right" Content="Custom" Command="{Binding OpenCustomColorCommand}" Style="{StaticResource TextAction}" Height="16" MinHeight="0" Padding="0"/><TextBlock Text="COLOUR" Style="{StaticResource SectionLabel}"/></DockPanel><Popup IsOpen="{Binding CustomColorOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=CustomColorButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"><Border Background="#17181D" CornerRadius="16" Padding="16" BorderBrush="#33FFFFFF" BorderThickness="1"><StackPanel><c:ColorWheel ColorHex="{Binding ColorEntry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="160" Height="160"/><Button Content="Follow lighting map" Command="{Binding FollowMapCommand}" Margin="0,12,0,0"/></StackPanel></Border></Popup><ItemsControl ItemsSource="{Binding Swatches}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                       <UniformGrid Columns="8" />
@@ -88,45 +89,47 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Button Background="{Binding Converter={StaticResource HexToBrush}}" Command="{Binding DataContext.SelectColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Height="34" MinHeight="34" Margin="0,0,6,12" Padding="0" />
+                      <c:ColorSwatch ColorHex="{Binding}" SelectedHex="{Binding DataContext.ColorEntry, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.SelectColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Height="34" MinHeight="34" Margin="0,0,6,12" Padding="0" />
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <UniformGrid Columns="3" Margin="0,0,0,18"><Button Content="Warm white" Command="{Binding SelectColorCommand}" CommandParameter="#FFD5A8" MinHeight="34" Margin="0,0,8,0"/><Button Content="Neutral" Command="{Binding SelectColorCommand}" CommandParameter="#FFF1DF" MinHeight="34" Margin="0,0,8,0"/><Button Content="Cool white" Command="{Binding SelectColorCommand}" CommandParameter="#DCEEFF" MinHeight="34"/></UniformGrid>
+                <UniformGrid Columns="3" Margin="0,0,0,14"><Button Content="Warm white" Command="{Binding SelectColorCommand}" CommandParameter="#FFD5A8" MinHeight="34" Margin="0,0,8,0"/><Button Content="Neutral" Command="{Binding SelectColorCommand}" CommandParameter="#FFF1DF" MinHeight="34" Margin="0,0,8,0"/><Button Content="Cool white" Command="{Binding SelectColorCommand}" CommandParameter="#DCEEFF" MinHeight="34"/></UniformGrid>
                 <TextBlock Text="FOLLOWS" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
-                <c:SegmentedControl ItemsSource="{Binding FollowModes}" SelectedItem="{Binding Follow, Mode=TwoWay}" ItemContainerStyle="{StaticResource LampFollowItem}" Margin="0,10" FontSize="11">
+                <c:SegmentedControl ItemsSource="{Binding PrimaryFollowModes}" SelectedItem="{Binding Follow, Mode=TwoWay}" ItemContainerStyle="{StaticResource LampFollowItem}" Margin="0,8,0,0" FontSize="11">
                   <c:SegmentedControl.ItemTemplate>
                     <DataTemplate>
-                      <TextBlock Text="{Binding Converter={StaticResource FriendlyLabel}}" />
+                      <StackPanel><TextBlock HorizontalAlignment="Center" FontWeight="SemiBold"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="Own"/><Style.Triggers><DataTrigger Binding="{Binding}" Value="pc"><Setter Property="Text" Value="Same as PC"/></DataTrigger><DataTrigger Binding="{Binding}" Value="average"><Setter Property="Text" Value="Average"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><TextBlock HorizontalAlignment="Center" FontSize="11" Foreground="#7C808A" Margin="0,2,0,0"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="its own colour"/><Style.Triggers><DataTrigger Binding="{Binding}" Value="pc"><Setter Property="Text" Value="matches the case"/></DataTrigger><DataTrigger Binding="{Binding}" Value="average"><Setter Property="Text" Value="soft PC average"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
                     </DataTemplate>
                   </c:SegmentedControl.ItemTemplate>
                 </c:SegmentedControl>
-                <TextBlock Text="{Binding LastError}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Foreground="#FF8A8A" />
-                <Expander Header="Custom colour" Foreground="{StaticResource TextSecondaryBrush}">
-                  <c:ColorWheel ColorHex="{Binding ColorEntry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="160" Height="160" HorizontalAlignment="Center" Margin="0,12" />
-                </Expander>
+                <TextBlock Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" Text="{Binding LastError}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Foreground="#FF8A8A" />
+
               </StackPanel>
             </c:GlassCard>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
       <c:CardGrid>
-        <c:GlassCard Span="6" MinHeight="180">
+        <c:GlassCard Span="6" MinHeight="202">
           <StackPanel>
             <TextBlock Text="Moods" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
             <TextBlock Text="No saved moods available" Style="{StaticResource SmallMuted}" Margin="0,0,0,12"/>
             <c:SpacedGrid Columns="5" Gap="8"><Border Background="#17181D" CornerRadius="14" Height="76"><TextBlock Text="&#x2014;" Foreground="#7C808A" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><Border Background="#17181D" CornerRadius="14" Height="76"/><Border Background="#17181D" CornerRadius="14" Height="76"/><Border Background="#17181D" CornerRadius="14" Height="76"/><Border Background="#17181D" CornerRadius="14" Height="76"/></c:SpacedGrid>
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="6" MinHeight="180">
+        <c:GlassCard Span="6" MinHeight="202">
           <StackPanel>
             <TextBlock Text="Schedule" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
             <TextBlock Text="No schedule data available" Style="{StaticResource SmallMuted}" Margin="0,0,0,12"/>
-            <Grid Height="76"><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions><Border Background="#17181D" Height="10" CornerRadius="5" Margin="0,0,64,0"/><Border Grid.Row="1" Background="#17181D" Height="10" CornerRadius="5" Margin="0,0,64,0"/><Border Grid.Row="2" Background="#17181D" Height="10" CornerRadius="5" Margin="0,0,64,0"/></Grid>
+            <StackPanel>
+              <DockPanel Height="40"><c:ToggleSwitch DockPanel.Dock="Right" IsEnabled="False" ToolTip="Schedule unavailable"/><TextBlock DockPanel.Dock="Left" Width="64" Text="&#x2014;" FontSize="16" VerticalAlignment="Center" Foreground="#7C808A"/><Border Background="#1E2026" Height="8" CornerRadius="4" Margin="0,0,32,0" VerticalAlignment="Center"/></DockPanel>
+              <DockPanel Height="40"><c:ToggleSwitch DockPanel.Dock="Right" IsEnabled="False" ToolTip="Schedule unavailable"/><TextBlock DockPanel.Dock="Left" Width="64" Text="&#x2014;" FontSize="16" VerticalAlignment="Center" Foreground="#7C808A"/><Border Background="#1E2026" Height="8" CornerRadius="4" Margin="0,0,32,0" VerticalAlignment="Center"/></DockPanel>
+              <DockPanel Height="40"><c:ToggleSwitch DockPanel.Dock="Right" IsEnabled="False" ToolTip="Schedule unavailable"/><TextBlock DockPanel.Dock="Left" Width="64" Text="&#x2014;" FontSize="16" VerticalAlignment="Center" Foreground="#7C808A"/><Border Background="#1E2026" Height="8" CornerRadius="4" Margin="0,0,32,0" VerticalAlignment="Center"/></DockPanel>
+            </StackPanel>
           </StackPanel>
         </c:GlassCard>
       </c:CardGrid>
-      <Expander Header="Add or fix a lamp" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,16">
+      <Expander IsExpanded="{Binding IsSetupOpen, Mode=TwoWay}" Visibility="{Binding IsSetupOpen, Converter={StaticResource BoolToVisibility}}" Header="Add or fix a lamp" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,16">
         <StackPanel>
           <Button Content="Find lamps" Command="{Binding FindCommand}" HorizontalAlignment="Left" Margin="0,0,0,12" />
           <ListBox Style="{StaticResource LampListStyle}" ItemContainerStyle="{StaticResource LampListItemStyle}" ItemsSource="{Binding Discovered}" SelectedItem="{Binding SelectedFound}" DisplayMemberPath="Label" MaxHeight="150" />

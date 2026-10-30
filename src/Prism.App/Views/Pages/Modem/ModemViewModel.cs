@@ -70,13 +70,21 @@ public sealed class ModemViewModel : PageViewModel
     public string PingChip => "Ping " + Format.Ms(_ping);
     public string ConnectionChip => Connected ? "Connected" : "Offline";
     public IReadOnlyList<string> Radios { get; } = ["5G", "LTE anchor"];
-    public string SelectedRadio { get => selectedRadio; set { if (Set(ref selectedRadio, value)) OnPropertyChanged(nameof(RadioMetrics)); } }
-    public IReadOnlyList<MetricRow> RadioMetrics => MetricGroups.Select(g => g.Rows[SelectedRadio == "5G" ? 0 : 1] with { Net = g.Code }).Append(new("RSSI", Format.Dash, "Unavailable", "#7C808A", double.NaN)).ToArray();
+    public string SelectedRadio { get => selectedRadio; set { if (Set(ref selectedRadio, value)) NotifyAll(); } }
+    public IReadOnlyList<MetricRow> RadioMetrics => MetricGroups.Select(g => g.Rows[SelectedRadio == "5G" ? 0 : 1] with { Net = g.Code }).Append(new("RSSI", Format.Dbm(SelectedCell?.Rssi), "Total received power", "#36D6FF", SelectedCell?.Rssi is { } rssi ? Normalize(rssi, -110, -45) : double.NaN)).ToArray();
     public IReadOnlyList<double> PingHistory => _pingHistory;
     public string AveragePing => _pingHistory.Count > 0 ? Format.Ms(_pingHistory.Average()) : Format.Dash;
     public string JitterText => _pingHistory.Count > 1 ? Format.Ms(_pingHistory.Zip(_pingHistory.Skip(1), (a, b) => Math.Abs(a - b)).Average()) : Format.Dash;
     public IReadOnlyList<StatRow> PingStats => [new("Now", PingNowText, "#36D6FF"), new("Average", AveragePing, "#F4F5F7"), new("Jitter", JitterText, "#F4F5F7"), new("Lost", LossText, "#3DDC84")];
-    public IReadOnlyList<StatRow> CellStats => [new("Band", Band, "#F4F5F7"), new("Bandwidth", Format.Dash, "#7C808A"), new("PCI", PciText, "#7C808A"), new("Cell ID", EnodebText, "#7C808A"), new("ARFCN", Format.Dash, "#7C808A"), new("Anchor", AnchorText, "#7C808A"), new("Carrier aggregation", Format.Dash, "#7C808A"), new("Tower distance", Format.Dash, "#7C808A")];
+    private RadioCell? SelectedCell => SelectedRadio == "5G" ? State?.Router?.Details?.Nr : State?.Router?.Details?.Lte;
+    public IReadOnlyList<StatRow> CellStats => [new("Band", Format.Text(SelectedCell?.Band ?? State?.Router?.Band), "#F4F5F7"), new("Bandwidth", Format.Text(SelectedCell?.Bandwidth), "#F4F5F7"), new("PCI", PciText, "#F4F5F7"), new("Cell ID", EnodebText, "#F4F5F7"), new("ARFCN", Format.Text(SelectedCell?.Arfcn), "#F4F5F7"), new("Anchor", AnchorText, "#F4F5F7"), new("Carrier aggregation", Format.Text(State?.Router?.Details?.CarrierAggregation), "#F4F5F7"), new("Tower distance", State?.Router?.Details?.TowerDistanceKm is { } km ? $"{km:0.0} km" : Format.Dash, "#F4F5F7")];
+    public string RouterModel => Format.Text(State?.Router?.Details?.Model);
+    public string RouterAddress => Format.Text(State?.Router?.Details?.Address);
+    public string RouterUptime => State?.Router?.Details?.UptimeSeconds is { } seconds ? $"{(int)(seconds / 86400)} d {(int)(seconds / 3600) % 24} h" : Format.Dash;
+    public string RouterMonthlyData => State?.Router?.Details?.MonthlyBytes is { } bytes ? Format.Bytes((long)bytes) : Format.Dash;
+    public string ClientInventoryText => State?.Devices is null ? "Waiting for the service" : DevicesOnlineText;
+    public string NeighborStatus => State?.Router?.Details?.Neighbors is null ? "Waiting for router readings" : Neighbors.Count == 0 ? "No nearby cells reported" : "Read from the router";
+
 
     public IReadOnlyList<string> Views { get; }
     public ObservableCollection<SimpleNetworkRow> SimpleRows { get; } = new();
@@ -136,9 +144,9 @@ public sealed class ModemViewModel : PageViewModel
 
     public string Headline => Connected ? $"5G signal is {Verdict.ToLowerInvariant()}" : "Waiting for your router";
     public string BandText => Band;
-    public string AnchorText => Format.Dash;
-    public string PciText => Format.Dash;
-    public string EnodebText => Format.Dash;
+    public string AnchorText => Format.Text(State?.Router?.Details?.Lte?.Band);
+    public string PciText => Format.Text(SelectedCell?.Pci);
+    public string EnodebText => Format.Text(SelectedCell?.CellId);
     public string DevicesOnlineText => $"{Devices.Count(d => d.DotColorHex != ColorUtil.ToHex(ColorUtil.TextTertiary))} online";
     public string ServiceLine => Connected ? $"{Network} · updated every 1 s" : "Router not connected · retrying";
 
@@ -179,8 +187,20 @@ public sealed class ModemViewModel : PageViewModel
         _ping = router.PingMs ?? double.NaN;
         _loss = router.PingLossPercent ?? double.NaN;
 
-        if (double.IsFinite(_rsrp5)) Push(_rsrpHistory, Normalize(_rsrp5, -140, -44));
-        if (double.IsFinite(_sinr5)) Push(_sinrHistory, Normalize(_sinr5, -10, 30));
+        if (State?.History is { } radioHistory)
+        {
+            _rsrpHistory.Clear(); _sinrHistory.Clear();
+            foreach (var sample in radioHistory.TakeLast(60))
+            {
+                if (sample.Rsrp5g is { } r && double.IsFinite(r)) Push(_rsrpHistory, Normalize(r, -140, -44));
+                if (sample.Sinr5g is { } n && double.IsFinite(n)) Push(_sinrHistory, Normalize(n, -10, 30));
+            }
+        }
+        else
+        {
+            if (double.IsFinite(_rsrp5)) Push(_rsrpHistory, Normalize(_rsrp5, -140, -44));
+            if (double.IsFinite(_sinr5)) Push(_sinrHistory, Normalize(_sinr5, -10, 30));
+        }
         if (State?.History is { } history)
         {
             _pingHistory.Clear();
@@ -273,13 +293,16 @@ public sealed class ModemViewModel : PageViewModel
     private void BuildNeighbors()
     {
         Neighbors.Clear();
+        foreach (var neighbor in State?.Router?.Details?.Neighbors ?? [])
+            Neighbors.Add(new NeighborRow(neighbor.Radio + " " + neighbor.Arfcn, Format.Text(neighbor.Pci), Format.Dbm(neighbor.Rsrp), Format.Db(neighbor.Sinr)));
 
     }
 
     private void BuildDevices(RouterState router)
     {
         Devices.Clear();
-        Devices.Add(new DeviceRow("Device list unavailable", "Not supplied by this service protocol", ColorUtil.ToHex(ColorUtil.TextTertiary), false));
+        foreach (var device in State?.Devices?.Where(d => d.Kind == DeviceKind.NetworkDevice && d.Status == DeviceStatus.Ready) ?? [])
+            Devices.Add(new DeviceRow(device.Name, device.Ip ?? Format.Dash, "#3DDC84", false));
     }
 
     private void BuildPlaceholderRows()
@@ -314,9 +337,9 @@ public sealed class ModemViewModel : PageViewModel
 
         SpeedStats.Clear();
         SpeedStats.Add(new SpeedStat("Ping", "ms", Format.MsValue(_ping)));
-        SpeedStats.Add(new SpeedStat("Download", "Mbit/s", Format.Dash));
-        SpeedStats.Add(new SpeedStat("Upload", "Mbit/s", Format.Dash));
-        SpeedStats.Add(new SpeedStat("Jitter", "ms", Format.Dash));
+        SpeedStats.Add(new SpeedStat("Download", "Mbit/s", Format.Number(download)));
+        SpeedStats.Add(new SpeedStat("Upload", "Mbit/s", Format.Number(upload)));
+        SpeedStats.Add(new SpeedStat("Jitter", "ms", JitterText));
     }
 
     private void RefreshTrend()
@@ -381,7 +404,9 @@ public sealed class ModemViewModel : PageViewModel
                   {
                       static double Read(System.Text.Json.JsonElement data, string name) => data.TryGetProperty(name, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetDouble(out var reading) && double.IsFinite(reading) ? reading : double.NaN;
                       download = Read(data, "down"); upload = Read(data, "up");
-                      OnPropertyChanged(nameof(Download)); OnPropertyChanged(nameof(UploadText));
+                      SpeedHistory.Insert(0, new SpikeItem(Format.Mbps(download), DateTimeOffset.Now.ToString("g"), "Upload " + Format.Mbps(upload), "#1736D6FF", "#36D6FF"));
+                      while (SpeedHistory.Count > 20) SpeedHistory.RemoveAt(SpeedHistory.Count - 1);
+                      RefreshPing(); NotifyAll();
                   }
                   return response;
               });

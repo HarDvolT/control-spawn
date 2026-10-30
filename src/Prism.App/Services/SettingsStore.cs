@@ -11,6 +11,11 @@ public sealed class AppSettings
     public bool ShowWidgetsAtStartup { get; set; } = true;
     public bool ReduceAnimations { get; set; }
     public bool CheckForUpdates { get; set; }
+    public string TemperatureUnit { get; set; } = "\u00b0C";
+    public string AccentColor { get; set; } = "#FF4D1A";
+    public bool NotifyRunningHot { get; set; } = true;
+    public bool NotifyCookingFinished { get; set; } = true;
+    public bool NotifyDeviceOffline { get; set; } = true;
     public bool SceneAutoGame { get; set; } = true;
     public bool SceneAutoNight { get; set; } = true;
     public bool SceneAutoLock { get; set; }

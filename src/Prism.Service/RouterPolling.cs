@@ -49,8 +49,28 @@ public sealed class RouterBackend : IRouterBackend
         double? Lte(Metric m) => summary.Lte.Values.GetValueOrDefault(m);
         return new(true, summary.Network, summary.Band, summary.Score is { } score ? (int)Math.Round(score) : null,
             summary.Bars, Ratings.Verdict(summary.Overall), Ratings.PlainText(summary.Overall),
-            Nr(Metric.Rsrp), Nr(Metric.Sinr), Nr(Metric.Rsrq), Lte(Metric.Rsrp), Lte(Metric.Sinr), Lte(Metric.Rsrq), stats.Avg, stats.Loss, null);
+            Nr(Metric.Rsrp), Nr(Metric.Sinr), Nr(Metric.Rsrq), Lte(Metric.Rsrp), Lte(Metric.Sinr), Lte(Metric.Rsrq), stats.Avg, stats.Loss, null, RouterProjection.Details(data, client.Host));
     }
     public Task<SpeedTestResult?> TestSpeedAsync(CancellationToken token) => Task.Run(() => SpeedTest.Run((_, _, _) => { }, token), token);
     public void Dispose() { }
+}
+
+/// <summary>Projects only values returned by the read-only signal endpoint. No inferred tower location or traffic.</summary>
+public static class RouterProjection
+{
+    public static RouterDetails Details(IReadOnlyDictionary<string, object?> data, string host)
+    {
+        string? Text(params string[] keys) => keys.Select(k => Raw.Str(data.GetValueOrDefault(k)).Trim()).FirstOrDefault(v => v.Length > 0);
+        double? Number(params string[] keys) => keys.Select(k => Raw.ToFloat(data.GetValueOrDefault(k))).FirstOrDefault(v => v is { } n && double.IsFinite(n));
+        var scan = Scanner.Analyze(data);
+        var nr = scan.Nr;
+        var lte = scan.Lte;
+        return new(
+            nr is null ? null : new(nr.Band, nr.Pci, Text("CELL_ID_5G"), nr.Earfcn, Text("bandwidth_5g", "BANDWIDTH_5G"), Number("RSSI_5G")),
+            new(lte.Band, lte.Pci, Text("CELL_ID"), lte.Earfcn, Text("bandwidth", "BANDWIDTH"), Number("RSSI")),
+            Text("carrier_aggregation"), Number("tower_distance_km"),
+            Text("model", "device_model"), host, Number("uptime", "uptime_seconds"),
+            Number("monthly_bytes"),
+            scan.Neighbors.Select(n => new RouterNeighbor(n.Type, n.Earfcn, n.Pci, n.Rsrp, n.Sinr)).ToArray());
+    }
 }

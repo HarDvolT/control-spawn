@@ -12,6 +12,8 @@ namespace Prism.App.Controls;
 /// </summary>
 public class ThickSlider : FrameworkElement
 {
+    public bool UseGradient { get; set; }
+    public Color GradientStart { get; set; } = Color.FromRgb(58, 60, 68);
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(
         nameof(Value), typeof(double), typeof(ThickSlider),
         new FrameworkPropertyMetadata(50d,
@@ -226,11 +228,11 @@ public class ThickSlider : FrameworkElement
             var geometry = new RectangleGeometry(rect, radius, radius);
             geometry.Freeze();
             dc.PushClip(geometry);
-            dc.DrawRectangle(ColorUtil.Brush(AccentColor), null, rect);
+            dc.DrawRectangle(UseGradient ? new LinearGradientBrush(GradientStart, AccentColor, 0) : ColorUtil.Brush(AccentColor), null, rect);
             // A soft top highlight so the capsule reads as glass.
             var highlight = new LinearGradientBrush(
                 Color.FromArgb(70, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90);
-            dc.DrawRectangle(highlight, null, new Rect(0, 0, rect.Width, height * 0.45));
+            if (!UseGradient) dc.DrawRectangle(highlight, null, new Rect(0, 0, rect.Width, height * 0.45));
             dc.Pop();
         }
 

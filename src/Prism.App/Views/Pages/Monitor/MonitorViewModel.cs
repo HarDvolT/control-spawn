@@ -79,20 +79,26 @@ public sealed class MonitorViewModel : PageViewModel
     public string PowerText => State?.System is { CpuPowerW: { } cpu, GpuPowerW: { } gpu } ? $"CPU + GPU · {cpu + gpu:0} W" : "Power unavailable";
     public string PeakText { get => _peakText; private set => Set(ref _peakText, value); }
 
-    public IReadOnlyList<StatRow> CpuMiniStats => CpuStats.Where(s => s.Key is "Clock" or "Power" or "Temp").ToArray();
-    public IReadOnlyList<StatRow> GpuMiniStats => GpuStats.Where(s => s.Key is "Clock" or "Power" or "Hotspot").ToArray();
+    public IReadOnlyList<StatRow> CpuMiniStats => new[] { "Clock", "Power", "CCD" }.Select(key => CpuStats.FirstOrDefault(s => s.Key == key)).OfType<StatRow>().ToArray();
+    public IReadOnlyList<StatRow> GpuMiniStats => new[] { "Clock", "Power", "Hotspot" }.Select(key => GpuStats.FirstOrDefault(s => s.Key == key)).OfType<StatRow>().ToArray();
+    public IReadOnlyList<TempRow> TemperatureRails => new[] { "Board", "DIMM 1", "DIMM 2", "NVMe", "GPU hotspot" }.Select(key => Temps.FirstOrDefault(t => t.Name == key)).OfType<TempRow>().ToArray();
     public IReadOnlyList<ProcessLoad> TopProcesses => State?.System.TopProcesses ?? [];
+    public sealed record ProcessRow(string Name, double CpuPercent, string ColorHex);
+    public IReadOnlyList<ProcessRow> ProcessRows => TopProcesses.Select((p, i) => new ProcessRow(p.Name, p.CpuPercent, new[] { "#FF4D1A", "#36D6FF", "#3DDC84", "#B26BFF" }[i % 4])).ToArray();
+    public IReadOnlyList<string> ProcessPlaceholders { get; } = ["Waiting for samples", "\u2014", "\u2014", "\u2014"];
+    public string PowerValue => State?.System is { CpuPowerW: { } cpu, GpuPowerW: { } gpu } ? Format.Watts(cpu + gpu) : Format.Dash;
     public bool HasProcesses => TopProcesses.Count > 0;
     public string UptimeText => State?.System.UptimeSeconds is { } seconds ? $"{(int)(seconds / 86400)}d {(int)(seconds / 3600) % 24}h" : Format.Dash;
     public string AverageLoad => State?.History?.Where(s => s.CpuLoad.HasValue).Select(s => s.CpuLoad!.Value).ToArray() is { Length: > 0 } values ? Format.Percent(values.Average()) : Format.Dash;
     public string PeakCpu => Peak(s => s.CpuTemp);
     public string PeakGpu => Peak(s => s.GpuTemp);
     private string Peak(Func<TelemetrySample, double?> metric) => State?.History?.Select(metric).Where(v => v.HasValue).Select(v => v!.Value).ToArray() is { Length: > 0 } values ? Format.Temp(values.Max()) : Format.Dash;
-    public string ThrottlingText => State?.System.ThermalThrottling switch { true => "Detected", false => "None active", _ => "Unavailable" };
+    public string ThrottlingText => State?.System.ThrottlingEvents is { } count ? count == 0 ? "None observed" : $"{count} observed" : State?.System.ThermalThrottling switch { true => "Detected", false => "None active", _ => "Unavailable" };
+    public string ThrottlingScope => State?.System.ThrottlingObservedSince is { } since ? $"Observed since {since.LocalDateTime:g}" : "No thermal-throttling sensor is reporting";
     public string ThreadCount => $"{State?.System.CpuCoreLoads.Count ?? 0} THREADS";
-    public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp);
-    public string GpuChip => "GPU " + Format.Temp(State?.System.GpuTemp);
-    public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot);
+    public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp, 0);
+    public string GpuChip => "GPU " + Format.Temp(State?.System.GpuTemp, 0);
+    public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot, 0);
     public string InternetScore => $"{State?.Router?.Verdict ?? "Unavailable"} \u00b7 {State?.Router?.Score?.ToString() ?? Format.Dash}";
 
     protected override void Refresh()
@@ -133,6 +139,7 @@ public sealed class MonitorViewModel : PageViewModel
         CpuStats.Add(new StatRow("Temp", Format.Temp(system.CpuTemp), ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp))));
         CpuStats.Add(new StatRow("Power", Format.Watts(system.CpuPowerW), ColorUtil.ToHex(ColorUtil.TextPrimary)));
 
+        CpuStats.Add(new StatRow("CCD", Format.Temp(system.CpuCcdTemp, 0), ColorUtil.ToHex(ColorUtil.Heat(system.CpuCcdTemp))));
         Threads.Clear();
         var cores = system.CpuCoreLoads ?? Array.Empty<double?>();
         for (var i = 0; i < cores.Count; i++)
@@ -151,9 +158,9 @@ public sealed class MonitorViewModel : PageViewModel
         GpuStats.Add(new StatRow("Fan", Format.Rpm(system.GpuFanRpm), ColorUtil.ToHex(ColorUtil.TextSecondary)));
 
         RamText = Format.GbPair(system.RamUsedGb, system.RamTotalGb);
-        RamPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : 0;
+        RamPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : double.NaN;
         VramText = Format.GbPair(system.VramUsedGb, system.VramTotalGb);
-        VramPercent = system is { VramUsedGb: { } vused, VramTotalGb: { } vtotal } && vtotal > 0 ? vused / vtotal * 100 : 0;
+        VramPercent = system is { VramUsedGb: { } vused, VramTotalGb: { } vtotal } && vtotal > 0 ? vused / vtotal * 100 : double.NaN;
 
         Dimm1Text = Format.Temp(system.DimmTemps.Count > 0 ? system.DimmTemps[0] : null);
         Dimm2Text = Format.Temp(system.DimmTemps.Count > 1 ? system.DimmTemps[1] : null);
@@ -161,26 +168,31 @@ public sealed class MonitorViewModel : PageViewModel
         Dimm2Color = ColorUtil.ToHex(ColorUtil.Heat(system.DimmTemps.Count > 1 ? system.DimmTemps[1] : null));
 
         Temps.Clear();
-        Temps.Add(new TempRow("CPU", Format.Temp(system.CpuTemp), Math.Clamp(system.CpuTemp ?? 0, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp))));
-        Temps.Add(new TempRow("GPU", Format.Temp(system.GpuTemp), Math.Clamp(system.GpuTemp ?? 0, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp))));
-        Temps.Add(new TempRow("GPU hotspot", Format.Temp(system.GpuHotspot), Math.Clamp(system.GpuHotspot ?? 0, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.GpuHotspot))));
-        Temps.Add(new TempRow("DIMM 1", Dimm1Text, Math.Clamp(system.DimmTemps.Count > 0 ? system.DimmTemps[0] ?? 0 : 0, 0, 100), Dimm1Color));
-        Temps.Add(new TempRow("DIMM 2", Dimm2Text, Math.Clamp(system.DimmTemps.Count > 1 ? system.DimmTemps[1] ?? 0 : 0, 0, 100), Dimm2Color));
-        Temps.Add(new TempRow("Board", Format.Temp(system.BoardTemp), Math.Clamp(system.BoardTemp ?? 0, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.BoardTemp))));
+        Temps.Add(new TempRow("CPU", Format.Temp(system.CpuTemp), Math.Clamp(system.CpuTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp))));
+        Temps.Add(new TempRow("GPU", Format.Temp(system.GpuTemp), Math.Clamp(system.GpuTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp))));
+        Temps.Add(new TempRow("GPU hotspot", Format.Temp(system.GpuHotspot), Math.Clamp(system.GpuHotspot ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.GpuHotspot))));
+        Temps.Add(new TempRow("DIMM 1", Dimm1Text, Math.Clamp(system.DimmTemps.Count > 0 ? system.DimmTemps[0] ?? double.NaN : double.NaN, 0, 100), Dimm1Color));
+        Temps.Add(new TempRow("DIMM 2", Dimm2Text, Math.Clamp(system.DimmTemps.Count > 1 ? system.DimmTemps[1] ?? double.NaN : double.NaN, 0, 100), Dimm2Color));
+        Temps.Add(new TempRow("Board", Format.Temp(system.BoardTemp), Math.Clamp(system.BoardTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.BoardTemp))));
         Temps.Add(new TempRow("NVMe", Format.Temp(system.Disks.Count > 0 ? system.Disks[0].TempC : null),
-            Math.Clamp(system.Disks.Count > 0 ? system.Disks[0].TempC ?? 0 : 0, 0, 100),
+            Math.Clamp(system.Disks.Count > 0 ? system.Disks[0].TempC ?? double.NaN : double.NaN, 0, 100),
             ColorUtil.ToHex(ColorUtil.Heat(system.Disks.Count > 0 ? system.Disks[0].TempC : null))));
 
         Fans.Clear();
         foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
             Fans.Add(new FanRow(fan.Name, fan.IsPump ? "Fixed at 100%" : "Curve · " + fan.Curve,
-                Format.Rpm(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? 0, 0, 100), fan.IsPump));
+                Format.Rpm(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump));
 
         var disk = system.Disks.Count > 0 ? system.Disks[0] : null;
         DiskReadText = disk is null ? Format.Dash : Format.Number(disk.ReadMBps) + " MB/s";
         DiskWriteText = disk is null ? Format.Dash : Format.Number(disk.WriteMBps) + " MB/s";
         DiskTempText = disk is null ? Format.Dash : Format.Temp(disk.TempC);
-        Push(_diskHistory, disk?.ReadMBps ?? double.NaN, 14);
+        if (state.History is { } diskHistory)
+        {
+            _diskHistory.Clear();
+            foreach (var sample in diskHistory.TakeLast(14)) Push(_diskHistory, sample.DiskReadMBps ?? double.NaN, 14);
+        }
+        else Push(_diskHistory, disk?.ReadMBps ?? double.NaN, 14);
         DiskBars.Clear();
         foreach (var value in _diskHistory)
             DiskBars.Add(new BarItem(Math.Clamp(8 + value / 400 * 82, 8, 90), ColorUtil.ToHex(ColorUtil.Accent)));

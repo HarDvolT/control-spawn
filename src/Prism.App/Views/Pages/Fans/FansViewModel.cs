@@ -31,6 +31,7 @@ public sealed class FansViewModel : PageViewModel
     private double _minSpeed = 33;
     private string _measureText = string.Empty;
     private bool _isPumpSelected;
+    private bool curveDirty;
 
     public FansViewModel(IPrismClient client) : base(client)
     {
@@ -55,6 +56,7 @@ public sealed class FansViewModel : PageViewModel
         var point = Curve[SelectedCurvePoint];
         double low = SelectedCurvePoint == 0 ? 0 : Curve[SelectedCurvePoint - 1].Temperature + 1;
         double high = SelectedCurvePoint == Curve.Count - 1 ? 100 : Curve[SelectedCurvePoint + 1].Temperature - 1;
+        if (low > high) return;
         Curve[SelectedCurvePoint] = direction switch
         {
             "up" => point with { Percent = Math.Clamp(point.Percent + 5, 0, 100) },
@@ -65,12 +67,22 @@ public sealed class FansViewModel : PageViewModel
         OnCurveEdited();
     });
 
+    public FanControlState? SelectedConfiguration => State?.Fans.FirstOrDefault(f => f.Header == selectedHeader)?.Configuration;
+    public IReadOnlyList<string> TemperatureTicks => new double[] { 0, 25, 50, 75, 100 }.Select(t => Format.TempUnit(t, 0)).ToArray();
+    public string CoolerLabel => "\u2190 " + (DisplayPreferences.Fahrenheit ? "9" : "5") + "\u00b0 cooler";
+    public string HotterLabel => (DisplayPreferences.Fahrenheit ? "9" : "5") + "\u00b0 hotter \u2192";
+    public string RampText => SelectedConfiguration is { } c ? $"Rise {c.SpinUpPerSecond:0}%/s ? fall {c.SpinDownPerSecond:0}%/s" : "Unavailable";
+    public string HysteresisText => SelectedConfiguration is { } c ? $"{c.Hysteresis:0}\u00b0" : Format.Dash;
     public string Headline => State is null ? "Waiting for your fans" : State.Health.FanFailsafeActive ? "BIOS is keeping things safe" : "Quiet and cool";
     public string SafetyText => State?.Health.FanFailsafeActive == true ? "Failsafe active · BIOS control" : "BIOS hand-back is armed";
     public IReadOnlyList<FanGroupItem> HeaderRows => State?.Fans.OrderBy(f => f.Header).Select(f => new FanGroupItem(f.Name, $"HEADER {f.Header}", Format.Rpm(f.Rpm), f.IsPump ? 100 : f.Percent ?? 0, f.IsPump, 1, f.Header)).ToArray() ?? [];
     public ObservableCollection<FanGroupItem> Fans { get; } = new();
     public ObservableCollection<FanPoint> Curve { get; } = new();
 
+    public IReadOnlyList<string> ControllableFanNames => Fans.Where(f => !f.IsPump).Select(f => f.Name).ToArray();
+    public string SelectedCurveFan { get => SelectedFanName; set { if (value != SelectedFanName && Fans.FirstOrDefault(f => !f.IsPump && f.Name == value) is { } fan) { SelectFan(fan); OnPropertyChanged(); } } }
+    public IReadOnlyList<string> PrimarySources { get; } = ["CPU", "GPU", "Hottest"];
+    public string SelectedPrimarySource { get => SourceName == "Highest" ? "Hottest" : SourceName; set { if (PrimarySources.Contains(value)) SourceName = value == "Hottest" ? "Highest" : value; } }
     public IReadOnlyList<string> Modes { get; } = ["Silent", "Standard", "Turbo", "Full speed", "Custom"];
     public IReadOnlyList<string> Sources { get; } = ["CPU", "Motherboard", "GPU", "Highest"];
 
@@ -136,12 +148,12 @@ public sealed class FansViewModel : PageViewModel
     public string SourceName
     {
         get => _sourceName;
-        set => Set(ref _sourceName, value);
+        set { if (Set(ref _sourceName, value)) { curveDirty = true; UpdateNow(); OnPropertyChanged(nameof(SelectedPrimarySource)); } }
     }
 
     public double SmoothUp { get => _smoothUp; set => Set(ref _smoothUp, Math.Clamp(value, 0, 100)); }
     public double SmoothDown { get => _smoothDown; set => Set(ref _smoothDown, Math.Clamp(value, 0, 100)); }
-    public double MinSpeed { get => _minSpeed; set { if (Set(ref _minSpeed, Math.Clamp(value, 0, 60))) OnPropertyChanged(nameof(MinSpeedText)); } }
+    public double MinSpeed { get => _minSpeed; set { if (Set(ref _minSpeed, Math.Clamp(value, 0, 60))) { curveDirty = true; OnPropertyChanged(nameof(MinSpeedText)); } } }
     public string SmoothUpText => Format.Percent(SmoothUp);
     public string SmoothDownText => Format.Percent(SmoothDown);
     public string MinSpeedText => Format.Percent(MinSpeed);
@@ -161,7 +173,7 @@ public sealed class FansViewModel : PageViewModel
         var currentFans = new List<FanGroupItem>();
         foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
         {
-            var percent = fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? 0, 0, 100);
+            var percent = fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100);
             var spin = Math.Max(0.3, 3000.0 / Math.Max(fan.Rpm ?? 300, 300));
             var next = new FanGroupItem(fan.Name,
                 $"Header {fan.Header} · {fan.Name}",
@@ -169,6 +181,7 @@ public sealed class FansViewModel : PageViewModel
             var existing = Fans.FirstOrDefault(f => f.Id == next.Id);
             if (existing is null) { Fans.Add(next); existing = next; } else existing.Update(next);
             existing.SetHistory((state.History ?? []).Select(s => s.FanRpms?.GetValueOrDefault(fan.Header)).Where(v => v.HasValue && double.IsFinite(v.Value)).Select(v => v!.Value));
+            existing.SetControl(fan);
             currentFans.Add(existing);
         }
         foreach (var removed in Fans.Where(f => !currentFans.Contains(f)).ToArray()) Fans.Remove(removed);
@@ -177,10 +190,11 @@ public sealed class FansViewModel : PageViewModel
         { _selectedFanName = Fans[0].Name; selectedHeader = int.Parse(Fans[0].Id.AsSpan(4)); Fans[0].IsSelected = true; }
         IsPumpSelected = selectedHeader == 7;
 
-        if (state.FanMode != _mode)
+        var reportedMode = Enum.TryParse<FanMode>(state.Fans.FirstOrDefault(f => f.Header == selectedHeader)?.Curve, out var headerMode) ? headerMode : state.FanMode;
+        if (reportedMode != _mode)
         {
             _suppressMode = true;
-            _mode = state.FanMode;
+            _mode = reportedMode;
             _selectedModeName = _mode == FanMode.Full ? "Full speed" : _mode.ToString();
             LoadCurve(_mode);
             _suppressMode = false;
@@ -188,12 +202,20 @@ public sealed class FansViewModel : PageViewModel
             OnPropertyChanged(nameof(ModeName));
         }
 
+        if (!curveDirty && SelectedConfiguration is { } config && !IsPumpSelected)
+        {
+            var reported = config.Points.ToArray();
+            if (!Curve.SequenceEqual(reported)) { Curve.Clear(); foreach (var point in reported) Curve.Add(point); }
+            _sourceName = config.Source switch { TemperatureSource.Cpu => "CPU", TemperatureSource.Gpu => "GPU", TemperatureSource.Motherboard => "Motherboard", _ => "Highest" };
+            _minSpeed = config.Minimum;
+        }
         UpdateNow();
         NotifyAll();
     }
 
     public void OnCurveEdited()
     {
+        curveDirty = true;
         SaveCurve();
         UpdateNow();
         OnPropertyChanged(nameof(CurveSubtitle));
@@ -205,11 +227,19 @@ public sealed class FansViewModel : PageViewModel
     {
         if (item is null) return;
         string name = item.Name;
+        curveDirty = false;
         SaveCurve();
         selectedHeader = int.TryParse(item.Id.AsSpan(4), out var header) && header > 0 ? header : State?.Fans.FirstOrDefault(f => f.Name == name)?.Header ?? selectedHeader;
         foreach (var fan in Fans) fan.IsSelected = fan.Id == SelectedFanId;
         IsPumpSelected = selectedHeader == 7;
         SelectedFanName = name;
+        if (SelectedConfiguration is { } config && !IsPumpSelected)
+        {
+            Curve.Clear(); foreach (var point in config.Points) Curve.Add(point);
+            _sourceName = config.Source switch { TemperatureSource.Cpu => "CPU", TemperatureSource.Gpu => "GPU", TemperatureSource.Motherboard => "Motherboard", _ => "Highest" };
+            _minSpeed = config.Minimum;
+        }
+        OnPropertyChanged(nameof(SelectedCurveFan));
         OnPropertyChanged(nameof(SelectedFanId));
         OnPropertyChanged(nameof(CurveSubtitle));
     }
@@ -220,12 +250,12 @@ public sealed class FansViewModel : PageViewModel
         if (state is null) return;
         NowTemp = SourceName switch
         {
-            "Motherboard" => state.System.BoardTemp ?? 0,
-            "GPU" => state.System.GpuTemp ?? 0,
-            "Highest" => new[] { state.System.CpuTemp ?? 0, state.System.GpuTemp ?? 0, state.System.BoardTemp ?? 0 }.Max(),
-            _ => state.System.CpuTemp ?? 0
+            "Motherboard" => state.System.BoardTemp ?? double.NaN,
+            "GPU" => state.System.GpuTemp ?? double.NaN,
+            "Highest" => new[] { state.System.CpuTemp, state.System.GpuTemp, state.System.BoardTemp }.Max() ?? double.NaN,
+            _ => state.System.CpuTemp ?? double.NaN
         };
-        NowPercent = IsPumpSelected ? 100 : DutyAt(Curve, NowTemp);
+        NowPercent = IsPumpSelected ? 100 : state.Fans.FirstOrDefault(f => f.Header == selectedHeader)?.Percent ?? double.NaN;
         OnPropertyChanged(nameof(NowTempText));
         OnPropertyChanged(nameof(NowPercentText));
         OnPropertyChanged(nameof(CurveSubtitle));
@@ -286,6 +316,7 @@ public sealed class FansViewModel : PageViewModel
         };
         var points = Curve.Select(p => new FanPoint(p.Temperature, Math.Clamp(p.Percent, MinSpeed, 100))).ToList();
         await RunAsync(() => Client.SetFanCurveAsync(SelectedFanGroup, points, source));
+        if (!HasError) curveDirty = false;
         MeasureText = HasError ? LastError! : "Curve applied";
     }
 

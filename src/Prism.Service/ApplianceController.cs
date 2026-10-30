@@ -13,6 +13,7 @@ public sealed class ApplianceController(Func<DeviceState, CancellationToken, Tas
     private readonly IClock clock = clock ?? new SystemClock();
     private readonly Dictionary<string, (string Nonce, int Siid, int Aiid, TimeSpan Expires)> pending = new();
     private ApplianceState[] states = [];
+    private readonly CookingHistory cookingHistory = new();
     private readonly Dictionary<string, TimeSpan> lastCalls = new();
     private async Task RateLimitAsync(string id, CancellationToken token)
     {
@@ -57,7 +58,7 @@ public sealed class ApplianceController(Func<DeviceState, CancellationToken, Tas
                         : previous with { Connected = false, Warning = previous.Status is "cooking" or "preheating" ? "Contact lost while cooking. The fryer's firmware remains in control." : "Device unavailable." });
                 }
             }
-            Volatile.Write(ref states, result.ToArray());
+            Volatile.Write(ref states, result.Select(a => a with { History = cookingHistory.Observe(a, DateTimeOffset.UtcNow) }).ToArray());
         }
         finally { gate.Release(); }
     }

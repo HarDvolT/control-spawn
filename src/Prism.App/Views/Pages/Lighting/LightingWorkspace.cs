@@ -102,10 +102,10 @@ public sealed class LightingWorkspace : UserControl
     public LightingWorkspace()
     {
         Content = root;
-        root.ColumnDefinitions.Add(new() { Width = new GridLength(7, GridUnitType.Star) }); root.ColumnDefinitions.Add(new() { Width = new GridLength(5, GridUnitType.Star) });
+        root.ColumnDefinitions.Add(new() { Width = new GridLength(1.443, GridUnitType.Star) }); root.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new() { Height = GridLength.Auto }); root.RowDefinitions.Add(new() { Height = GridLength.Auto });
         root.Children.Add(canvasPanel); root.Children.Add(inspector); Grid.SetColumn(inspector, 1);
-        canvasPanel.Margin = new(0, 0, 20, 0);
+        canvasPanel.Margin = new(0, 0, 16, 0);
         canvasPanel.Children.Add(new CaseLightingSetup());
         var wholeCase = new Button { Content = "Sync whole case and both lamps", Margin = new Thickness(0, 8, 0, 12), HorizontalAlignment = HorizontalAlignment.Left };
         wholeCase.Click += async (_, _) => { if (model is not null) await model.SyncAllAsync(); };
@@ -192,11 +192,11 @@ public sealed class LightingWorkspace : UserControl
         host.Children.Add(new Border { Child = setupRow, Padding = new(18, 14, 18, 14), CornerRadius = new(16), Margin = new(0, 0, 0, 16), BorderThickness = new(1), BorderBrush = new SolidColorBrush(Color.FromArgb(85, 245, 165, 36)), Background = new LinearGradientBrush(Color.FromArgb(40, 245, 165, 36), Color.FromArgb(5, 245, 165, 36), 0) });
         host.Children.Add(setup); host.Children.Add(root);
         var previewBody = new StackPanel();
-        Header(previewBody, "LIVE PREVIEW", 11);
-        var illustration = new CaseIllustration(); previewBody.Children.Add(illustration);
+        Header(previewBody, "LIVE PREVIEW", 11); ((TextBlock)previewBody.Children[0]).Margin = new(0, 0, 0, 4);
+        var illustration = new CaseIllustration { Margin = new(0, 1, 0, 0) }; previewBody.Children.Add(illustration);
         stage.Visibility = Visibility.Collapsed; previewBody.Children.Add(stage);
         previewBody.Children.Add(devices);
-        canvasPanel.Children.Add(new GlassCard { Content = previewBody });
+        canvasPanel.Children.Add(new GlassCard { Content = previewBody, MinHeight = 535 });
         var tools = new StackPanel { Visibility = Visibility.Collapsed, Margin = new(0, 12, 0, 0) };
         tools.Children.Add(mode); tools.Children.Add(transform); tools.Children.Add(editor);
         canvasPanel.Children.Add(tools); editor.Visibility = Visibility.Collapsed;
@@ -216,29 +216,30 @@ public sealed class LightingWorkspace : UserControl
             else { preview.LedEditing = edit.IsChecked == true; preview.MapEditing = map.IsChecked == true; editor.Visibility = preview.LedEditing ? Visibility.Visible : Visibility.Collapsed; stage.Children[1].Visibility = preview.LedEditing ? Visibility.Visible : Visibility.Collapsed; }
         };
         edit.Content = "Paint LEDs"; map.Content = "Arrange case";
-        var effectsBody = new StackPanel(); Header(effectsBody, "Effects", 15);
-        var effectScroll = (ScrollViewer)inspectorChildren[1]; effectScroll.MaxHeight = 260; effectsBody.Children.Add(effectScroll);
+        var effectsBody = new StackPanel(); Header(effectsBody, "EFFECT", 11);
+        var effectScroll = (ScrollViewer)inspectorChildren[1]; effectScroll.MaxHeight = 260; effectScroll.Margin = new(0, 9, 0, 0); effectsBody.Children.Add(effectScroll);
 
         var controlBody = new StackPanel();
-        var colourRow = new Grid { Margin = new(0, 0, 0, 18) }; colourRow.ColumnDefinitions.Add(new() { Width = new GridLength(168) }); colourRow.ColumnDefinitions.Add(new());
+        var colourRow = new Grid { Margin = new(0, 0, 0, 8) }; colourRow.ColumnDefinitions.Add(new() { Width = new GridLength(168) }); colourRow.ColumnDefinitions.Add(new());
         var colourControls = new StackPanel(); Grid.SetColumn(colourControls, 1); colourRow.Children.Add(colourControls);
-        Header(colourControls, "COLOUR \u00b7 EVERYTHING", 11);
+        Header(colourControls, "COLOUR \u00b7 EVERYTHING", 11); ((TextBlock)colourControls.Children[0]).Margin = new(0, 0, 0, 4);
         var swatches = new UniformGrid { Columns = 4, Margin = new(0, 8, 0, 0) };
         foreach (var colour in new[] { "#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF", "#F4F5F7" })
         {
-            var button = new Button { Width = 60, Height = 34, MinHeight = 34, Padding = new(0), Margin = new(0, 0, 8, 8), Background = new SolidColorBrush(ColorUtil.Parse(colour, Colors.White)) };
+            var button = new ColorSwatch { Width = 60, Height = 34, ColorHex = colour, Margin = new(0, 0, 8, 8) };
+            button.SetBinding(ColorSwatch.SelectedHexProperty, new Binding("ColorEntry"));
             button.Click += (_, _) => model?.SelectColorCommand.Execute(colour); swatches.Children.Add(button);
         }
         colourControls.Children.Add(swatches);
-        var wheel = new ColorWheel { Width = 160, Height = 160, RingMode = true, HorizontalAlignment = HorizontalAlignment.Center };
+        var wheel = new ColorWheel { Width = 158, Height = 158, MinWidth = 0, MinHeight = 0, RingMode = true, HorizontalAlignment = HorizontalAlignment.Left, Margin = new(-2, 4, 0, 0) };
         wheel.SetBinding(ColorWheel.ColorHexProperty, new Binding("ColorEntry") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
         colourRow.Children.Add(wheel); controlBody.Children.Add(colourRow);
         var advanced = new StackPanel();
         foreach (var child in inspectorChildren.Skip(2))
         {
             if (ReferenceEquals(child, devices) || ReferenceEquals(child, baseColors)) continue;
-            if (ReferenceEquals(child, brightness)) colourControls.Children.Add(child);
-            else if (child is TextBlock label && label.Text.StartsWith("Brightness")) colourControls.Children.Add(child);
+            if (ReferenceEquals(child, brightness)) { brightness.Margin = new(0, 4, 0, 6); brightness.Height = 14; brightness.Glow = false; brightness.UseGradient = true; brightness.AccentColor = ColorUtil.Parse("#36D6FF", Colors.Cyan); colourControls.Children.Add(child); }
+            else if (child is TextBlock label && label.Text.StartsWith("Brightness")) { label.Margin = new(0, 6, 0, 0); colourControls.Children.Add(child); }
             else advanced.Children.Add(child);
         }
         var brightnessPresets = new UniformGrid { Columns = 4 };
@@ -247,16 +248,18 @@ public sealed class LightingWorkspace : UserControl
         controlBody.Children.Add(effectsBody);
         advanced.Children.Add(wholeCase);
         advanced.Children.Add(new Expander { Header = "More effects", Content = extraEffects });
-        controlBody.Children.Add(new Expander { Header = "Advanced", Content = advanced, Margin = new(0, 16, 0, 0) });
-        inspector.Children.Add(new GlassCard { Content = controlBody });
+        var advancedMenu = new ContextMenu(); advancedMenu.SetBinding(DataContextProperty, new Binding("PlacementTarget.DataContext") { RelativeSource = RelativeSource.Self });
+        advancedMenu.Items.Add(new MenuItem { Header = new ScrollViewer { Content = advanced, Width = 520, MaxHeight = 600, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }, StaysOpenOnClick = true });
+
+        var colourCard = new GlassCard { Content = controlBody, MinHeight = 535, ContextMenu = advancedMenu, ToolTip = "Right-click for advanced lighting controls and more effects" }; inspector.Children.Add(colourCard);
         SizeChanged += (_, _) => Responsive();
     }
     private void Responsive()
     {
         bool narrow = ActualWidth < 850;
-        root.ColumnDefinitions[1].Width = narrow ? new(0) : new(5, GridUnitType.Star);
+        root.ColumnDefinitions[1].Width = narrow ? new(0) : new(1, GridUnitType.Star);
         Grid.SetColumn(inspector, narrow ? 0 : 1); Grid.SetRow(inspector, narrow ? 1 : 0);
-        canvasPanel.Margin = narrow ? new(0, 0, 0, 24) : new(0, 0, 20, 0);
+        canvasPanel.Margin = narrow ? new(0, 0, 0, 24) : new(0, 0, 16, 0);
         preview.Height = narrow ? 300 : 440;
     }
     private static void Header(Panel panel, string text, double size) => panel.Children.Add(new TextBlock { Text = text, FontSize = size, FontWeight = FontWeights.SemiBold, Margin = new(0, 12, 0, 4) });
@@ -316,12 +319,15 @@ public sealed class LightingWorkspace : UserControl
             deviceSignature = signature; devices.Children.Clear();
             foreach (var d in model.Devices)
             {
-                var toggle = new CheckBox { Foreground = Brushes.WhiteSmoke, ToolTip = d.Name, IsChecked = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false, Margin = new(0, 8, 8, 8) };
+                var body = new StackPanel { Orientation = Orientation.Horizontal };
+                body.Children.Add(new System.Windows.Shapes.Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(ColorUtil.Parse(d.Synced ? model.ColorHex : "#7C808A", Colors.Gray)), Margin = new(0, 0, 8, 0) });
+                body.Children.Add(new TextBlock { Text = d.Name, FontSize = 12, Foreground = Brushes.WhiteSmoke, FontWeight = FontWeights.SemiBold });
+                var toggle = new System.Windows.Controls.Primitives.ToggleButton { Content = body, IsChecked = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false, Margin = new(0, 0, 8, 8), ToolTip = "Sync " + d.Name };
+                var chrome = new FrameworkElementFactory(typeof(Border)); chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(16)); chrome.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(30, 32, 38))); chrome.SetValue(Border.BorderBrushProperty, new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))); chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1)); chrome.SetValue(Border.PaddingProperty, new Thickness(10, 7, 10, 7));
+                var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty)); chrome.AppendChild(presenter);
+                toggle.Template = new ControlTemplate(typeof(System.Windows.Controls.Primitives.ToggleButton)) { VisualTree = chrome };
                 toggle.Click += (_, _) => { d.Synced = toggle.IsChecked == true; model.SetDeviceCommand.Execute(d); _ = model.SetParametersAsync(model.Parameters with { Devices = new Dictionary<string, bool>(model.Parameters.Devices ?? new Dictionary<string, bool>()) { [d.Id] = d.Synced } }); };
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new(0, 0, 12, 8) };
-                row.Children.Add(toggle);
-                row.Children.Add(new DeviceNameEditor { DeviceId = d.Id, DisplayName = d.Name, Client = model.Client, Margin = new(0, 8, 0, 8) });
-                devices.Children.Add(row);
+                devices.Children.Add(toggle);
             }
         }
         suppress = false;

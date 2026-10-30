@@ -113,14 +113,16 @@ public sealed class DevicesWorkspace : UserControl
                 card.Buttons.Visibility = device.Configured || device.Dismissed ? Visibility.Collapsed : Visibility.Visible;
             }
     }
-    private static DeviceIconKind Icon(DeviceState d) => d.Kind switch
+    private DeviceIconKind Icon(DeviceState d) => model?.State?.Lighting.Devices.FirstOrDefault(r => r.Id == d.Id)?.Kind.ToLowerInvariant() switch
     {
-        DeviceKind.Lamp => DeviceIconKind.Lamp, DeviceKind.FanHeader => DeviceIconKind.Fan,
+        "ram" => DeviceIconKind.Ram, "gpu" => DeviceIconKind.Gpu, "strip" => DeviceIconKind.Strip, _ => d.Kind switch
+    {
+        DeviceKind.Lamp => DeviceIconKind.Lamp, DeviceKind.FanHeader => model?.State?.Fans.FirstOrDefault(f => d.Id == $"fan:{f.Header}")?.IsPump == true ? DeviceIconKind.Pump : DeviceIconKind.Fan,
         DeviceKind.Appliance => DeviceIconKind.Fryer, DeviceKind.Router => DeviceIconKind.Router,
         DeviceKind.NetworkDevice => DeviceIconKind.Network,
         _ => (d.Name + d.Model).ToLowerInvariant() is var n && n.Contains("ram") ? DeviceIconKind.Ram : n.Contains("gpu") || n.Contains("graphics") || n.Contains("radeon") ? DeviceIconKind.Gpu : DeviceIconKind.Board
-    };
-    private static Color Accent(DeviceState d) => ColorUtil.Parse(Icon(d) switch { DeviceIconKind.Ram => "#B26BFF", DeviceIconKind.Gpu or DeviceIconKind.Lamp => "#FF7A3D", DeviceIconKind.Router => "#F5A524", _ => "#36D6FF" }, Colors.White);
+    } };
+    private Color Accent(DeviceState d) => ColorUtil.Parse(Icon(d) switch { DeviceIconKind.Ram => "#B26BFF", DeviceIconKind.Gpu or DeviceIconKind.Lamp => "#FF7A3D", DeviceIconKind.Router => "#F5A524", _ => "#36D6FF" }, Colors.White);
     private string Reading(DeviceState d)
     {
         if (model?.State is not { } s) return Format.Dash;
@@ -133,10 +135,10 @@ public sealed class DevicesWorkspace : UserControl
             if (rgb.Kind.Contains("RAM", StringComparison.OrdinalIgnoreCase))
             {
                 int index = s.Lighting.Devices.Where(r => r.Kind.Contains("RAM", StringComparison.OrdinalIgnoreCase)).ToList().FindIndex(r => r.Id == rgb.Id);
-                return Format.Temp(s.System.DimmTemps.ElementAtOrDefault(index));
+                return Format.TempUnit(s.System.DimmTemps.ElementAtOrDefault(index));
             }
-            if (rgb.Kind.Contains("GPU", StringComparison.OrdinalIgnoreCase)) return Format.Temp(s.System.GpuTemp);
-            if (rgb.Kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase)) return Format.Temp(s.System.BoardTemp);
+            if (rgb.Kind.Contains("GPU", StringComparison.OrdinalIgnoreCase)) return Format.TempUnit(s.System.GpuTemp, 0);
+            if (rgb.Kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase)) return Format.TempUnit(s.System.BoardTemp);
         }
         return d.Status == DeviceStatus.NeedsToken ? "Set up" : Format.Dash;
     }

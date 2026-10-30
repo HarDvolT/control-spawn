@@ -87,7 +87,8 @@ public sealed record StateMessage(
 /// <summary>Real service samples; null measurements remain gaps rather than invented readings.</summary>
 public sealed record TelemetrySample(DateTimeOffset Timestamp, double? CpuLoad, double? CpuTemp,
     double? GpuLoad, double? GpuTemp, double? PingMs, double? NetDownMbps, double? NetUpMbps,
-    IReadOnlyDictionary<int, double?>? FanRpms = null);
+    IReadOnlyDictionary<int, double?>? FanRpms = null,
+    double? DiskReadMBps = null, double? Rsrp5g = null, double? Sinr5g = null);
 
 public sealed record SystemState(
     double? CpuLoad, IReadOnlyList<double?> CpuCoreLoads, double? CpuClockMhz, double? CpuTemp, double? CpuPowerW,
@@ -99,7 +100,7 @@ public sealed record SystemState(
     double? NetDownMbps, double? NetUpMbps, double? GpuMemoryJunction = null,
     double? UptimeSeconds = null, IReadOnlyList<ProcessLoad>? TopProcesses = null, bool? ThermalThrottling = null,
     string? CpuName = null, string? GpuName = null, string? BoardName = null,
-    int? ThrottlingEvents = null, DateTimeOffset? ThrottlingObservedSince = null);
+    int? ThrottlingEvents = null, DateTimeOffset? ThrottlingObservedSince = null, double? CpuCcdTemp = null, string? FanChipName = null);
 
 public sealed record ProcessLoad(int Id, string Name, double CpuPercent);
 
@@ -124,10 +125,20 @@ public sealed record LampState(string Model, bool Connected, bool On, int Bright
 public sealed record RouterState(
     bool Connected, string? Network, string? Band, int? Score, int? Bars, string? Verdict, string? Sentence,
     double? Rsrp5g, double? Sinr5g, double? Rsrq5g, double? Rsrp4g, double? Sinr4g, double? Rsrq4g,
-    double? PingMs, double? PingLossPercent, string? Error);
+    double? PingMs, double? PingLossPercent, string? Error,
+    RouterDetails? Details = null);
+
+public sealed record RadioCell(string? Band, string? Pci, string? CellId, string? Arfcn,
+    string? Bandwidth, double? Rssi);
+public sealed record RouterNeighbor(string Radio, string? Arfcn, string? Pci, double? Rsrp, double? Sinr);
+public sealed record RouterDetails(RadioCell? Nr = null, RadioCell? Lte = null,
+    string? CarrierAggregation = null, double? TowerDistanceKm = null,
+    string? Model = null, string? Address = null, double? UptimeSeconds = null,
+    double? MonthlyBytes = null, IReadOnlyList<RouterNeighbor>? Neighbors = null);
 
 /// <summary>Conflicts and warnings the UI should surface (e.g. "AsusFanControlService is running").</summary>
-public sealed record ServiceHealth(bool Mock, bool Elevated, IReadOnlyList<string> Warnings, bool FanFailsafeActive);
+public sealed record ServiceHealth(bool Mock, bool Elevated, IReadOnlyList<string> Warnings, bool FanFailsafeActive,
+    string? Version = null);
 
 // Additive protocol-1 spatial lighting types. Coordinates use top-left origin.
 public sealed record MapPoint(double X, double Y);

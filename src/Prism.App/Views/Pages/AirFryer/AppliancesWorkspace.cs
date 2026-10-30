@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using Prism.App.Controls;
+using Prism.App.Common;
 using Prism.App.ViewModels;
 using Prism.Core.Ipc;
 
@@ -28,7 +29,7 @@ public sealed class AppliancesWorkspace : UserControl
     private void Rebuild()
     {
         if (model is null) return;
-        var next = string.Join(";", model.Appliances.Select(a => a.Id + a.Name + a.Connected + a.Properties.Count));
+        var next = string.Join(";", model.Appliances.Select(a => a.Id + a.Name + a.Connected + a.Properties.Count + string.Join(",", a.History?.Select(h => h.EndedAt) ?? [])));
         if (next == signature && displays.Count > 0) { UpdateReadings(); return; }
         signature = next; root.Children.Clear(); displays.Clear(); propertyUpdates.Clear(); settingControls.Clear();
         root.Children.Add(new TextBlock { Text = "AIR FRYER", FontSize = 11, Foreground = Brushes.WhiteSmoke, Margin = new(0, 0, 0, 12) });
@@ -77,8 +78,8 @@ public sealed class AppliancesWorkspace : UserControl
                 else if (p.Range is { Length: 3 } range)
                 {
                     var slider = new ThickSlider { Glow = false, Step = range[2], AccentColor = Color.FromRgb(54, 214, 255), Minimum = range[0], Maximum = range[1], Value = p.Value?.GetDouble() ?? range[0], IsEnabled = appliance.Connected };
-                    var number = new TextBlock { Foreground = Brushes.WhiteSmoke }; number.Text = $"{slider.Value:0}{(p.Name == "target-temperature" ? "\u00b0C" : " min")}";
-                    slider.ValueChanged += (_, _) => number.Text = $"{slider.Value:0}{(p.Name == "target-temperature" ? "\u00b0C" : " min")}";
+                    var number = new TextBlock { Foreground = Brushes.WhiteSmoke }; number.Text = p.Name == "target-temperature" ? Format.TempUnit(slider.Value, 0) : $"{slider.Value:0} min";
+                    slider.ValueChanged += (_, _) => number.Text = p.Name == "target-temperature" ? Format.TempUnit(slider.Value, 0) : $"{slider.Value:0} min";
                     propertyUpdates[(appliance.Id, p.Siid, p.Piid)] = current => { if (!slider.IsMouseCaptureWithin && !slider.IsKeyboardFocusWithin && current.Value is { } v && v.TryGetDouble(out var n)) slider.Value = n; };
                     slider.PreviewMouseLeftButtonUp += async (_, _) => await model.SetAsync(appliance, p, slider.Value);
                     slider.PreviewKeyUp += async (_, _) => await model.SetAsync(appliance, p, slider.Value);
@@ -143,8 +144,15 @@ public sealed class AppliancesWorkspace : UserControl
             var safetyCard = new GlassCard { Span = 5, MinHeight = 308, Content = safety };
             grid.Children.Add(aside);
             grid.Children.Add(safetyCard);
-            var recent = Info("Recent cooks", "No cooking history available");
-            for (int i = 0; i < 4; i++) recent.Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(23, 24, 29)), CornerRadius = new(14), Height = 52, Margin = new(0, 10, 0, 0), Child = new TextBlock { Text = "\u2014", Foreground = Brushes.Gray, Margin = new(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center } });
+            var recent = Info("Recent cooks", "Observed by the Prism service");
+            foreach (var record in appliance.History?.Take(4) ?? [])
+            {
+                var row = new StackPanel { Margin = new(16, 8, 16, 8) };
+                row.Children.Add(new TextBlock { Text = record.Outcome + " \u00b7 " + Format.TempUnit(record.TargetTemperature, 0) + " \u00b7 " + Format.Number(record.TargetMinutes) + " min", FontWeight = FontWeights.SemiBold });
+                row.Children.Add(new TextBlock { Text = record.EndedAt.LocalDateTime.ToString("g"), FontSize = 12, Foreground = Brushes.Gray });
+                recent.Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(23, 24, 29)), CornerRadius = new(14), Margin = new(0, 10, 0, 0), Child = row });
+            }
+            if (appliance.History is not { Count: > 0 }) recent.Children.Add(new TextBlock { Text = "No cooks observed yet", Foreground = Brushes.Gray, Margin = new(0, 16, 0, 0) });
             grid.Children.Add(new GlassCard { Span = 7, MinHeight = 308, Content = recent });
         }
         UpdateReadings();
@@ -157,7 +165,7 @@ public sealed class AppliancesWorkspace : UserControl
             {
                 if (secondaryActions.TryGetValue(a.Id, out var secondary)) secondary.Visibility = a.Status == "idle" ? Visibility.Collapsed : Visibility.Visible;
                 d.Status.Visibility = !string.IsNullOrWhiteSpace(a.Warning) || a.TurnBasket ? Visibility.Visible : Visibility.Collapsed;
-                d.Ring.ToolTip = $"{a.Status} ? {(a.Connected ? "connected" : "offline")} ? Current temperature: {(a.Temperature is { } current ? current.ToString("0") + "\u00b0C" : "unavailable")}";
+                d.Ring.ToolTip = $"{a.Status} ? {(a.Connected ? "connected" : "offline")} ? Current temperature: {(a.Temperature is { } current ? Format.TempUnit(current, 0) : "unavailable")}";
                 d.Status.Text = $"{a.Status} · {(a.Connected ? "connected" : "offline")}\nCurrent temperature: {(a.Temperature is { } temp ? $"{temp:0}°C" : "not reported by this model")}\n{a.Warning}{(a.TurnBasket ? " · Turn basket" : "")}";
                 d.Ring.ValueFormat = "00':00'";
                 d.Ring.RingColor = a.Status == "idle" ? Color.FromRgb(37, 39, 46) : Color.FromRgb(255, 77, 26);

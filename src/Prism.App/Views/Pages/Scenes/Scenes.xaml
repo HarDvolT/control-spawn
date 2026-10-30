@@ -13,8 +13,8 @@
       </DockPanel>
       <Grid>
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="8*" />
-          <ColumnDefinition Width="4*" />
+          <ColumnDefinition Width="2.08*" />
+          <ColumnDefinition Width="1*" />
         </Grid.ColumnDefinitions>
         <StackPanel Margin="0,0,16,0">
           <Grid><ItemsControl ItemsSource="{Binding Scenes}">
@@ -28,7 +28,7 @@
                 <c:GlassCard Margin="0,0,0,0" Height="180" StaggerIndex="3" Background="{Binding Background}" Padding="16">
                   <StackPanel>
                     <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <c:LedStrip ColorHex="{Binding ColorHex}" EffectKind="Static" Height="12" Margin="0,4,0,10" LedCount="12" />
+                    <c:LedStrip ColorHex="{Binding ColorHex}" EffectKind="Static" Height="8" CornerRadius="3" Margin="0,4,0,10" LedCount="12" />
                     <WrapPanel><Border Background="#6607080A" CornerRadius="8" Padding="7,3" Margin="0,0,4,6"><TextBlock Text="{Binding LightingText}" FontSize="11"/></Border><Border Background="#6607080A" CornerRadius="8" Padding="7,3" Margin="0,0,4,6"><TextBlock Text="{Binding FansText}" FontSize="11"/></Border><Border Background="#6607080A" CornerRadius="8" Padding="7,3" Margin="0,0,4,6"><TextBlock Text="{Binding LampText}" FontSize="11"/></Border></WrapPanel>
                     <Button Content="{Binding ButtonLabel}" Command="{Binding DataContext.ApplyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Style="{StaticResource BaseButton}" Margin="4" MinHeight="34" />
                   </StackPanel>
@@ -45,16 +45,16 @@
         </StackPanel>
 
       </Grid>
-      <c:GlassCard Margin="0,16,0,0" MinHeight="302"><StackPanel>
+      <c:GlassCard Margin="0,16,0,0" MinHeight="302"><c:GlassCard.ContextMenu><ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"><MenuItem Header="LED layout references"><MenuItem StaysOpenOnClick="True"><MenuItem.Header><StackPanel><ComboBox ItemsSource="{Binding PresetScenes}" SelectedItem="{Binding PresetScene}"/><TextBox Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/><Button Content="Save layout reference" Command="{Binding SavePresetReferenceCommand}" HorizontalAlignment="Left"/></StackPanel></MenuItem.Header></MenuItem></MenuItem></ContextMenu></c:GlassCard.ContextMenu><StackPanel>
         <DockPanel Margin="0,0,0,16"><Button DockPanel.Dock="Right" Content="Save and apply" Style="{StaticResource PrimaryButton}" IsEnabled="False" ToolTip="Scene editing is unavailable"/><StackPanel><TextBlock Text="Scene editor" Style="{StaticResource CardTitle}"/><TextBlock Text="Editing is unavailable with the current service" Style="{StaticResource SmallMuted}" Margin="0,4,0,0"/></StackPanel></DockPanel>
         <c:SpacedGrid Columns="3" Gap="16">
-          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16" Height="210"><StackPanel><TextBlock Text="Case lighting" Style="{StaticResource CardTitle}"/><TextBlock Text="Board, RAM, GPU and the ARGB strip" Style="{StaticResource SmallMuted}" Margin="0,16,0,10"/><WrapPanel IsEnabled="False"><Button Content="Static" Margin="0,0,6,6"/><Button Content="Smart" Margin="0,0,6,6"/><Button Content="Breathing" Margin="0,0,6,6"/><Button Content="Screen ambient" Margin="0,0,6,6"/><Button Content="Off"/></WrapPanel></StackPanel></Border>
-          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16" Height="210"><StackPanel><TextBlock Text="Fans" Style="{StaticResource CardTitle}"/><TextBlock Text="Radiator and case fans &#x00B7; pump stays at 100%" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,16,0,10"/><WrapPanel IsEnabled="False"><Button Content="Silent" Margin="0,0,6,6"/><Button Content="Balanced" Margin="0,0,6,6"/><Button Content="Turbo" Margin="0,0,6,6"/><Button Content="Full"/></WrapPanel></StackPanel></Border>
-          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16" Height="210"><StackPanel><TextBlock Text="Both lamps" Style="{StaticResource CardTitle}"/><TextBlock Text="No editable scene settings available" Style="{StaticResource SmallMuted}" Margin="0,16,0,10"/><WrapPanel IsEnabled="False"><Button Content="Same as PC" Margin="0,0,6,6"/><Button Content="Warm white" Margin="0,0,6,6"/><Button Content="Cool white" Margin="0,0,6,6"/><Button Content="Off"/></WrapPanel></StackPanel></Border>
+          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16" Height="210"><StackPanel><TextBlock Text="Case lighting" Style="{StaticResource CardTitle}"/><TextBlock Text="Board, RAM, GPU and the ARGB strip" Style="{StaticResource SmallMuted}" Margin="0,16,0,10"/><WrapPanel IsEnabled="False"><WrapPanel.Resources><Style TargetType="Button" BasedOn="{StaticResource PillButton}"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="12,0"/></Style></WrapPanel.Resources><Button Content="Static" Margin="0,0,6,6"/><Button Content="Smart" Margin="0,0,6,6"/><Button Content="Breathing" Margin="0,0,6,6"/><Button Content="Screen ambient" Margin="0,0,6,6"/><Button Content="Off"/></WrapPanel><StackPanel Orientation="Horizontal" Opacity="0.4" Margin="0,8,0,0"><Border Width="30" Height="30" CornerRadius="9" Background="#FF4D1A" Margin="0,0,8,0"/><Border Width="30" Height="30" CornerRadius="9" Background="#FF4D4F" Margin="0,0,8,0"/><Border Width="30" Height="30" CornerRadius="9" Background="#F5A524" Margin="0,0,8,0"/><Border Width="30" Height="30" CornerRadius="9" Background="#3DDC84" Margin="0,0,8,0"/><Border Width="30" Height="30" CornerRadius="9" Background="#36D6FF" Margin="0,0,8,0"/><Border Width="30" Height="30" CornerRadius="9" Background="#4D6BFF" Margin="0,0,8,0"/><Border Width="30" Height="30" CornerRadius="9" Background="#6A4DFF" Margin="0,0,8,0"/></StackPanel></StackPanel></Border>
+          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16" Height="210"><StackPanel><TextBlock Text="Fans" Style="{StaticResource CardTitle}"/><TextBlock Text="Radiator and case fans &#x00B7; pump stays at 100%" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,16,0,10"/><WrapPanel IsEnabled="False"><WrapPanel.Resources><Style TargetType="Button" BasedOn="{StaticResource PillButton}"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="12,0"/></Style></WrapPanel.Resources><Button Content="Silent" Margin="0,0,6,6"/><Button Content="Balanced" Margin="0,0,6,6"/><Button Content="Turbo" Margin="0,0,6,6"/><Button Content="Full"/></WrapPanel></StackPanel></Border>
+          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16" Height="210"><StackPanel><TextBlock Text="Both lamps" Style="{StaticResource CardTitle}"/><TextBlock Text="No editable scene settings available" Style="{StaticResource SmallMuted}" Margin="0,16,0,10"/><WrapPanel IsEnabled="False"><WrapPanel.Resources><Style TargetType="Button" BasedOn="{StaticResource PillButton}"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="12,0"/></Style></WrapPanel.Resources><Button Content="Same as PC" Margin="0,0,6,6"/><Button Content="Warm white" Margin="0,0,6,6"/><Button Content="Cool white" Margin="0,0,6,6"/><Button Content="Off"/></WrapPanel></StackPanel></Border>
         </c:SpacedGrid>
       </StackPanel></c:GlassCard>
-      <Expander Header="Scene LED layout references" Foreground="#A3A6AE" Margin="0,12,0,0"><StackPanel><ComboBox ItemsSource="{Binding PresetScenes}" SelectedItem="{Binding PresetScene}"/><TextBox Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/><Button Content="Save layout reference" Command="{Binding SavePresetReferenceCommand}" HorizontalAlignment="Left"/></StackPanel></Expander>
-      <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
+
+      <TextBlock Visibility="{Binding StatusText, Converter={StaticResource StringToVisibility}}" Text="{Binding StatusText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
       <TextBlock Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" Text="{Binding LastError}" Style="{StaticResource Muted}" TextWrapping="Wrap" Foreground="#FF8A8A" Margin="0,12" />
     </StackPanel>
   </DataTemplate>

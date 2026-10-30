@@ -11,6 +11,11 @@ public sealed class LampTileViewModel : PageViewModel
     private string color = "#FFFFFF", follow = "pc", name = "Lamp";
     private string? host;
     public LampTileViewModel(IPrismClient client, string id) : base(client) { Id = id; ToggleCommand = new RelayCommand(() => On = !On); SelectColorCommand = new RelayCommand<string>(hex => { if (hex is not null) ColorEntry = hex; }); SetBrightnessCommand = new RelayCommand<string>(value => { if (double.TryParse(value, out var level)) Brightness = level; }); }
+    private bool customColorOpen;
+    public bool CustomColorOpen { get => customColorOpen; set => Set(ref customColorOpen, value); }
+    public RelayCommand OpenCustomColorCommand => new(() => CustomColorOpen = !CustomColorOpen);
+    public RelayCommand FollowMapCommand => new(() => Follow = "map");
+    public IReadOnlyList<string> PrimaryFollowModes { get; } = ["own", "pc", "average"];
     public string Id { get; }
     public string Name => name;
     public bool Connected => connected;
@@ -24,7 +29,7 @@ public sealed class LampTileViewModel : PageViewModel
     public bool On { get => on; set { if (Set(ref on, value) && !suppress) _ = PushAsync(); } }
     public double Brightness { get => brightness; set { if (Set(ref brightness, Math.Clamp(Math.Round(value), 1, 100)) && !suppress) _ = PushAsync(); } }
     public string ColorEntry { get => color; set { if (Prism.Lighting.LedLayers.Valid(value, false) && Set(ref color, value) && !suppress) _ = PushAsync(); } }
-    public string Follow { get => follow; set { if (Set(ref follow, value) && !suppress) _ = PushAsync(); } }
+    public string Follow { get => follow; set { if (value is "pc" or "average" or "own" or "map" && Set(ref follow, value) && !suppress) _ = PushAsync(); } }
     protected override void Refresh()
     {
         var lamp = (State?.Lamps ?? (State?.Lamp is { } first ? [first] : [])).FirstOrDefault(l => l.Id == Id);

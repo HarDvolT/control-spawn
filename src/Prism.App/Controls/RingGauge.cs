@@ -62,6 +62,8 @@ public class RingGauge : FrameworkElement
 
     public RingGauge()
     {
+        Loaded += (_, _) => DisplayPreferences.Changed += PreferencesChanged;
+        Unloaded += (_, _) => DisplayPreferences.Changed -= PreferencesChanged;
         SnapsToDevicePixels = true;
         UseLayoutRounding = true;
         MinWidth = 48;
@@ -185,7 +187,7 @@ public class RingGauge : FrameworkElement
             }
             return;
         }
-        var valueText = double.IsFinite(Value) ? FormatValue() + Suffix : "\u2014";
+        var valueText = double.IsFinite(Value) ? FormatValue() + (Suffix.Contains("\u00b0C") ? Suffix.Replace("\u00b0C", DisplayPreferences.Unit) : Suffix) : "\u2014";
         var valueSize = double.IsFinite(ValueFontSize) ? ValueFontSize : Math.Max(10, size * 0.25);
         var valueBrush = ColorUtil.Brush(ColorUtil.TextPrimary);
         var typeface = new Typeface(new FontFamily("pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
@@ -211,10 +213,12 @@ public class RingGauge : FrameworkElement
         return new Point(center.X + radius * Math.Cos(radians), center.Y + radius * Math.Sin(radians));
     }
 
+    private void PreferencesChanged(object? sender, EventArgs e) => InvalidateVisual();
+
     private string FormatValue()
     {
         if (!double.IsFinite(DisplayValue)) return "—";
-        try { return DisplayValue.ToString(string.IsNullOrWhiteSpace(ValueFormat) ? "F0" : ValueFormat, CultureInfo.InvariantCulture); }
-        catch (FormatException) { return DisplayValue.ToString("F0", CultureInfo.InvariantCulture); }
+        try { return (Suffix.Contains('\u00b0') ? DisplayPreferences.Temperature(DisplayValue) : DisplayValue).ToString(string.IsNullOrWhiteSpace(ValueFormat) ? "F0" : ValueFormat, CultureInfo.InvariantCulture); }
+        catch (FormatException) { return (Suffix.Contains('\u00b0') ? DisplayPreferences.Temperature(DisplayValue) : DisplayValue).ToString("F0", CultureInfo.InvariantCulture); }
     }
 }

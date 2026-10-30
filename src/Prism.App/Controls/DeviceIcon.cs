@@ -22,10 +22,10 @@ public sealed class DeviceIcon : FrameworkElement
             DeviceIconKind.Fan => "M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2",
             DeviceIconKind.Pump => "M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z",
             DeviceIconKind.Lamp => "M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z",
-            DeviceIconKind.Router => "M4 13h16v8H4zM8 13V5M16 13V3M8 17h1M12 17h1M16 17h1",
+            DeviceIconKind.Router => "M4 15h16v5H4zM8 15V9M16 15V9M12 15V5M7 18h1M11 18h1",
             DeviceIconKind.Fryer => "M5 6h14v14H5zM8 3h8M9 10h6M12 13v4",
             DeviceIconKind.Strip => "M3 12h18M5 10v4M9 10v4M13 10v4M17 10v4",
-            DeviceIconKind.Network => "M3 12a9 9 0 0 1 18 0M6 12a6 6 0 0 1 12 0M9 12a3 3 0 0 1 6 0M12 12v7",
+            DeviceIconKind.Network => "M3 12a9 9 0 0 1 18 0M6 12a6 6 0 0 1 12 0M9 12a3 3 0 0 1 6 0M12 12v6",
             DeviceIconKind.Activity => "M3 12h4l3-8 4 16 3-8h4",
             _ => "M4 4h16v16H4zM8 8h4v4H8zM15 8h2M15 12h2M8 15h9"
         };

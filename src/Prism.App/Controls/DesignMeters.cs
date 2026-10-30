@@ -81,3 +81,21 @@ public sealed class SignalRail : MetricControl
         if (double.IsFinite(Value)) dc.DrawRoundedRectangle(Brushes.WhiteSmoke, null, new Rect(Math.Clamp(Fraction * ActualWidth - 3, 0, Math.Max(0, ActualWidth - 6)), ActualHeight / 2 - 8, 6, 16), 3, 3);
     }
 }
+
+public sealed class SignalBars : FrameworkElement
+{
+    public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(nameof(Value), typeof(double), typeof(SignalBars), new FrameworkPropertyMetadata(double.NaN, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty BarColorProperty = DependencyProperty.Register(nameof(BarColor), typeof(Color), typeof(SignalBars), new FrameworkPropertyMetadata(Color.FromRgb(245, 165, 36), FrameworkPropertyMetadataOptions.AffectsRender));
+    public double Value { get => (double)GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
+    public Color BarColor { get => (Color)GetValue(BarColorProperty); set => SetValue(BarColorProperty, value); }
+    public SignalBars() { Width = 60; Height = 44; }
+    protected override void OnRender(DrawingContext dc)
+    {
+        double gap = ActualWidth / 15, width = Math.Max(0, (ActualWidth - gap * 4) / 5);
+        for (int i = 0; i < 5; i++)
+        {
+            double h = ActualHeight * (i + 1) / 5;
+            dc.DrawRoundedRectangle(new SolidColorBrush(double.IsFinite(Value) && i < Value ? BarColor : Color.FromRgb(30, 32, 38)), null, new Rect(i * (width + gap), ActualHeight - h, width, h), 3, 3);
+        }
+    }
+}

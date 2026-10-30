@@ -63,11 +63,13 @@ public sealed class MainViewModel : ObservableObject
     private string _serviceDot = ColorUtil.ToHex(ColorUtil.Fair);
     private string _serviceStatusText = "Service · connecting";
     private StateMessage? _lastState;
+    public NotificationFeed Notifications { get; }
 
     public MainViewModel(IPrismClient client, AppSettings settings, SettingsStore settingsStore,
         IStartupRegistry startup, WidgetLayoutStore widgetStore, IWidgetHost host)
     {
         _client = client;
+        Notifications = new NotificationFeed(settings);
         _host = host;
 
         Dashboard = new DashboardViewModel(client);
@@ -79,7 +81,7 @@ public sealed class MainViewModel : ObservableObject
         Appliances = new AppliancesViewModel(client);
         Scenes = new ScenesViewModel(client, settings, settingsStore);
         Modem = new ModemViewModel(client);
-        Settings = new SettingsViewModel(client, settingsStore, startup, settings);
+        Settings = new SettingsViewModel(client, settingsStore, startup, settings, () => { if (_lastState is { } state) ApplyState(state); });
         Widgets = new WidgetsViewModel(client, widgetStore, host, Settings);
 
         _pages = new Dictionary<PageKey, PageViewModel>
@@ -200,6 +202,7 @@ public sealed class MainViewModel : ObservableObject
 
     public void ApplyState(StateMessage state)
     {
+        Notifications.Observe(state);
         _lastState = state;
         foreach (var page in _pages.Values) page.Apply(state);
         IsConnected = true;

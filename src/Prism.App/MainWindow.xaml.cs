@@ -20,8 +20,8 @@ public partial class MainWindow : Window
     private void NotificationsClick(object sender, RoutedEventArgs e)
     {
         var menu = new System.Windows.Controls.ContextMenu();
-        var warnings = _vm.LastState?.Health.Warnings;
-        foreach (var warning in warnings is { Count: > 0 } ? warnings : new[] { _vm.StatusText }.ToList())
+        var warnings = (_vm.LastState?.Health.Warnings ?? []).Concat(_vm.Notifications.Messages).ToArray();
+        foreach (var warning in warnings is { Length: > 0 } ? warnings : new[] { _vm.StatusText })
             menu.Items.Add(new System.Windows.Controls.MenuItem { Header = warning, IsEnabled = false });
         menu.PlacementTarget = (UIElement)sender; menu.IsOpen = true;
     }

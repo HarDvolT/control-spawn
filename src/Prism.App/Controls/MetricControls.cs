@@ -17,7 +17,12 @@ public abstract class MetricControl : FrameworkElement
     public static readonly DependencyProperty SensorKindProperty = DependencyProperty.Register(nameof(SensorKind), typeof(SensorKind), typeof(MetricControl), new FrameworkPropertyMetadata(SensorKind.Load, FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((MetricControl)d).UpdateGlow()));
     public static readonly DependencyProperty SuffixProperty = DependencyProperty.Register(nameof(Suffix), typeof(string), typeof(MetricControl), new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.AffectsRender));
     private static readonly DependencyProperty DisplayProperty = DependencyProperty.Register("Display", typeof(double), typeof(MetricControl), new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
-    protected MetricControl() { Loaded += (_, _) => UpdateGlow(); }
+    protected MetricControl()
+    {
+        Loaded += (_, _) => { UpdateGlow(); DisplayPreferences.Changed += PreferencesChanged; };
+        Unloaded += (_, _) => DisplayPreferences.Changed -= PreferencesChanged;
+    }
+    private void PreferencesChanged(object? sender, EventArgs e) => InvalidateVisual();
     public double Value { get => (double)GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
     public double Maximum { get => (double)GetValue(MaximumProperty); set => SetValue(MaximumProperty, value); }
     public SensorKind SensorKind { get => (SensorKind)GetValue(SensorKindProperty); set => SetValue(SensorKindProperty, value); }
@@ -51,7 +56,7 @@ public abstract class MetricControl : FrameworkElement
             new Typeface("Space Grotesk, Segoe UI"), size, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
         dc.DrawText(formatted, at);
     }
-    protected string Number => double.IsFinite(Value) ? Display.ToString("0", CultureInfo.InvariantCulture) + Suffix : "—";
+    protected string Number => double.IsFinite(Value) ? (Suffix.Contains('\u00b0') ? DisplayPreferences.Temperature(Display) : Display).ToString("0", CultureInfo.InvariantCulture) + (Suffix.Contains("\u00b0C") ? Suffix.Replace("\u00b0C", DisplayPreferences.Unit) : Suffix) : "\u2014";
     protected Point Polar(double angle, double radius, Point center) => new(center.X + Math.Cos(angle) * radius, center.Y + Math.Sin(angle) * radius);
     protected void Arc(DrawingContext dc, Point center, double radius, double start, double sweep, Brush brush, double width)
     {

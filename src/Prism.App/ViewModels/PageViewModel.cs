@@ -257,6 +257,14 @@ public sealed class FanGroupItem : ObservableObject
     public string MinimumText => History.Count > 0 ? History.Min().ToString("N0") : Format.Dash;
     public string MaximumText => History.Count > 0 ? History.Max().ToString("N0") : Format.Dash;
     public void SetHistory(IEnumerable<double> values) { History = values.ToArray(); OnPropertyChanged(string.Empty); }
+    public string ControlLabel { get; private set; } = "Source unavailable";
+    public Prism.App.Controls.StatusLevel ControlLevel => IsPump ? Prism.App.Controls.StatusLevel.Ok : Prism.App.Controls.StatusLevel.Cool;
+    public void SetControl(FanState fan)
+    {
+        ControlLabel = fan.IsPump ? "Locked" : fan.Configuration?.Source switch
+        { TemperatureSource.Cpu => "Follows CPU", TemperatureSource.Gpu => "Follows GPU", TemperatureSource.Motherboard => "Follows board", TemperatureSource.Maximum => "Follows hottest", _ => "Source unavailable" };
+        OnPropertyChanged(string.Empty);
+    }
 
     public void Update(FanGroupItem item)
     { Name = item.Name; Sub = item.Sub; RpmText = item.RpmText; Percent = item.Percent; IsPump = item.IsPump; SpinSeconds = item.SpinSeconds; OnPropertyChanged(string.Empty); }
