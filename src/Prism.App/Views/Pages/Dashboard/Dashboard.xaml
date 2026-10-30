@@ -129,7 +129,7 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <StackPanel HorizontalAlignment="Center">
-                    <c:LampOrb Width="108" Height="108" ColorHex="{Binding Color}" Margin="0,-6,0,0" />
+                    <c:LampOrb Width="84" Height="84" ColorHex="{Binding Color}" Margin="0,0,0,8" />
                     <TextBlock Text="{Binding Name}" Style="{StaticResource SmallMuted}" />
                   </StackPanel>
                 </DataTemplate>
