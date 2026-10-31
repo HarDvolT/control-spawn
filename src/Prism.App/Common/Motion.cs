@@ -10,4 +10,10 @@ public static class Motion
         set => reduceAnimations = value;
     }
     public static TimeSpan Duration(TimeSpan normal) => ReduceAnimations ? TimeSpan.Zero : normal;
+    /// <summary>Caps an endless decorative animation's frame rate; WPF otherwise redraws at 60 fps for as long as it runs.</summary>
+    public static T Decorative<T>(T timeline, int framesPerSecond) where T : System.Windows.Media.Animation.Timeline
+    {
+        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(timeline, framesPerSecond);
+        return timeline;
+    }
 }

@@ -48,7 +48,7 @@ public abstract class MetricControl : FrameworkElement
         Effect = Thresholds.Glow(level);
         BeginAnimation(OpacityProperty, null);
         if (level == StatusLevel.Critical && IsLoaded && !Motion.ReduceAnimations)
-            BeginAnimation(OpacityProperty, new DoubleAnimation(.65, 1, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+            BeginAnimation(OpacityProperty, Motion.Decorative(new DoubleAnimation(.65, 1, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 20));
     }
     protected void Text(DrawingContext dc, string text, Point at, double size = 20)
     {

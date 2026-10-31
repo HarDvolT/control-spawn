@@ -20,9 +20,10 @@ public sealed class GraphiteBackground : FrameworkElement
     private void UpdateMotion()
     {
         drift.BeginAnimation(TranslateTransform.XProperty, null);
+        // The drift moves 2.5 px a second, so 10 fps looks the same and avoids redrawing the full window at 60 fps.
         if (!Motion.ReduceAnimations)
-            drift.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, 60, TimeSpan.FromSeconds(24))
-            { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+            drift.BeginAnimation(TranslateTransform.XProperty, Motion.Decorative(new DoubleAnimation(0, 60, TimeSpan.FromSeconds(24))
+            { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 10));
     }
     protected override void OnRender(DrawingContext dc)
     {
@@ -52,8 +53,8 @@ public sealed class LiveIndicator : FrameworkElement
         VerticalAlignment = VerticalAlignment.Center;
         Loaded += (_, _) =>
         {
-            if (!Motion.ReduceAnimations) BeginAnimation(OpacityProperty, new DoubleAnimation(1, .35, TimeSpan.FromSeconds(.8))
-            { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+            if (!Motion.ReduceAnimations) BeginAnimation(OpacityProperty, Motion.Decorative(new DoubleAnimation(1, .35, TimeSpan.FromSeconds(.8))
+            { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 20));
         };
         Unloaded += (_, _) => BeginAnimation(OpacityProperty, null);
     }

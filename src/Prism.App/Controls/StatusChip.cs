@@ -26,6 +26,6 @@ public sealed class StatusChip : Border
         Effect = null;
         BeginAnimation(OpacityProperty, null);
         if (Level == StatusLevel.Critical && !Motion.ReduceAnimations && IsLoaded)
-            BeginAnimation(OpacityProperty, new DoubleAnimation(.5, 1, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+            BeginAnimation(OpacityProperty, Motion.Decorative(new DoubleAnimation(.5, 1, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 20));
     }
 }

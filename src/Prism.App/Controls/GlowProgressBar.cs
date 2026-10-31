@@ -47,17 +47,20 @@ public class GlowProgressBar : FrameworkElement
     private double _phase;
     private TimeSpan _lastFrame;
     private bool _animating;
+    // A 30 fps timer instead of CompositionTarget.Rendering, which would keep the whole window redrawing at 60 fps.
+    private readonly System.Windows.Threading.DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1d / 30) };
 
     public GlowProgressBar()
     {
         SnapsToDevicePixels = true;
         UseLayoutRounding = true;
+        _timer.Tick += OnFrame;
         Loaded += (_, _) =>
         {
-            CompositionTarget.Rendering += OnFrame;
+            _timer.Start();
             if (Value > 0 && DisplayValue <= 0) SetDisplay(Value, animate: true);
         };
-        Unloaded += (_, _) => CompositionTarget.Rendering -= OnFrame;
+        Unloaded += (_, _) => _timer.Stop();
         MinHeight = 8;
     }
 

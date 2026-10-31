@@ -28,8 +28,8 @@ public sealed class FanRotor : FrameworkElement
     {
         _rotation.BeginAnimation(RotateTransform.AngleProperty, null);
         if (!IsLoaded || Motion.ReduceAnimations || !double.IsFinite(SpinSeconds) || SpinSeconds <= 0) return;
-        _rotation.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(0, 360,
-            TimeSpan.FromSeconds(SpinSeconds)) { RepeatBehavior = RepeatBehavior.Forever });
+        _rotation.BeginAnimation(RotateTransform.AngleProperty, Motion.Decorative(new DoubleAnimation(0, 360,
+            TimeSpan.FromSeconds(SpinSeconds)) { RepeatBehavior = RepeatBehavior.Forever }, 30));
     }
     protected override void OnRender(DrawingContext dc)
     {
