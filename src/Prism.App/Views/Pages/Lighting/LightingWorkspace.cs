@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Automation;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Data;
@@ -81,277 +82,442 @@ public sealed class PaletteStrip : FrameworkElement
     }
 }
 
+/// <summary>
+/// The lighting studio. Two balanced rows: what your PC looks like now (preview) beside the colour you pick,
+/// then the effect library beside the controls that effect actually uses. Per-device painting and sensor
+/// lighting swap into the same frame from the mode switch.
+/// </summary>
 public sealed class LightingWorkspace : UserControl
 {
-    private readonly Grid root = new();
-    private readonly StackPanel canvasPanel = new(), inspector = new();
-    private readonly CaseMapPreview preview = new() { Height = 350, LedEditing = false };
+    private const double Gap = 16;
+    private readonly CaseMapPreview preview = new() { Height = 400, LedEditing = false };
     private readonly LedEditor editor = new() { SharedCanvas = true };
+    private readonly CaseIllustration illustration = new() { Height = 380 };
     private readonly PaletteStrip palette = new();
-    private readonly SpacedGrid gallery = new() { Columns = 3, Gap = 10 };
-    private readonly WrapPanel extraEffects = new(), devices = new();
-    private Border? argbBanner;
-    private readonly TextBlock followNotice = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new(0, 14, 0, 8) };
-    private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 0) };
-    private readonly ComboBox palettes = new() { ItemsSource = Palettes.BuiltIn.Keys, Margin = new(0, 4, 0, 4) };
-    private readonly TextBox hex = new() { Text = "#FF4D1A", Width = 110, Background = new SolidColorBrush(Color.FromRgb(37, 37, 41)), Foreground = Brushes.WhiteSmoke, BorderBrush = Brushes.DimGray, BorderThickness = new(1), Padding = new(8) };
-    private readonly ThickSlider angle = Slider(0, 360), scale = Slider(0.1, 8), intensity = Slider(0, 1), tail = Slider(0.02, 1), count = Slider(1, 8), speed = Slider(0, 100), brightness = Slider(0, 100), rotation = Slider(0, 360);
+    private readonly ComboBox palettes = new() { ItemsSource = Palettes.BuiltIn.Keys, MinWidth = 150 };
+    private readonly SpacedGrid gallery = new() { Columns = 5, Gap = 10 };
+    private readonly Button lightsOff = new() { MinHeight = 38, Padding = new(16, 0, 16, 0), Margin = new(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Bottom };
+    private LightingEffect lastOnEffect = LightingEffect.Static;
+    private readonly SegmentedControl categories = new() { ItemsSource = EffectCatalog.Categories, SelectedIndex = 0 };
+    private readonly SegmentedControl modes = new() { ItemsSource = new[] { "Whole case", "Per device", "Sensor" }, SelectedIndex = 0, VerticalAlignment = VerticalAlignment.Bottom };
+    private readonly SegmentedControl lampFollow = new() { ItemsSource = new[] { "Follow PC", "PC average", "Own colour" } };
+    private readonly WrapPanel devices = new();
+    private readonly TextBlock title = new(), subtitle = new(), followNotice = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new(0, 14, 0, 10) };
+    private readonly TextBlock brightnessValue = new(), speedValue = new(), sizeValue = new(), tailValue = new(), countValue = new();
+    private readonly TextBlock tuneTitle = new(), tuneHint = new(), status = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new(0, 10, 0, 0) };
+    private readonly TextBox hex = new() { Width = 96, MaxLength = 7, Background = Brushes.Transparent, BorderThickness = new(0), Foreground = Brushes.WhiteSmoke, CaretBrush = new SolidColorBrush(ColorUtil.Accent), FontSize = 13, VerticalContentAlignment = VerticalAlignment.Center };
+    private readonly ThickSlider brightness = Slider(0, 100), speed = Slider(0, 100), angle = Slider(0, 360), scale = Slider(0.2, 4), tail = Slider(0.05, 1), count = Slider(1, 6), rotation = Slider(0, 360);
     private readonly DirectionDial dial = new();
-    private readonly CheckBox cpuBeat = new() { Foreground = Brushes.WhiteSmoke, Content = "Heartbeat follows CPU load", Margin = new(0, 8, 0, 8) };
+    private readonly CheckBox cpuBeat = new() { Content = "Beat faster as the CPU works harder", Margin = new(0, 4, 0, 0) };
+    private readonly ComboBox sceneBox = new() { MinWidth = 150 };
+    private readonly Dictionary<EffectControls, FrameworkElement> tuneRows = new();
+    private readonly List<(Button Button, EffectTile Tile, EffectInfo Info)> tiles = new();
+    private Border? argbBanner;
+    private FrameworkElement? noTuning;
     private LightingViewModel? model;
     private bool suppress;
     private string deviceSignature = "";
+
     public LightingWorkspace()
     {
-        Content = root;
-        root.ColumnDefinitions.Add(new() { Width = new GridLength(1.443, GridUnitType.Star) }); root.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
-        root.RowDefinitions.Add(new() { Height = GridLength.Auto }); root.RowDefinitions.Add(new() { Height = GridLength.Auto });
-        root.Children.Add(canvasPanel); root.Children.Add(inspector); Grid.SetColumn(inspector, 1);
-        canvasPanel.Margin = new(0, 0, 16, 0);
-        canvasPanel.Children.Add(new CaseLightingSetup());
-        var wholeCase = new Button { Content = "Sync whole case and both lamps", Margin = new Thickness(0, 8, 0, 12), HorizontalAlignment = HorizontalAlignment.Left };
-        wholeCase.Click += async (_, _) => { if (model is not null) await model.SyncAllAsync(); };
-        canvasPanel.Children.Add(wholeCase);
-        Header(canvasPanel, "Your case, in colour", 25);
-        canvasPanel.Children.Add(new TextBlock { Text = "One spatial canvas for effects, devices and every LED.", Foreground = Brushes.Gray, Margin = new(0, 4, 0, 16) });
-        var mode = new WrapPanel(); canvasPanel.Children.Add(mode);
-        var edit = new CheckBox { Foreground = Brushes.WhiteSmoke, Content = "Edit LEDs", IsChecked = true, Margin = new(0, 0, 18, 12) };
-        var map = new CheckBox { Foreground = Brushes.WhiteSmoke, Content = "Arrange map", Margin = new(0, 0, 18, 12) };
-        mode.Children.Add(edit); mode.Children.Add(map);
-        edit.Click += (_, _) => { preview.LedEditing = edit.IsChecked == true; editor.Visibility = preview.LedEditing ? Visibility.Visible : Visibility.Collapsed; if (preview.LedEditing) { map.IsChecked = false; preview.MapEditing = false; } preview.InvalidateVisual(); };
-        map.Click += (_, _) => { preview.MapEditing = map.IsChecked == true; if (preview.MapEditing) { edit.IsChecked = false; preview.LedEditing = false; editor.Visibility = Visibility.Collapsed; } preview.InvalidateVisual(); };
-        var stage = new Grid(); stage.Children.Add(preview);
-        stage.Children.Add(new Border { Child = editor.DetachToolbar(), Background = new SolidColorBrush(Color.FromArgb(235, 32, 32, 38)), BorderBrush = Brushes.DimGray,
-            BorderThickness = new(1), CornerRadius = new(14), Padding = new(10, 8, 2, 0), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new(12, 0, 12, 34) });
-        canvasPanel.Children.Add(stage);
-        var transform = new WrapPanel { Margin = new(0, 10, 0, 10) }; canvasPanel.Children.Add(transform);
-        transform.Children.Add(new TextBlock { Text = "Selected device rotation", VerticalAlignment = VerticalAlignment.Center });
-        rotation.Width = 150; rotation.Margin = new(14, 0, 10, 0); transform.Children.Add(rotation);
-        rotation.ValueChanged += (_, _) => { if (!suppress && preview.SelectedPlacement is { } selected) _ = preview.TransformSelectionAsync(rotation.Value, selected.Flip); };
-        Button(transform, "Flip", () => { if (preview.SelectedPlacement is { } p) _ = preview.TransformSelectionAsync(p.Rotation, !p.Flip); });
-        Button(transform, "Reset map", () => { if (model is not null) _ = model.SetMapAsync(CaseMap.Default(model.State?.Lighting.Devices ?? CaseMapPreview.DemoDevices)); });
-        preview.SelectionChanged += () => { suppress = true; rotation.Value = preview.SelectedPlacement?.Rotation ?? 0; suppress = false; };
-        canvasPanel.Children.Add(new SensorBindingPanel());
-        canvasPanel.Children.Add(editor);
-        Header(inspector, "Effect gallery", 20);
-        inspector.Children.Add(new ScrollViewer { Content = gallery, MaxHeight = 380, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Margin = new(0, 12, 0, 12) });
-        Header(inspector, "Palette", 17); inspector.Children.Add(palettes); inspector.Children.Add(palette);
-        var stopTools = new WrapPanel(); inspector.Children.Add(stopTools); stopTools.Children.Add(hex);
-        Button(stopTools, "Set stop", () => _ = palette.ChangeColorAsync(hex.Text));
-        Button(stopTools, "+", () => _ = palette.AddAsync()); Button(stopTools, "-", () => _ = palette.RemoveAsync());
-        palette.SelectionChanged += () => hex.Text = palette.Stops[Math.Min(palette.Selected, palette.Stops.Count - 1)].Color;
-        palettes.SelectionChanged += (_, _) => { if (!suppress && model is not null && palettes.SelectedItem is string value) _ = model.SetParametersAsync(model.Parameters with { Palette = value, Stops = null }); };
-        AddSlider(inspector, "Brightness", brightness, () => { if (model is not null) model.BrightnessPercent = brightness.Value; });
-        AddSlider(inspector, "Speed", speed, () => { if (model is not null) model.SpeedPercent = speed.Value; });
-        AddSlider(inspector, "Direction / angle", angle, () => { if (model is not null) _ = model.SetParametersAsync(model.Parameters with { Angle = angle.Value }); });
-        inspector.Children.Add(dial);
-        dial.AngleChanged += value => { if (!suppress) angle.Value = value; };
-        AddSlider(inspector, "Scale", scale, () => { if (model is not null) _ = model.SetParametersAsync(model.Parameters with { Scale = scale.Value }); });
-        AddSlider(inspector, "Intensity", intensity, () => { if (model is not null) _ = model.SetParametersAsync(model.Parameters with { Intensity = intensity.Value }); });
-        AddSlider(inspector, "Comet count", count, () => { if (model is not null) _ = model.SetParametersAsync(model.Parameters with { CometCount = (int)Math.Round(count.Value) }); });
-        AddSlider(inspector, "Comet tail", tail, () => { if (model is not null) _ = model.SetParametersAsync(model.Parameters with { TailLength = tail.Value }); });
-        inspector.Children.Add(cpuBeat);
-        cpuBeat.Click += (_, _) => { if (model is not null) _ = model.SetParametersAsync(model.Parameters with { HeartbeatCpu = cpuBeat.IsChecked == true }); };
-        var baseColors = new WrapPanel(); inspector.Children.Add(baseColors);
-        foreach (var swatch in new[] { "#FF4D1A", "#5AA7FF", "#3DDC84", "#B26BFF", "#F4F4F5" })
+        var host = new StackPanel(); Content = host;
+
+        // Heading: what is lit right now, and the mode switch.
+        var heading = new DockPanel { Margin = new(0, 0, 0, 18) };
+        DockPanel.SetDock(modes, Dock.Right); heading.Children.Add(modes);
+        DockPanel.SetDock(lightsOff, Dock.Right); heading.Children.Add(lightsOff);
+        lightsOff.Click += (_, _) => { if (model is null) return; var target = model.Effect == LightingEffect.Off ? lastOnEffect : LightingEffect.Off; if (model.Effects.FirstOrDefault(e => e.Effect == target) is { } option) model.SelectEffectCommand.Execute(option); };
+        var titles = new StackPanel();
+        titles.Children.Add(Styled(new TextBlock { Text = "LIGHTING" }, "PageEyebrow"));
+        titles.Children.Add(Styled(title, "H1"));
+        titles.Children.Add(Styled(subtitle, "PageSubtitle"));
+        heading.Children.Add(titles); host.Children.Add(heading);
+
+        // Shown only while an ARGB header still has 0 LEDs.
+        var setup = new CaseLightingSetup { Visibility = Visibility.Collapsed };
+        var setupRow = new DockPanel();
+        var setupButton = new Button { Content = "Set up case lighting", Padding = new(18, 0, 18, 0), MinHeight = 40, Background = new SolidColorBrush(ColorUtil.Fair), Foreground = Brushes.Black };
+        setupButton.Click += (_, _) => { setup.Visibility = setup.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; setup.IsExpanded = true; };
+        DockPanel.SetDock(setupButton, Dock.Right); setupRow.Children.Add(setupButton);
+        setupRow.Children.Add(new TextBlock { Text = "An ARGB header is set to 0 LEDs, so whatever is plugged into it stays dark. Set the LED count to light it.", TextWrapping = TextWrapping.Wrap, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 18, 0) });
+        host.Children.Add(argbBanner = new Border { Child = setupRow, Padding = new(18, 14, 18, 14), CornerRadius = new(16), Margin = new(0, 0, 0, Gap), BorderThickness = new(1), BorderBrush = new SolidColorBrush(Color.FromArgb(85, 245, 165, 36)), Background = new LinearGradientBrush(Color.FromArgb(40, 245, 165, 36), Color.FromArgb(5, 245, 165, 36), 0), Visibility = Visibility.Collapsed });
+        host.Children.Add(setup);
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new() { Width = new GridLength(7, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new() { Width = new GridLength(Gap) });
+        grid.ColumnDefinitions.Add(new() { Width = new GridLength(5, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new() { Height = new GridLength(Gap) });
+        grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        host.Children.Add(grid);
+
+        // Row 1, left: the live preview (whole case) or the editable canvas (per device).
+        var previewBody = new StackPanel();
+        previewBody.Children.Add(CardHeader("YOUR PC, LIVE", null));
+        previewBody.Children.Add(illustration);
+        var perDevice = BuildPerDeviceTools(); perDevice.Visibility = Visibility.Collapsed; previewBody.Children.Add(perDevice);
+        followNotice.Margin = new(0, 12, 0, 8);
+        previewBody.Children.Add(followNotice); previewBody.Children.Add(devices);
+        Place(grid, new GlassCard { Content = previewBody }, 0, 0);
+
+        // Row 1, right: colour and brightness.
+        Place(grid, new GlassCard { Content = BuildColourCard() }, 0, 2);
+
+        // Row 2: the effect library and the controls the chosen effect uses.
+        Place(grid, new GlassCard { Content = BuildEffectsCard() }, 2, 0);
+        Place(grid, new GlassCard { Content = BuildTuneCard() }, 2, 2);
+
+        // Sensor mode adds its panel underneath, across the full width.
+        var sensor = new SensorBindingPanel { Visibility = Visibility.Collapsed, Margin = new(0, Gap, 0, 0) };
+        Grid.SetRow(sensor, 3); Grid.SetColumnSpan(sensor, 3); grid.Children.Add(sensor);
+
+        modes.SelectionChanged += (_, _) =>
         {
-            var b = new Button { Width = 30, Height = 30, Margin = new(0, 0, 8, 8), Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(swatch)), ToolTip = "Base colour " + swatch };
-            b.Click += (_, _) => model?.SelectColorCommand.Execute(swatch); baseColors.Children.Add(b);
-        }
-        Header(inspector, "Devices", 17); inspector.Children.Add(devices);
-        Header(inspector, "Lamp follow", 17);
-        var follow = new WrapPanel(); inspector.Children.Add(follow);
-        foreach (var (label, key) in new[] { ("Map point", "pc"), ("Average", "average"), ("Own colour", "own") }) Button(follow, label, () => model?.SetFollowCommand.Execute(key));
-        inspector.Children.Add(new TextBlock { Text = "Move the LAMP marker in Arrange map. By default it follows the strip centre.", Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new(0, 4, 0, 12) });
-        inspector.Children.Add(new EventOptionsPanel());
-        Header(inspector, "Save lighting to scene", 17);
-        var scene = new ComboBox { ItemsSource = new[] { "Gaming", "Work", "Night", "Movie" }, SelectedIndex = 0, Margin = new(0, 8, 0, 8) };
-        inspector.Children.Add(scene);
-        var save = new WrapPanel(); inspector.Children.Add(save);
-        Button(save, "Save effect + parameters", () => { if (model is not null) { model.SceneName = scene.SelectedItem?.ToString() ?? "Gaming"; model.SaveToSceneCommand.Execute(null); } });
-        inspector.Children.Add(status);
+            bool device = modes.SelectedIndex == 1;
+            illustration.Visibility = device ? Visibility.Collapsed : Visibility.Visible;
+            perDevice.Visibility = device ? Visibility.Visible : Visibility.Collapsed;
+            sensor.Visibility = modes.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+            if (!device) { preview.LedEditing = preview.MapEditing = false; editor.Visibility = Visibility.Collapsed; }
+            UpdateHeading();
+        };
+
         DataContextChanged += (_, _) => { if (model is not null) model.PropertyChanged -= Changed; model = DataContext as LightingViewModel; if (model is not null) model.PropertyChanged += Changed; BuildGallery(); Refresh(); };
         Loaded += (_, _) => { if (model is not null) { model.PropertyChanged -= Changed; model.PropertyChanged += Changed; } Refresh(); };
         Unloaded += (_, _) => { if (model is not null) model.PropertyChanged -= Changed; };
-        // Put the existing power tools behind the v2 mode selector; keep their command wiring.
-        var canvasChildren = canvasPanel.Children.Cast<UIElement>().ToArray(); canvasPanel.Children.Clear();
-        var inspectorChildren = inspector.Children.Cast<UIElement>().ToArray(); inspector.Children.Clear();
-        var host = new StackPanel(); Content = host;
-        var heading = new DockPanel { Margin = new(0, 0, 0, 16) };
-        var modes = new SegmentedControl { ItemsSource = new[] { "Whole case", "Per device", "Sensor" }, SelectedIndex = 0, VerticalAlignment = VerticalAlignment.Bottom };
-        DockPanel.SetDock(modes, Dock.Right); heading.Children.Add(modes);
-        var titles = new StackPanel();
-        var eyebrow = new TextBlock { Text = "LIGHTING" }; eyebrow.SetResourceReference(StyleProperty, "PageEyebrow"); titles.Children.Add(eyebrow);
-        var title = new TextBlock { Text = "Your whole setup, one colour" }; title.SetResourceReference(StyleProperty, "H1"); titles.Children.Add(title);
-        heading.Children.Add(titles); host.Children.Add(heading);
-        var setup = canvasChildren.OfType<CaseLightingSetup>().Single();
-        setup.Visibility = Visibility.Collapsed;
-        var setupRow = new DockPanel();
-        var setupButton = new Button { Content = "Set up case lighting", Padding = new(18, 0, 18, 0), MinHeight = 40, Background = new SolidColorBrush(Color.FromRgb(245, 165, 36)), Foreground = Brushes.Black };
-        setupButton.Click += (_, _) => { setup.Visibility = setup.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; setup.IsExpanded = true; };
-        DockPanel.SetDock(setupButton, Dock.Right); setupRow.Children.Add(setupButton);
-        setupRow.Children.Add(new TextBlock { Text = "ARGB headers start at 0 LEDs. Set the exact LED count to light your case fans and strip, down to the last LED.", TextWrapping = TextWrapping.Wrap, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 18, 0) });
-        host.Children.Add(argbBanner = new Border { Child = setupRow, Padding = new(18, 14, 18, 14), CornerRadius = new(16), Margin = new(0, 0, 0, 16), BorderThickness = new(1), BorderBrush = new SolidColorBrush(Color.FromArgb(85, 245, 165, 36)), Background = new LinearGradientBrush(Color.FromArgb(40, 245, 165, 36), Color.FromArgb(5, 245, 165, 36), 0) });
-        host.Children.Add(setup); host.Children.Add(root);
-        var previewBody = new StackPanel();
-        Header(previewBody, "LIVE PREVIEW", 11); ((TextBlock)previewBody.Children[0]).Margin = new(0, 0, 0, 4);
-        var illustration = new CaseIllustration { Margin = new(0, 1, 0, 0) }; previewBody.Children.Add(illustration);
-        stage.Visibility = Visibility.Collapsed; previewBody.Children.Add(stage);
-        previewBody.Children.Add(followNotice); previewBody.Children.Add(devices);
-        canvasPanel.Children.Add(new GlassCard { Content = previewBody, MinHeight = 535 });
-        var tools = new StackPanel { Visibility = Visibility.Collapsed, Margin = new(0, 12, 0, 0) };
-        tools.Children.Add(mode); tools.Children.Add(transform); tools.Children.Add(editor);
-        canvasPanel.Children.Add(tools); editor.Visibility = Visibility.Collapsed;
-        var sensor = canvasChildren.OfType<SensorBindingPanel>().Single(); sensor.Visibility = Visibility.Collapsed; canvasPanel.Children.Add(sensor);
-        // The painting toolbar is only visible in per-device paint mode.
-        stage.Children[1].Visibility = Visibility.Collapsed;
-        edit.IsChecked = false;
-        edit.Click += (_, _) => stage.Children[1].Visibility = edit.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-        map.Click += (_, _) => stage.Children[1].Visibility = Visibility.Collapsed;
-        modes.SelectionChanged += (_, _) => {
-            bool perDevice = modes.SelectedIndex == 1;
-            illustration.Visibility = perDevice ? Visibility.Collapsed : Visibility.Visible;
-            stage.Visibility = perDevice ? Visibility.Visible : Visibility.Collapsed;
-            tools.Visibility = perDevice ? Visibility.Visible : Visibility.Collapsed;
-            sensor.Visibility = modes.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
-            if (!perDevice) { preview.LedEditing = preview.MapEditing = false; stage.Children[1].Visibility = Visibility.Collapsed; }
-            else { preview.LedEditing = edit.IsChecked == true; preview.MapEditing = map.IsChecked == true; editor.Visibility = preview.LedEditing ? Visibility.Visible : Visibility.Collapsed; stage.Children[1].Visibility = preview.LedEditing ? Visibility.Visible : Visibility.Collapsed; }
-        };
-        edit.Content = "Paint LEDs"; map.Content = "Arrange case";
-        var effectsBody = new StackPanel(); Header(effectsBody, "EFFECT", 11);
-        var effectScroll = (ScrollViewer)inspectorChildren[1]; effectScroll.MaxHeight = 260; effectScroll.Margin = new(0, 9, 0, 0); effectsBody.Children.Add(effectScroll);
+        SizeChanged += (_, _) => gallery.Columns = ActualWidth < 1000 ? 3 : ActualWidth < 1250 ? 4 : 5;
+    }
 
-        var controlBody = new StackPanel();
-        var colourRow = new Grid { Margin = new(0, 0, 0, 8) }; colourRow.ColumnDefinitions.Add(new() { Width = new GridLength(168) }); colourRow.ColumnDefinitions.Add(new());
-        var colourControls = new StackPanel(); Grid.SetColumn(colourControls, 1); colourRow.Children.Add(colourControls);
-        Header(colourControls, "COLOUR \u00b7 EVERYTHING", 11); ((TextBlock)colourControls.Children[0]).Margin = new(0, 0, 0, 4);
-        var swatches = new UniformGrid { Columns = 4, Margin = new(0, 8, 0, 0) };
+    private StackPanel BuildColourCard()
+    {
+        var body = new StackPanel();
+        var hexBox = new Border { Background = new SolidColorBrush(Color.FromRgb(13, 14, 18)), BorderBrush = new SolidColorBrush(Color.FromArgb(31, 255, 255, 255)), BorderThickness = new(1), CornerRadius = new(10), Padding = new(10, 4, 10, 4), Child = hex };
+        hex.LostFocus += (_, _) => CommitHex(); hex.KeyDown += (_, e) => { if (e.Key == Key.Enter) CommitHex(); };
+        AutomationProperties.SetName(hex, "Colour code");
+        body.Children.Add(CardHeader("COLOUR", hexBox));
+        var row = new Grid { Margin = new(0, 4, 0, 0) };
+        row.ColumnDefinitions.Add(new() { Width = new GridLength(176) }); row.ColumnDefinitions.Add(new());
+        var wheel = new ColorWheel { Width = 160, Height = 160, MinWidth = 0, MinHeight = 0, RingMode = true, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+        wheel.SetBinding(ColorWheel.ColorHexProperty, new Binding("ColorEntry") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
+        row.Children.Add(wheel);
+        var swatches = new UniformGrid { Columns = 4, VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(swatches, 1);
         foreach (var colour in new[] { "#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF", "#F4F5F7" })
         {
-            var button = new ColorSwatch { Width = 60, Height = 34, ColorHex = colour, Margin = new(0, 0, 8, 8) };
-            button.SetBinding(ColorSwatch.SelectedHexProperty, new Binding("ColorEntry"));
-            button.Click += (_, _) => model?.SelectColorCommand.Execute(colour); swatches.Children.Add(button);
+            var swatch = new ColorSwatch { Height = 36, ColorHex = colour, Margin = new(0, 0, 8, 8) };
+            swatch.SetBinding(ColorSwatch.SelectedHexProperty, new Binding("ColorEntry"));
+            AutomationProperties.SetName(swatch, "Colour " + colour);
+            swatch.Click += (_, _) => model?.SelectColorCommand.Execute(colour); swatches.Children.Add(swatch);
         }
-        colourControls.Children.Add(swatches);
-        var wheel = new ColorWheel { Width = 158, Height = 158, MinWidth = 0, MinHeight = 0, RingMode = true, HorizontalAlignment = HorizontalAlignment.Left, Margin = new(-2, 4, 0, 0) };
-        wheel.SetBinding(ColorWheel.ColorHexProperty, new Binding("ColorEntry") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
-        colourRow.Children.Add(wheel); controlBody.Children.Add(colourRow);
-        var advanced = new StackPanel();
-        foreach (var child in inspectorChildren.Skip(2))
-        {
-            if (ReferenceEquals(child, devices) || ReferenceEquals(child, baseColors)) continue;
-            if (ReferenceEquals(child, brightness)) { brightness.Margin = new(0, 4, 0, 6); brightness.Height = 14; brightness.Glow = false; brightness.UseGradient = true; brightness.AccentColor = ColorUtil.Parse("#36D6FF", Colors.Cyan); colourControls.Children.Add(child); }
-            else if (child is TextBlock label && label.Text.StartsWith("Brightness")) { label.Margin = new(0, 6, 0, 0); colourControls.Children.Add(child); }
-            else advanced.Children.Add(child);
-        }
-        var brightnessPresets = new UniformGrid { Columns = 4 };
-        foreach (var amount in new[] { 25, 50, 80, 100 }) { var button = new Button { Content = amount == 100 ? "Max" : amount + "%", Margin = new(0, 0, 6, 0), Padding = new(4), MinHeight = 36 }; button.Click += (_, _) => { if (model is not null) model.BrightnessPercent = amount; }; brightnessPresets.Children.Add(button); }
-        colourControls.Children.Add(brightnessPresets);
-        controlBody.Children.Add(effectsBody);
-        advanced.Children.Add(wholeCase);
-        advanced.Children.Add(new Expander { Header = "More effects", Content = extraEffects });
-        var advancedMenu = new ContextMenu(); advancedMenu.SetBinding(DataContextProperty, new Binding("PlacementTarget.DataContext") { RelativeSource = RelativeSource.Self });
-        advancedMenu.Items.Add(new MenuItem { Header = new ScrollViewer { Content = advanced, Width = 520, MaxHeight = 600, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }, StaysOpenOnClick = true });
+        row.Children.Add(swatches); body.Children.Add(row);
 
-        var colourCard = new GlassCard { Content = controlBody, MinHeight = 535, ContextMenu = advancedMenu, ToolTip = "Right-click for advanced lighting controls and more effects" }; inspector.Children.Add(colourCard);
-        SizeChanged += (_, _) => Responsive();
+        body.Children.Add(ValueLabel("BRIGHTNESS", brightnessValue, new(0, 18, 0, 8)));
+        brightness.Glow = false; brightness.UseGradient = true; brightness.AccentColor = ColorUtil.Parse("#36D6FF", Colors.Cyan);
+        brightness.ValueChanged += (_, _) => { brightnessValue.Text = $"{brightness.Value:0}%"; if (!suppress && model is not null) model.BrightnessPercent = brightness.Value; };
+        AutomationProperties.SetName(brightness, "Brightness");
+        body.Children.Add(brightness);
+        var presets = new UniformGrid { Columns = 4, Margin = new(0, 12, 0, 0) };
+        foreach (var amount in new[] { 25, 50, 80, 100 })
+        {
+            var button = new Button { Content = amount == 100 ? "Max" : amount + "%", Margin = new(0, 0, 8, 0), MinHeight = 36, Padding = new(4) };
+            button.Click += (_, _) => { if (model is not null) model.BrightnessPercent = amount; };
+            presets.Children.Add(button);
+        }
+        body.Children.Add(presets);
+
+        // One-click looks: effect, colour and palette together.
+        body.Children.Add(Styled(new TextBlock { Text = "QUICK LOOKS", Margin = new(0, 20, 0, 10) }, "SectionLabel"));
+        var looks = new UniformGrid { Columns = 3 };
+        foreach (var (name, effect, colour, paletteName, a, b) in new[]
+        {
+            ("Ember", LightingEffect.Static, "#FF4D1A", (string?)null, "#FF4D1A", "#7A1408"),
+            ("Ice", LightingEffect.Static, "#36D6FF", null, "#36D6FF", "#0C3A4A"),
+            ("Warm white", LightingEffect.Static, "#FFB070", null, "#FFD5A8", "#6B4420"),
+            ("Aurora", LightingEffect.Aurora, "#29FCA8", "Aurora", "#29FCA8", "#A665F6"),
+            ("Lava", LightingEffect.Fire, "#FF4D1A", "Fire", "#FF9A13", "#CA2907"),
+            ("Rainbow", LightingEffect.RainbowWave, "#FF4D1A", "Spectrum", "#FF315A", "#588AFF"),
+        })
+        {
+            var swatch = new Border { Height = 8, CornerRadius = new(4), Margin = new(0, 0, 0, 8), Background = new LinearGradientBrush(ColorUtil.Parse(a, Colors.White), ColorUtil.Parse(b, Colors.White), 0) };
+            var content = new StackPanel(); content.Children.Add(swatch); content.Children.Add(new TextBlock { Text = name, FontSize = 12, FontWeight = FontWeights.SemiBold });
+            var look = new Button { Content = content, Margin = new(0, 0, 8, 8), Padding = new(10, 10, 10, 9), HorizontalContentAlignment = HorizontalAlignment.Stretch, ToolTip = $"{EffectCatalog.For(effect).Name} in {name.ToLowerInvariant()}" };
+            AutomationProperties.SetName(look, "Quick look " + name);
+            look.Click += (_, _) => { if (model is not null) _ = model.ApplyLookAsync(effect, colour, paletteName); };
+            looks.Children.Add(look);
+        }
+        body.Children.Add(looks);
+        return body;
     }
-    private void Responsive()
+
+    private StackPanel BuildEffectsCard()
     {
-        bool narrow = ActualWidth < 850;
-        root.ColumnDefinitions[1].Width = narrow ? new(0) : new(1, GridUnitType.Star);
-        Grid.SetColumn(inspector, narrow ? 0 : 1); Grid.SetRow(inspector, narrow ? 1 : 0);
-        canvasPanel.Margin = narrow ? new(0, 0, 0, 24) : new(0, 0, 16, 0);
-        preview.Height = narrow ? 300 : 440;
+        var body = new StackPanel();
+        categories.SelectionChanged += (_, _) => FilterGallery();
+        body.Children.Add(CardHeader("EFFECTS", categories));
+        gallery.Margin = new(0, 6, 0, 0);
+        body.Children.Add(gallery);
+        return body;
     }
-    private static void Header(Panel panel, string text, double size) => panel.Children.Add(new TextBlock { Text = text, FontSize = size, FontWeight = FontWeights.SemiBold, Margin = new(0, 12, 0, 4) });
-    private static void Button(Panel panel, string text, Action action)
+
+    private StackPanel BuildTuneCard()
     {
-        var button = new Button { Content = text, Padding = new(10, 7, 10, 7), Margin = new(4, 0, 0, 8), ToolTip = text };
-        button.Click += (_, _) => action(); panel.Children.Add(button);
+        var body = new StackPanel();
+        body.Children.Add(Styled(tuneTitle, "CardTitle"));
+        tuneHint.Margin = new(0, 2, 0, 6); body.Children.Add(Styled(tuneHint, "SmallMuted"));
+
+        var speedRow = new StackPanel();
+        speedRow.Children.Add(ValueLabel("SPEED", speedValue, new(0, 12, 0, 8))); speedRow.Children.Add(speed);
+        speed.ValueChanged += (_, _) => { speedValue.Text = speed.Value < 34 ? "Slow" : speed.Value < 67 ? "Medium" : "Fast"; if (!suppress && model is not null) model.SpeedPercent = speed.Value; };
+        AutomationProperties.SetName(speed, "Speed");
+
+        var paletteRow = new StackPanel();
+        var paletteHeader = new DockPanel { Margin = new(0, 14, 0, 6) };
+        DockPanel.SetDock(palettes, Dock.Right); paletteHeader.Children.Add(palettes);
+        paletteHeader.Children.Add(Styled(new TextBlock { Text = "PALETTE", VerticalAlignment = VerticalAlignment.Center }, "SectionLabel"));
+        paletteRow.Children.Add(paletteHeader); paletteRow.Children.Add(palette);
+        paletteRow.Children.Add(Styled(new TextBlock { Text = "Drag a dot to move it. Pick a colour above to recolour the selected dot.", Margin = new(0, 2, 0, 0), TextWrapping = TextWrapping.Wrap }, "SmallMuted"));
+        palettes.SelectionChanged += (_, _) => { if (!suppress && model is not null && palettes.SelectedItem is string value) _ = model.SetParametersAsync(model.Parameters with { Palette = value, Stops = null }); };
+        AutomationProperties.SetName(palettes, "Palette");
+
+        var directionRow = new DockPanel { Margin = new(0, 14, 0, 0) };
+        dial.Margin = new(0, 0, 16, 0); DockPanel.SetDock(dial, Dock.Left); directionRow.Children.Add(dial);
+        var directionText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        directionText.Children.Add(Styled(new TextBlock { Text = "DIRECTION" }, "SectionLabel"));
+        directionText.Children.Add(Styled(new TextBlock { Text = "Drag the dial to choose which way it travels", Margin = new(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap }, "SmallMuted"));
+        directionRow.Children.Add(directionText);
+        dial.AngleChanged += value => { if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { Angle = Math.Round(value) }); };
+
+        var sizeRow = new StackPanel();
+        sizeRow.Children.Add(ValueLabel("SIZE", sizeValue, new(0, 14, 0, 8))); sizeRow.Children.Add(scale);
+        scale.ValueChanged += (_, _) => { sizeValue.Text = $"{scale.Value:0.0}×"; if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { Scale = Math.Round(scale.Value, 2) }); };
+        AutomationProperties.SetName(scale, "Size");
+
+        var cometRow = new StackPanel();
+        cometRow.Children.Add(ValueLabel("COMETS", countValue, new(0, 14, 0, 8))); cometRow.Children.Add(count);
+        cometRow.Children.Add(ValueLabel("TAIL", tailValue, new(0, 12, 0, 8))); cometRow.Children.Add(tail);
+        count.Step = 1;
+        count.ValueChanged += (_, _) => { countValue.Text = $"{count.Value:0}"; if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { CometCount = (int)Math.Round(count.Value) }); };
+        tail.ValueChanged += (_, _) => { tailValue.Text = tail.Value < 0.3 ? "Short" : tail.Value < 0.65 ? "Medium" : "Long"; if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { TailLength = Math.Round(tail.Value, 2) }); };
+
+        var beatRow = new StackPanel { Margin = new(0, 12, 0, 0) }; beatRow.Children.Add(cpuBeat);
+        cpuBeat.Click += (_, _) => { if (model is not null) _ = model.SetParametersAsync(model.Parameters with { HeartbeatCpu = cpuBeat.IsChecked == true }); };
+
+        noTuning = Styled(new TextBlock { Text = "This effect has nothing to tune. It takes care of itself.", Margin = new(0, 12, 0, 0), TextWrapping = TextWrapping.Wrap }, "SmallMuted");
+        tuneRows[EffectControls.Speed] = speedRow; tuneRows[EffectControls.Palette] = paletteRow; tuneRows[EffectControls.Direction] = directionRow;
+        tuneRows[EffectControls.Size] = sizeRow; tuneRows[EffectControls.Comets] = cometRow; tuneRows[EffectControls.CpuBeat] = beatRow;
+        foreach (var row in new FrameworkElement[] { speedRow, paletteRow, directionRow, sizeRow, cometRow, beatRow, noTuning }) body.Children.Add(row);
+
+        // Lamps and saving are about the whole look, so they sit at the bottom of the card.
+        body.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)), Margin = new(0, 18, 0, 0) });
+        body.Children.Add(Styled(new TextBlock { Text = "LAMPS", Margin = new(0, 14, 0, 8) }, "SectionLabel"));
+        lampFollow.SelectionChanged += (_, _) => { if (!suppress) _ = SetLampFollowAsync(lampFollow.SelectedIndex switch { 0 => "pc", 1 => "average", _ => "own" }); };
+        lampFollow.HorizontalAlignment = HorizontalAlignment.Left;
+        body.Children.Add(lampFollow);
+        body.Children.Add(Styled(new TextBlock { Text = "SAVE THIS LOOK", Margin = new(0, 16, 0, 8) }, "SectionLabel"));
+        var save = new DockPanel();
+        var saveButton = new Button { Content = "Save to scene", MinHeight = 36, Padding = new(16, 0, 16, 0), Margin = new(8, 0, 0, 0) };
+        saveButton.Click += (_, _) => { if (model is not null && sceneBox.SelectedItem is string scene) { model.SceneName = scene; model.SaveToSceneCommand.Execute(null); } };
+        DockPanel.SetDock(saveButton, Dock.Right); save.Children.Add(saveButton); save.Children.Add(sceneBox);
+        AutomationProperties.SetName(sceneBox, "Scene to save to");
+        body.Children.Add(save);
+        body.Children.Add(status);
+        body.Children.Add(new Expander { Header = "Event flashes", Content = new EventOptionsPanel(), Foreground = Brushes.Silver, Margin = new(0, 12, 0, 0) });
+        return body;
     }
-    private static ThickSlider Slider(double minimum, double maximum) => new() { Minimum = minimum, Maximum = maximum, Height = 18, Margin = new(0, 8, 0, 10) };
-    private void AddSlider(Panel panel, string text, ThickSlider slider, Action changed)
+
+    private StackPanel BuildPerDeviceTools()
     {
-        var label = new TextBlock { Text = text, Margin = new(0, 10, 0, 0) }; panel.Children.Add(label); panel.Children.Add(slider);
-        slider.ValueChanged += (_, _) => { label.Text = $"{text}   {slider.Value:0.##}"; if (!suppress) changed(); };
+        var panel = new StackPanel();
+        var modeRow = new WrapPanel { Margin = new(0, 0, 0, 10) };
+        var paint = new CheckBox { Content = "Paint LEDs", Margin = new(0, 0, 18, 0) };
+        var arrange = new CheckBox { Content = "Arrange case", Margin = new(0, 0, 18, 0) };
+        modeRow.Children.Add(paint); modeRow.Children.Add(arrange); panel.Children.Add(modeRow);
+        var stage = new Grid(); stage.Children.Add(preview);
+        var toolbar = new Border { Child = editor.DetachToolbar(), Background = new SolidColorBrush(Color.FromArgb(235, 32, 32, 38)), BorderBrush = Brushes.DimGray,
+            BorderThickness = new(1), CornerRadius = new(14), Padding = new(10, 8, 2, 0), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new(12, 0, 12, 34), Visibility = Visibility.Collapsed };
+        stage.Children.Add(toolbar); panel.Children.Add(stage);
+        paint.Click += (_, _) =>
+        {
+            preview.LedEditing = paint.IsChecked == true;
+            if (preview.LedEditing) { arrange.IsChecked = false; preview.MapEditing = false; }
+            editor.Visibility = toolbar.Visibility = preview.LedEditing ? Visibility.Visible : Visibility.Collapsed; preview.InvalidateVisual();
+        };
+        arrange.Click += (_, _) =>
+        {
+            preview.MapEditing = arrange.IsChecked == true;
+            if (preview.MapEditing) { paint.IsChecked = false; preview.LedEditing = false; editor.Visibility = toolbar.Visibility = Visibility.Collapsed; }
+            preview.InvalidateVisual();
+        };
+        var transform = new WrapPanel { Margin = new(0, 10, 0, 0) };
+        transform.Children.Add(new TextBlock { Text = "Rotate selected", VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 12, 0) });
+        rotation.Width = 160; transform.Children.Add(rotation);
+        rotation.ValueChanged += (_, _) => { if (!suppress && preview.SelectedPlacement is { } selected) _ = preview.TransformSelectionAsync(rotation.Value, selected.Flip); };
+        AddButton(transform, "Flip", () => { if (preview.SelectedPlacement is { } p) _ = preview.TransformSelectionAsync(p.Rotation, !p.Flip); });
+        AddButton(transform, "Reset layout", () => { if (model is not null) _ = model.SetMapAsync(CaseMap.Default(model.State?.Lighting.Devices ?? CaseMapPreview.DemoDevices)); });
+        preview.SelectionChanged += () => { suppress = true; rotation.Value = preview.SelectedPlacement?.Rotation ?? 0; suppress = false; };
+        panel.Children.Add(transform);
+        editor.Visibility = Visibility.Collapsed; panel.Children.Add(editor);
+        return panel;
     }
+
     private void BuildGallery()
     {
-        gallery.Children.Clear(); extraEffects.Children.Clear();
+        gallery.Children.Clear(); tiles.Clear();
         if (model is null) return;
-        string[] preferred = ["Static", "Breathing", "RainbowWave", "Aurora", "Comet", "Fire", "OceanRipple", "Rain", "Strobing"];
-        foreach (var effect in model.Effects.OrderBy(e => Array.IndexOf(preferred, e.Effect.ToString()) is var index && index >= 0 ? index : 99))
+        foreach (var info in EffectCatalog.All.Where(e => e.Category != "Hidden"))
         {
+            var tile = new EffectTile { LightEffect = info.Effect, Margin = new(0, 0, 0, 8) };
             var content = new StackPanel();
-            var treatment = new Border { Height = 34, CornerRadius = new(9), Margin = new(0, 0, 0, 8) };
-            string[] colours = effect.Effect.ToString() switch
-            {
-                "Breathing" => ["#167184", "#36D6FF", "#167184"], "RainbowWave" => ["#F5A524", "#3DDC84", "#36D6FF", "#B26BFF"],
-                "Aurora" => ["#36D6FF", "#6A85FF", "#B26BFF"], "Comet" => ["#0D0E12", "#0D0E12", "#36D6FF"],
-                "Fire" => ["#F5A524", "#FFE96A", "#FF4D1A"], "OceanRipple" => ["#36D6FF", "#12354A", "#244F9C"],
-                "Rain" => ["#36D6FF", "#12303B", "#36D6FF"], _ => [model.ColorHex, model.ColorHex]
-            };
-            var gradient = new LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(1, 0) };
-            for (int i = 0; i < colours.Length; i++) gradient.GradientStops.Add(new(ColorUtil.Parse(colours[i], Colors.White), i / (double)(colours.Length - 1)));
-            treatment.Background = gradient;
-            content.Children.Add(treatment);
-            content.Children.Add(new TextBlock { Text = effect.Effect.ToString() switch { "Strobing" => "Strobe", "Fire" => "Fire", "Rain" => "Rain", "OceanRipple" => "Ocean", _ => effect.Name }, FontSize = 13, FontWeight = FontWeights.SemiBold });
-            var button = new Button { Content = content, Height = 80, Padding = new(10), HorizontalContentAlignment = HorizontalAlignment.Stretch, ToolTip = effect.Subtitle, Tag = effect };
-            button.Click += (_, _) => model?.SelectEffectCommand.Execute(effect);
-            if (preferred.Contains(effect.Effect.ToString())) gallery.Children.Add(button);
-            else { button.Width = 130; button.Margin = new(0, 0, 8, 8); extraEffects.Children.Add(button); }
+            content.Children.Add(tile);
+            content.Children.Add(new TextBlock { Text = info.Name, FontSize = 13, FontWeight = FontWeights.SemiBold });
+            var button = new Button { Content = content, Padding = new(10, 10, 10, 10), HorizontalContentAlignment = HorizontalAlignment.Stretch, ToolTip = info.Description, BorderThickness = new(1.5) };
+            AutomationProperties.SetName(button, "Effect " + info.Name);
+            var option = model.Effects.FirstOrDefault(e => e.Effect == info.Effect);
+            button.Click += (_, _) => { if (option is not null) model?.SelectEffectCommand.Execute(option); };
+            tiles.Add((button, tile, info)); gallery.Children.Add(button);
         }
+        FilterGallery();
     }
+
+    private void FilterGallery()
+    {
+        var category = categories.SelectedItem as string ?? "All";
+        foreach (var (button, _, info) in tiles) button.Visibility = category == "All" || info.Category == category ? Visibility.Visible : Visibility.Collapsed;
+        // SpacedGrid lays out every child, so rebuild the visible set to keep rows tight.
+        gallery.Children.Clear();
+        foreach (var (button, _, _) in tiles.Where(t => t.Button.Visibility == Visibility.Visible)) gallery.Children.Add(button);
+    }
+
     private void Changed(object? sender, PropertyChangedEventArgs args) => Refresh();
+
     private void Refresh()
     {
         if (model is null) return;
         suppress = true;
         editor.DataContext = model.Editor;
         var p = model.Parameters;
-        palettes.SelectedItem = p.Palette; angle.Value = p.Angle; dial.Angle = p.Angle; scale.Value = p.Scale; intensity.Value = p.Intensity; tail.Value = p.TailLength; count.Value = p.CometCount;
+        var info = EffectCatalog.For(model.Effect);
+        palettes.SelectedItem = p.Palette; dial.Angle = p.Angle; scale.Value = p.Scale; tail.Value = p.TailLength; count.Value = p.CometCount;
         brightness.Value = model.BrightnessPercent; speed.Value = model.SpeedPercent; cpuBeat.IsChecked = p.HeartbeatCpu;
-        palette.InvalidateVisual(); preview.InvalidateVisual();
+        brightnessValue.Text = $"{model.BrightnessPercent:0}%";
+        if (!hex.IsKeyboardFocusWithin) hex.Text = model.ColorHex;
+        palette.InvalidateVisual(); preview.InvalidateVisual(); illustration.InvalidateVisual();
         status.Text = model.LastError ?? model.SavedText;
-        foreach (Button b in gallery.Children) b.BorderBrush = ((EffectOption)b.Tag).Effect == model.Effect ? new SolidColorBrush(ColorUtil.Accent) : new SolidColorBrush(Color.FromRgb(63, 63, 70));
-        var signature = string.Join(";", model.Devices.Select(d => $"{d.Id}:{d.Name}:{d.Synced}:{p.Devices?.GetValueOrDefault(d.Id, true) != false}"));
-        if (signature != deviceSignature)
+        status.Foreground = new SolidColorBrush(model.LastError is null ? ColorUtil.TextTertiary : ColorUtil.Poor);
+
+        // Effect tiles: the chosen one is outlined and animates; the rest hold a frame.
+        foreach (var (button, tile, tileInfo) in tiles)
         {
-            deviceSignature = signature; devices.Children.Clear();
-            // Devices with the same name (two RAM sticks) get a number so each chip is identifiable.
-            var sameName = model.Devices.GroupBy(d => d.Name).Where(g => g.Count() > 1).ToDictionary(g => g.Key, g => g.ToList());
-            foreach (var d in model.Devices)
-            {
-                bool on = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false;
-                var label = sameName.TryGetValue(d.Name, out var twins) ? $"{d.Name} {twins.IndexOf(d) + 1}" : d.Name;
-                var body = new StackPanel { Orientation = Orientation.Horizontal };
-                body.Children.Add(new TextBlock { Text = on ? "✓" : "○", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(on ? ColorUtil.Accent : Color.FromRgb(124, 128, 138)), Margin = new(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
-                body.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = on ? Brushes.WhiteSmoke : new SolidColorBrush(Color.FromRgb(163, 166, 174)), FontWeight = FontWeights.SemiBold });
-                if (!on) body.Children.Add(new TextBlock { Text = " · own colour", FontSize = 12, Foreground = new SolidColorBrush(ColorUtil.Fair) });
-                var toggle = new System.Windows.Controls.Primitives.ToggleButton { Content = body, IsChecked = on, Margin = new(0, 0, 8, 8), ToolTip = on ? $"{label} follows the case colour. Click to give it its own colour." : $"{label} keeps its own colour. Click to make it follow the case.", Cursor = System.Windows.Input.Cursors.Hand };
-                System.Windows.Automation.AutomationProperties.SetName(toggle, $"{label} follows case colour");
-                // Included chips are tinted orange; excluded ones are hollow with an amber dashed outline, so the difference is obvious at a glance.
-                var chrome = new FrameworkElementFactory(typeof(Border)); chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(16));
-                chrome.SetValue(Border.BackgroundProperty, new SolidColorBrush(on ? Color.FromArgb(38, 255, 77, 26) : Colors.Transparent));
-                chrome.SetValue(Border.BorderBrushProperty, new SolidColorBrush(on ? Color.FromArgb(150, 255, 77, 26) : Color.FromArgb(150, 245, 165, 36)));
-                chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1)); chrome.SetValue(Border.PaddingProperty, new Thickness(10, 7, 12, 7));
-                var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty)); chrome.AppendChild(presenter);
-                toggle.Template = new ControlTemplate(typeof(System.Windows.Controls.Primitives.ToggleButton)) { VisualTree = chrome };
-                toggle.Click += (_, _) => { d.Synced = toggle.IsChecked == true; model.SetDeviceCommand.Execute(d); _ = model.SetParametersAsync(model.Parameters with { Devices = new Dictionary<string, bool>(model.Parameters.Devices ?? new Dictionary<string, bool>()) { [d.Id] = d.Synced } }); };
-                devices.Children.Add(toggle);
-            }
-            int excluded = model.Devices.Count(d => !(d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false));
-            followNotice.Text = excluded == 0 ? "APPLIES TO · every device follows the case colour"
-                : $"APPLIES TO · {excluded} device{(excluded == 1 ? "" : "s")} keep{(excluded == 1 ? "s" : "")} {(excluded == 1 ? "its" : "their")} own colour. Click a chip to include it.";
-            followNotice.Foreground = new SolidColorBrush(excluded == 0 ? Color.FromRgb(124, 128, 138) : ColorUtil.Fair);
+            bool on = tileInfo.Effect == model.Effect;
+            tile.IsActive = on; tile.InvalidateVisual();
+            button.BorderBrush = new SolidColorBrush(on ? ColorUtil.Accent : Color.FromArgb(18, 255, 255, 255));
+            button.Background = new SolidColorBrush(on ? Color.FromArgb(28, 255, 77, 26) : Color.FromRgb(23, 24, 29));
         }
-        // The setup banner only matters while an ARGB header still has 0 LEDs.
+        if (model.Effect != LightingEffect.Off) lastOnEffect = model.Effect;
+        lightsOff.Content = model.Effect == LightingEffect.Off ? "Turn lights on" : "Turn lights off";
+        tuneTitle.Text = "Tune · " + info.Name;
+        tuneHint.Text = info.Description;
+        foreach (var (control, row) in tuneRows) row.Visibility = info.Controls.HasFlag(control) ? Visibility.Visible : Visibility.Collapsed;
+        if (noTuning is not null) noTuning.Visibility = tuneRows.Keys.Any(c => info.Controls.HasFlag(c)) ? Visibility.Collapsed : Visibility.Visible;
+
+        var follow = model.State?.Lamps?.FirstOrDefault()?.Follow ?? model.State?.Lamp?.Follow ?? "pc";
+        lampFollow.SelectedIndex = follow switch { "average" => 1, "own" => 2, _ => 0 };
+        var scenes = model.State?.Scenes?.Select(s => s.Name).ToArray() is { Length: > 0 } names ? names : ["Gaming", "Work", "Night", "Movie"];
+        if (!scenes.SequenceEqual(sceneBox.ItemsSource as IEnumerable<string> ?? [])) { var keep = sceneBox.SelectedItem; sceneBox.ItemsSource = scenes; sceneBox.SelectedItem = keep is string k && scenes.Contains(k) ? k : scenes[0]; }
+
+        RefreshDevices(p);
+        UpdateHeading();
         if (argbBanner is not null)
             argbBanner.Visibility = model.State?.Lighting.Devices.Any(dev => dev.Zones?.Any(z => z.MaxLeds > z.MinLeds && z.LedCount == 0 && z.Name.Contains("Addressable", StringComparison.OrdinalIgnoreCase)) == true) == true
                 ? Visibility.Visible : Visibility.Collapsed;
         suppress = false;
     }
+
+    private void UpdateHeading()
+    {
+        if (model is null) return;
+        var info = EffectCatalog.For(model.Effect);
+        title.Text = modes.SelectedIndex switch { 1 => "Fine-tune each device", 2 => "Lights that show what your PC is doing", _ => model.Effect == LightingEffect.Off ? "Case lights are off" : "Your whole setup, one look" };
+        int lit = model.State?.Lighting.Devices.Count(d => d.Synced && d.Connected) ?? 0, lamps = model.State?.Lamps?.Count(l => l.Connected) ?? 0;
+        subtitle.Text = $"{info.Name}{(info.Controls.HasFlag(EffectControls.Colour) ? " · " + model.ColorHex : "")} · {model.BrightnessPercent:0}% · {lit} device{(lit == 1 ? "" : "s")}{(lamps > 0 ? $" and {lamps} lamp{(lamps == 1 ? "" : "s")}" : "")}";
+    }
+
+    private void RefreshDevices(EffectParameters p)
+    {
+        if (model is null) return;
+        var lighting = model.State?.Lighting.Devices ?? [];
+        var signature = string.Join(";", model.Devices.Select(d => $"{d.Id}:{d.Name}:{d.Synced}:{p.Devices?.GetValueOrDefault(d.Id, true) != false}"));
+        if (signature == deviceSignature) return;
+        deviceSignature = signature; devices.Children.Clear();
+        int ramIndex = 0;
+        foreach (var d in model.Devices)
+        {
+            bool on = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false;
+            var kind = lighting.FirstOrDefault(x => x.Id == d.Id)?.Kind ?? "";
+            // Short, recognisable names; the full model name is in the tooltip.
+            var label = kind.Contains("RAM", StringComparison.OrdinalIgnoreCase) ? $"RAM {++ramIndex}"
+                : kind.Contains("GPU", StringComparison.OrdinalIgnoreCase) ? "Graphics card"
+                : kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase) ? "Motherboard and fans"
+                : kind.Contains("strip", StringComparison.OrdinalIgnoreCase) ? "LED strip" : d.Name;
+            var body = new StackPanel { Orientation = Orientation.Horizontal };
+            body.Children.Add(new TextBlock { Text = on ? "✓" : "○", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(on ? ColorUtil.Accent : Color.FromRgb(124, 128, 138)), Margin = new(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
+            body.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = on ? Brushes.WhiteSmoke : new SolidColorBrush(Color.FromRgb(163, 166, 174)), FontWeight = FontWeights.SemiBold });
+            if (!on) body.Children.Add(new TextBlock { Text = " · own colour", FontSize = 12, Foreground = new SolidColorBrush(ColorUtil.Fair) });
+            var toggle = new ToggleButton { Content = body, IsChecked = on, Margin = new(0, 0, 8, 8), Cursor = Cursors.Hand,
+                ToolTip = $"{d.Name}\n{(on ? "Follows the case. Click to give it its own colour." : "Keeps its own colour. Click to make it follow the case.")}" };
+            AutomationProperties.SetName(toggle, $"{label} follows case colour");
+            var chrome = new FrameworkElementFactory(typeof(Border)); chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(16));
+            chrome.SetValue(Border.BackgroundProperty, new SolidColorBrush(on ? Color.FromArgb(38, 255, 77, 26) : Colors.Transparent));
+            chrome.SetValue(Border.BorderBrushProperty, new SolidColorBrush(on ? Color.FromArgb(150, 255, 77, 26) : Color.FromArgb(150, 245, 165, 36)));
+            chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1)); chrome.SetValue(Border.PaddingProperty, new Thickness(10, 7, 12, 7));
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty)); chrome.AppendChild(presenter);
+            toggle.Template = new ControlTemplate(typeof(ToggleButton)) { VisualTree = chrome };
+            toggle.Click += (_, _) => { d.Synced = toggle.IsChecked == true; model.SetDeviceCommand.Execute(d); _ = model.SetParametersAsync(model.Parameters with { Devices = new Dictionary<string, bool>(model.Parameters.Devices ?? new Dictionary<string, bool>()) { [d.Id] = d.Synced } }); };
+            devices.Children.Add(toggle);
+        }
+        int excluded = model.Devices.Count(d => !(d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false));
+        followNotice.Text = excluded == 0 ? "APPLIES TO · every device follows this look"
+            : $"APPLIES TO · {excluded} device{(excluded == 1 ? "" : "s")} keep{(excluded == 1 ? "s" : "")} {(excluded == 1 ? "its" : "their")} own colour. Click a chip to include it.";
+        followNotice.Foreground = new SolidColorBrush(excluded == 0 ? ColorUtil.TextTertiary : ColorUtil.Fair);
+    }
+
+    private void CommitHex()
+    {
+        var text = hex.Text.Trim(); if (!text.StartsWith('#')) text = "#" + text;
+        if (model is not null && LedLayers.Valid(text.ToUpperInvariant(), false)) model.SelectColorCommand.Execute(text.ToUpperInvariant());
+        else if (model is not null) hex.Text = model.ColorHex;
+    }
+
+    // Lamp follow applies to every lamp, not just the first.
+    private async Task SetLampFollowAsync(string follow)
+    {
+        if (model?.State?.Lamps is not { Count: > 0 } lamps) { model?.SetFollowCommand.Execute(follow); return; }
+        foreach (var lamp in lamps) await model.Client.SendAsync(Commands.SetLamp, new { lamp = lamp.Id, follow });
+    }
+
+    private static void Place(Grid grid, UIElement element, int row, int column) { Grid.SetRow(element, row); Grid.SetColumn(element, column); grid.Children.Add(element); }
+    private static T Styled<T>(T element, string style) where T : FrameworkElement { element.SetResourceReference(StyleProperty, style); return element; }
+    private static DockPanel CardHeader(string text, UIElement? right)
+    {
+        var header = new DockPanel { Margin = new(0, 0, 0, 12), LastChildFill = true };
+        if (right is not null) { DockPanel.SetDock(right, Dock.Right); header.Children.Add(right); }
+        header.Children.Add(Styled(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center }, "SectionLabel"));
+        return header;
+    }
+    private static DockPanel ValueLabel(string text, TextBlock value, Thickness margin)
+    {
+        var row = new DockPanel { Margin = margin };
+        value.FontSize = 13; value.FontWeight = FontWeights.SemiBold; value.Foreground = Brushes.WhiteSmoke;
+        DockPanel.SetDock(value, Dock.Right); row.Children.Add(value);
+        row.Children.Add(Styled(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center }, "SectionLabel"));
+        return row;
+    }
+    private static void AddButton(Panel panel, string text, Action action)
+    {
+        var button = new Button { Content = text, Padding = new(12, 7, 12, 7), Margin = new(8, 0, 0, 0) };
+        button.Click += (_, _) => action(); panel.Children.Add(button);
+    }
+    private static ThickSlider Slider(double minimum, double maximum) => new() { Minimum = minimum, Maximum = maximum, Height = 16 };
 }
 
 public sealed class DirectionDial : FrameworkElement

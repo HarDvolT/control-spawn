@@ -77,7 +77,7 @@ internal static class Program
                 previewShell = (FrameworkElement)previewWindow.Content;
                 var designName = page switch { PageKey.Lamp => "Lamps", PageKey.Appliances => "Fryer", _ => page.ToString() };
                 var reference = BitmapFrame.Create(new Uri(Path.GetFullPath($"docs/design-v2/V2{designName}.png")));
-                var height = reference.PixelHeight;
+                var height = args.FirstOrDefault(a => a.StartsWith("--height=")) is { } h && int.TryParse(h[9..], out var forced) ? forced : reference.PixelHeight;
                 previewShell.Measure(new Size(1440, height)); previewShell.Arrange(new Rect(0, 0, 1440, height)); previewShell.UpdateLayout();
                 Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Render);
                 previewShell.InvalidateMeasure(); previewShell.UpdateLayout();

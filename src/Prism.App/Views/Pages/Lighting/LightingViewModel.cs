@@ -214,6 +214,16 @@ public sealed class LightingViewModel : PageViewModel
         if (Parameters.Stops is null) await SetParametersAsync(Parameters with { Palette = Palettes.ForEffect(Effect) });
     }
 
+    /// <summary>Sets effect, colour and palette in one go and sends a single update, so a preset never flashes through in-between states.</summary>
+    public async Task ApplyLookAsync(LightingEffect effect, string hex, string? palette)
+    {
+        Effect = effect; ColorHex = hex;
+        foreach (var option in Effects) option.IsSelected = option.Effect == effect;
+        OnPropertyChanged(nameof(ColorEntry)); OnPropertyChanged(nameof(EffectName)); OnPropertyChanged(nameof(EffectSubtitle));
+        await PushLightingAsync();
+        if (palette is not null && palette != Parameters.Palette) await SetParametersAsync(Parameters with { Palette = palette, Stops = null });
+    }
+
     private async Task SelectColorAsync(string hex)
     {
         ColorHex = hex;
