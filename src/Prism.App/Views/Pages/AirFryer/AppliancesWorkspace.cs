@@ -77,7 +77,9 @@ public sealed class AppliancesWorkspace : UserControl
                 }
                 else if (p.Range is { Length: 3 } range)
                 {
-                    var slider = new ThickSlider { Glow = false, Step = range[2], AccentColor = Color.FromRgb(54, 214, 255), Minimum = range[0], Maximum = range[1], Value = p.Value?.GetDouble() ?? range[0], IsEnabled = appliance.Connected };
+                    // Fryers report a time limit of many hours; a 90-minute scale keeps everyday times readable.
+                    double max = p.Name == "target-time" ? Math.Min(range[1], 90) : range[1];
+                    var slider = new ThickSlider { Glow = false, Step = range[2], AccentColor = Color.FromRgb(54, 214, 255), Minimum = range[0], Maximum = max, Value = p.Value?.GetDouble() ?? range[0], IsEnabled = appliance.Connected };
                     var number = new TextBlock { Foreground = Brushes.WhiteSmoke }; number.Text = p.Name == "target-temperature" ? Format.TempUnit(slider.Value, 0) : $"{slider.Value:0} min";
                     slider.ValueChanged += (_, _) => number.Text = p.Name == "target-temperature" ? Format.TempUnit(slider.Value, 0) : $"{slider.Value:0} min";
                     propertyUpdates[(appliance.Id, p.Siid, p.Piid)] = current => { if (!slider.IsMouseCaptureWithin && !slider.IsKeyboardFocusWithin && current.Value is { } v && v.TryGetDouble(out var n)) slider.Value = n; };
@@ -94,7 +96,7 @@ public sealed class AppliancesWorkspace : UserControl
                     {
                         var current = model.Appliances.FirstOrDefault(a => a.Id == appliance.Id) ?? appliance;
                         if (!AppliancesViewModel.CanEdit(current)) return;
-                        slider.Value = Math.Clamp(slider.Value + delta, range[0], range[1]);
+                        slider.Value = Math.Clamp(slider.Value + delta, range[0], max);
                         await model.SetAsync(current, p, slider.Value);
                     }
                     minus.Click += async (_, _) => await Step(-range[2]); plus.Click += async (_, _) => await Step(range[2]);
@@ -129,9 +131,27 @@ public sealed class AppliancesWorkspace : UserControl
             panel.Children.Add(actions); grid.Children.Add(new GlassCard { Span = 7, Content = panel, MinHeight = 358 });
             var aside = new StackPanel(); CardGrid.SetSpan(aside, 5);
             StackPanel Info(string title, string copy) { var body = new StackPanel(); body.Children.Add(new TextBlock { Text = title, FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 12) }); body.Children.Add(new TextBlock { Text = copy, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Silver }); return body; }
-            var presets = Info("Presets", "No saved presets available");
+            var presets = Info("Presets", "Pick one, adjust, then start");
             var presetGrid = new SpacedGrid { Columns = 2, Gap = 10, Margin = new(0, 14, 0, 0) };
-            for (int i = 0; i < 6; i++) presetGrid.Children.Add(new Border { Height = 60, CornerRadius = new(14), Background = new SolidColorBrush(Color.FromRgb(23, 24, 29)), Child = new TextBlock { Text = "\u2014", Foreground = Brushes.Gray, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
+            var tempProperty = appliance.Properties.FirstOrDefault(p => p.Name == "target-temperature" && p.Writable);
+            var timeProperty = appliance.Properties.FirstOrDefault(p => p.Name == "target-time" && p.Writable);
+            foreach (var (label, temp, minutes) in new[] { ("Fries", 200, 15), ("Chicken wings", 180, 22), ("Vegetables", 170, 12), ("Fish", 180, 10), ("Reheat", 160, 6), ("Pastry", 160, 9) })
+            {
+                var copy = new StackPanel();
+                copy.Children.Add(new TextBlock { Text = label, FontSize = 14, FontWeight = FontWeights.SemiBold });
+                copy.Children.Add(new TextBlock { Text = $"{Format.TempUnit(temp, 0)} \u00b7 {minutes} min", FontSize = 12, Foreground = Brushes.Gray, Margin = new(0, 2, 0, 0) });
+                var preset = new Button { Content = copy, MinHeight = 60, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new(14, 8, 14, 8), IsEnabled = tempProperty is not null && timeProperty is not null };
+                // A preset only fills in temperature and time; heating still needs the confirmed Start button.
+                preset.Click += async (_, _) =>
+                {
+                    var current = model.Appliances.FirstOrDefault(a => a.Id == appliance.Id) ?? appliance;
+                    if (!AppliancesViewModel.CanEdit(current) || tempProperty is null || timeProperty is null) return;
+                    await model.SetAsync(current, tempProperty, temp);
+                    await model.SetAsync(current, timeProperty, minutes);
+                };
+                settingControls[appliance.Id].Add(preset);
+                presetGrid.Children.Add(preset);
+            }
             presets.Children.Add(presetGrid);
             aside.Children.Add(new GlassCard { Content = presets, MinHeight = 358 });
             grid.Children.Add(aside);

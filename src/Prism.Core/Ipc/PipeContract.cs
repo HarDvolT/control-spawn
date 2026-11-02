@@ -44,6 +44,7 @@ public static class Commands
     public const string SetDeviceSync = "setDeviceSync"; // args: { "device": "<id>", "enabled": true }
     public const string SetLamp = "setLamp";             // args: { "lamp"?: id (default first), "on"?: true, "brightness"?: 1..100, "follow"?: "pc|average|own|map", "color"?: "#RRGGBB", "name"?: string }
     public const string ApplyScene = "applyScene";       // args: { "name": "Gaming" }
+    public const string SaveScene = "saveScene";         // args: { name, fans, effect, color, brightness (0-1), lamps: pc|warm|cool|off }
     public const string SetEffectParams = "setEffectParams"; // { parameters: EffectParameters }
     public const string SetLightingMap = "setLightingMap"; // { map: LightingMap }
     public const string SetEventEffects = "setEventEffects"; // { events: EventEffectOptions }
@@ -82,7 +83,10 @@ public sealed record StateMessage(
     string Type = "state", IReadOnlyList<LampState>? Lamps = null,
     IReadOnlyList<DeviceState>? Devices = null, IReadOnlyList<DeviceState>? NewDevices = null,
     IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null,
-    IReadOnlyList<TelemetrySample>? History = null);
+    IReadOnlyList<TelemetrySample>? History = null, IReadOnlyList<SceneSummary>? Scenes = null);
+
+/// <summary>A saved scene as the app shows and edits it. Lamps is "pc", "warm", "cool" or "off".</summary>
+public sealed record SceneSummary(string Name, FanMode Fans, LightingEffect Effect, string Color, double Brightness, string Lamps);
 
 /// <summary>Real service samples; null measurements remain gaps rather than invented readings.</summary>
 public sealed record TelemetrySample(DateTimeOffset Timestamp, double? CpuLoad, double? CpuTemp,

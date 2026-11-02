@@ -61,8 +61,10 @@ public static class StateAssembler
             return f with { Configuration = new(tuning.Curve.Points, tuning.Source, tuning.Minimum, tuning.Hysteresis, tuning.SpinUpPerSecond, tuning.SpinDownPerSecond) };
         }).ToArray();
         return new(snapshot.Timestamp, system, fans, settings.Fans["Radiator"].Mode,
-            new(settings.Lighting.Effect, settings.Lighting.Color, settings.Lighting.Brightness, settings.Lighting.Speed, devices, settings.Lighting.GetParameters(), settings.Map, settings.Events, Bindings: settings.Bindings), lamp, router, health);
+            new(settings.Lighting.Effect, settings.Lighting.Color, settings.Lighting.Brightness, settings.Lighting.Speed, devices, settings.Lighting.GetParameters(), settings.Map, settings.Events, Bindings: settings.Bindings), lamp, router, health) { Scenes = Scenes(settings) };
     }
+    public static IReadOnlyList<SceneSummary> Scenes(ServiceSettings settings) => settings.Scenes.Select(s => new SceneSummary(s.Key, s.Value.Fans, s.Value.Lighting.Effect, s.Value.Lighting.Color, s.Value.Lighting.Brightness,
+        !s.Value.Lamp.On ? "off" : s.Value.Lamp.Follow is "pc" or "average" ? "pc" : s.Value.Lamp.Kelvin is >= 5000 ? "cool" : "warm")).ToArray();
     private static string DeviceId(string id)
     {
         var index = id.LastIndexOf('/');

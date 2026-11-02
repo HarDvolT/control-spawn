@@ -46,6 +46,23 @@ public sealed class ServiceTests
         Assert.Equal(runtime.Applied, store.Load());
     }
     [Fact]
+    public async Task SaveSceneCreatesAndUpdatesScenesAndRejectsBadInput()
+    {
+        var runtime = new Runtime(); var processor = new CommandProcessor(new MemorySettingsStore(), runtime);
+        Assert.Contains("Focus", processor.Settings.Scenes.Keys); Assert.Contains("Away", processor.Settings.Scenes.Keys);
+        var saved = await processor.HandleAsync(Request(1, Commands.SaveScene, new { name = "Late night", fans = "Silent", effect = "Breathing", color = "#6A4DFF", brightness = 0.3, lamps = "off" }));
+        Assert.True(saved.Ok);
+        var scene = processor.Settings.Scenes["Late night"];
+        Assert.Equal(FanMode.Silent, scene.Fans); Assert.Equal(LightingEffect.Breathing, scene.Lighting.Effect);
+        Assert.Equal("#6A4DFF", scene.Lighting.Color); Assert.Equal(0.3, scene.Lighting.Brightness); Assert.False(scene.Lamp.On);
+        Assert.True((await processor.HandleAsync(Request(2, Commands.ApplyScene, new { name = "Late night" }))).Ok);
+        Assert.Equal(LightingEffect.Breathing, processor.Settings.Lighting.Effect);
+        Assert.False((await processor.HandleAsync(Request(3, Commands.SaveScene, new { name = "", fans = "Silent", effect = "Static", color = "#FFFFFF", lamps = "pc" }))).Ok);
+        Assert.False((await processor.HandleAsync(Request(4, Commands.SaveScene, new { name = "X", fans = "Custom", effect = "Static", color = "#FFFFFF", lamps = "pc" }))).Ok);
+        Assert.False((await processor.HandleAsync(Request(5, Commands.SaveScene, new { name = "X", fans = "Silent", effect = "Static", color = "red", lamps = "pc" }))).Ok);
+    }
+
+    [Fact]
     public async Task AllCommandsAcceptContractArguments()
     {
         var runtime = new Runtime(); var processor = new CommandProcessor(new MemorySettingsStore(), runtime);
@@ -147,7 +164,7 @@ public sealed class ServiceTests
                 Enumerable.Range(0, 8).Select(i => new FanPoint(20 + i * 10, 20 + i * 10)).ToArray());
             settings.SyncedDevices["ram"] = false;
             var store = new JsonSettingsStore(path); store.Save(settings); var restored = store.Load();
-            Assert.Equal(4, restored.Scenes.Count); Assert.Equal(settings.Fans["Radiator"].Points, restored.Fans["Radiator"].Points);
+            Assert.Equal(6, restored.Scenes.Count); Assert.Equal(settings.Fans["Radiator"].Points, restored.Fans["Radiator"].Points);
             Assert.False(restored.SyncedDevices["ram"]); Assert.Equal(3500, restored.Scenes["Work"].Lamp.Kelvin);
         }
         finally { if (File.Exists(path)) File.Delete(path); }

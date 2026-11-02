@@ -342,6 +342,28 @@ public sealed partial class CommandProcessor
                         Name = a.TryGetProperty("name", out var name) ? name.GetString()! : current.Name };
                     next = Settings with { Lamps = lamps, Lamp = lamps[0] }; break;
                 }
+                case Commands.SaveScene:
+                {
+                    var savedName = Text(a, "name").Trim();
+                    if (savedName.Length is 0 or > 32) throw new ArgumentException("Scene name must be 1-32 characters.");
+                    if (!Enum.TryParse<FanMode>(Text(a, "fans"), true, out var sceneFans) || sceneFans == FanMode.Custom) throw new ArgumentException("Unknown fan mode.");
+                    if (!Enum.TryParse<LightingEffect>(Text(a, "effect"), true, out var sceneEffect)) throw new ArgumentException("Unknown effect.");
+                    var sceneColor = Text(a, "color");
+                    if (!Prism.Lighting.LedLayers.Valid(sceneColor, false)) throw new ArgumentException("Invalid colour.");
+                    var sceneBrightness = a.TryGetProperty("brightness", out var sb) && sb.TryGetDouble(out var sbv) ? Math.Clamp(sbv, 0.05, 1) : 1;
+                    var sceneLamp = Text(a, "lamps") switch
+                    {
+                        "off" => new LampConfiguration(On: false),
+                        "pc" => new LampConfiguration(Follow: "pc"),
+                        "cool" => new LampConfiguration(Brightness: 80, Color: "#DCEEFF", Kelvin: 5500),
+                        "warm" => new LampConfiguration(Brightness: 80, Color: "#FFD5A8", Kelvin: 3000),
+                        _ => throw new ArgumentException("Unknown lamp setting.")
+                    };
+                    var existing = Settings.Scenes.GetValueOrDefault(savedName);
+                    var lighting = (existing?.Lighting ?? new LightingConfiguration()) with { Effect = sceneEffect, Color = sceneColor, Brightness = sceneBrightness };
+                    next = Settings with { Scenes = new Dictionary<string, SceneConfiguration>(Settings.Scenes) { [savedName] = new(sceneFans, lighting, sceneLamp) } };
+                    break;
+                }
                 case Commands.ApplyScene:
                     if (!Settings.Scenes.TryGetValue(Text(a, "name"), out var scene)) throw new ArgumentException("Unknown scene.");
                     next = Settings with { Fans = Settings.Fans.ToDictionary(f => f.Key, f => f.Value with { Mode = scene.Fans }),

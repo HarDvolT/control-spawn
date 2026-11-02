@@ -53,7 +53,9 @@ public sealed record ServiceSettings
         ["Gaming"] = new(FanMode.Turbo, new(LightingEffect.Smart), new(Brightness: 60)),
         ["Work"] = new(FanMode.Standard, new(Color: "#E4E4E7"), new(Brightness: 90, Color: "#FFE4BD", Kelvin: 3500)),
         ["Night"] = new(FanMode.Silent, new(LightingEffect.Breathing, "#6366F1", 0.15, 0.5), new(On: false)),
-        ["Movie"] = new(FanMode.Silent, new(LightingEffect.Adaptive, "#F5A524", 0.4), new(Follow: "average"))
+        ["Movie"] = new(FanMode.Silent, new(LightingEffect.Adaptive, "#F5A524", 0.4), new(Follow: "average")),
+        ["Focus"] = new(FanMode.Standard, new(Color: "#36D6FF", Brightness: 0.7), new(Brightness: 80, Color: "#DCEEFF", Kelvin: 5500)),
+        ["Away"] = new(FanMode.Silent, new(LightingEffect.Off), new(On: false))
     };
 
     public void Validate()
@@ -143,6 +145,10 @@ public sealed class JsonSettingsStore(string? path = null) : ISettingsStore
         if (!File.Exists(path)) return new();
         var settings = JsonSerializer.Deserialize<ServiceSettings>(File.ReadAllText(path), Prism.Core.Ipc.PipeContract.Json)
             ?? throw new InvalidDataException("Empty settings.");
+        // Scenes added in later versions appear for existing users without touching ones they already have.
+        var defaults = new ServiceSettings().Scenes;
+        if (settings.Scenes is not null && defaults.Keys.Any(k => !settings.Scenes.ContainsKey(k)))
+            settings = settings with { Scenes = settings.Scenes.Concat(defaults.Where(d => !settings.Scenes.ContainsKey(d.Key))).ToDictionary(s => s.Key, s => s.Value) };
         settings.Validate(); return settings;
     }
     public void Save(ServiceSettings settings)

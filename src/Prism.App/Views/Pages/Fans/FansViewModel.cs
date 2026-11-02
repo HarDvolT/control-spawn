@@ -73,9 +73,9 @@ public sealed class FansViewModel : PageViewModel
     public string HotterLabel => (DisplayPreferences.Fahrenheit ? "9" : "5") + "\u00b0 hotter \u2192";
     public string RampText => SelectedConfiguration is { } c ? $"Rise {c.SpinUpPerSecond:0}%/s ? fall {c.SpinDownPerSecond:0}%/s" : "Unavailable";
     public string HysteresisText => SelectedConfiguration is { } c ? $"{c.Hysteresis:0}\u00b0" : Format.Dash;
-    public string Headline => State is null ? "Waiting for your fans" : State.Health.FanFailsafeActive ? "BIOS is keeping things safe" : "Quiet and cool";
+    public string Headline => State is null ? "Waiting for your fans" : State.Health.FanFailsafeActive ? "BIOS is keeping things safe" : _mode switch { FanMode.Silent => "Quiet and cool", FanMode.Turbo => "Turbo cooling", FanMode.Full => "Full speed, maximum cooling", FanMode.Custom => "Your own curve", _ => "Balanced cooling" };
     public string SafetyText => State?.Health.FanFailsafeActive == true ? "Failsafe active · BIOS control" : "BIOS hand-back is armed";
-    public IReadOnlyList<FanGroupItem> HeaderRows => State?.Fans.OrderBy(f => f.Header).Select(f => new FanGroupItem(f.Name, $"HEADER {f.Header}", Format.Rpm(f.Rpm), f.IsPump ? 100 : f.Percent ?? 0, f.IsPump, 1, f.Header)).ToArray() ?? [];
+    public IReadOnlyList<FanGroupItem> HeaderRows => State?.Fans.OrderBy(f => f.Header).Select(f => new FanGroupItem(f.Rpm is > 0 || f.IsPump ? f.Name : "Nothing connected", $"HEADER {f.Header}", f.Rpm is > 0 || f.IsPump ? Format.Rpm(f.Rpm) : Format.Dash, f.IsPump ? 100 : f.Percent ?? 0, f.IsPump, 1, f.Header)).ToArray() ?? [];
     public ObservableCollection<FanGroupItem> Fans { get; } = new();
     public ObservableCollection<FanPoint> Curve { get; } = new();
 
