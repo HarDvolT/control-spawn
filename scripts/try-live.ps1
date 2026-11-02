@@ -31,7 +31,8 @@ try {
     $orgb = Start-Process $openrgb -ArgumentList '--server', '--noautoconnect' -WorkingDirectory (Split-Path $openrgb) -PassThru -WindowStyle Minimized
     Log 'OpenRGB starting (device detection takes about 15 s)...'; Start-Sleep -Seconds 18
   } else { Log "OpenRGB not found at $openrgb - lighting will be unavailable" }
-  $stopFile = Join-Path $env:TEMP 'prism-live.stop'; Remove-Item $stopFile -ErrorAction SilentlyContinue
+  # A fresh stop file name per run, so a leftover from an earlier run can't stop this one.
+  $stopFile = Join-Path $env:TEMP ('prism-live-' + [guid]::NewGuid().ToString('N') + '.stop')
   $svcProc = Start-Process $service -ArgumentList '--console', '--stop-file', $stopFile -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $env:TEMP 'prism-live.log')
   Start-Sleep -Seconds 6
   # Start the app through Explorer so it runs as you, not as administrator.
