@@ -199,7 +199,7 @@ public class GlowProgressBar : FrameworkElement
         {
             var text = FormatLabel();
             var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                new Typeface(new FontFamily("Space Grotesk, Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal),
+                Typefaces.Number(FontWeights.SemiBold),
                 Math.Max(9, Math.Min(13, height * 0.55)), ColorUtil.Brush(ColorUtil.TextPrimary),
                 VisualTreeHelper.GetDpi(this).PixelsPerDip);
             dc.DrawText(formatted, new Point(Math.Max(8, width - formatted.Width - 10), (height - formatted.Height) / 2));

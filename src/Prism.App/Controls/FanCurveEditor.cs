@@ -203,7 +203,7 @@ public class FanCurveEditor : FrameworkElement
         var percent = double.IsFinite(NowPercent) ? NowPercent : PercentAt(points, NowTemperature);
         var text = $"{DisplayPreferences.Temperature(NowTemperature).ToString("F1", CultureInfo.InvariantCulture)}° · {Math.Round(percent).ToString("F0", CultureInfo.InvariantCulture)}%";
         var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            new Typeface(new FontFamily("Space Grotesk, Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
+            Typefaces.Number(FontWeights.SemiBold),
             11.5, ColorUtil.Brush(Color.FromRgb(10, 10, 11)), VisualTreeHelper.GetDpi(this).PixelsPerDip);
         var chipWidth = formatted.Width + 18;
         var chipHeight = formatted.Height + 10;

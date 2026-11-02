@@ -3,8 +3,8 @@
                     xmlns:system="clr-namespace:System;assembly=mscorlib"
                     xmlns:controls="clr-namespace:Prism.App.Controls">
 
-    <FontFamily x:Key="BodyFont">pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
-    <FontFamily x:Key="NumberFont">pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI</FontFamily>
+    <FontFamily x:Key="BodyFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="NumberFont">Segoe UI Variable Display, Segoe UI</FontFamily>
     <system:Double x:Key="TypeDisplay">40</system:Double>
     <system:Double x:Key="TypeTitle">22</system:Double>
     <system:Double x:Key="TypeHeading">15</system:Double>
@@ -88,25 +88,31 @@
 
     <!-- Typography -->
     <Style TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
         <Setter Property="FontSize" Value="13" />
+        <!-- Even-width digits everywhere, so live readings don't shift sideways as they change. -->
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
         <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
     </Style>
 
+    <!-- Type scale: 11 label · 12 caption · 13 body · 15 card title · 20 section · 30 page title · 44 hero reading.
+         Display cut for headings and numbers, Text cut for reading. -->
     <Style x:Key="H1" TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI" />
-        <Setter Property="FontSize" Value="32" />
+        <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
+        <Setter Property="FontSize" Value="30" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="H2" TargetType="{x:Type TextBlock}">
-        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="CardTitle" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
@@ -135,22 +141,22 @@
 
     <Style x:Key="Number" TargetType="{x:Type TextBlock}">
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
-        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI" />
+        <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="NumberLarge" TargetType="{x:Type TextBlock}">
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
-        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI" />
+        <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="NumberXl" TargetType="{x:Type TextBlock}">
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
-        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk, Segoe UI" />
-        <Setter Property="FontSize" Value="32" />
+        <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
+        <Setter Property="FontSize" Value="44" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
@@ -173,7 +179,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="16,0" />
         <Setter Property="MinHeight" Value="40" />
-        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -429,7 +435,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ListBoxItem}">
-                    <Border x:Name="Pill" Background="Transparent" CornerRadius="18" Padding="4,0">
+                    <Border x:Name="Pill" Background="Transparent" CornerRadius="18" Padding="14,0">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -448,7 +454,8 @@
 
     <Style x:Key="OutlinedSegmentItem" TargetType="ListBoxItem"><Setter Property="Foreground" Value="#C9CBD1"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Tile" Background="#1E2026" BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="8,8" Margin="0,0,6,0" MinHeight="34"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Tile" Property="Background" Value="#29FF4D1A"/><Setter TargetName="Tile" Property="BorderBrush" Value="#FF4D1A"/><Setter Property="Foreground" Value="#FF8A60"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
     <Style TargetType="{x:Type controls:SegmentedControl}">
-        <Setter Property="Background" Value="{StaticResource PanelDeepBrush}" />
+        <!-- A track a step lighter than the page, so the switch reads as one control. -->
+        <Setter Property="Background" Value="#111216" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="3" />
@@ -553,7 +560,7 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}" />
         <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
-        <Setter Property="FontFamily" Value="pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter, Segoe UI" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
@@ -707,4 +714,33 @@
     <Style x:Key="PageEyebrow" TargetType="TextBlock" BasedOn="{StaticResource SectionLabel}"><Setter Property="Margin" Value="0,0,0,4"/></Style>
     <Style x:Key="PageSubtitle" TargetType="TextBlock" BasedOn="{StaticResource Muted}"><Setter Property="Margin" Value="0,6,0,0"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
     <Style x:Key="Placeholder" TargetType="TextBlock" BasedOn="{StaticResource SmallMuted}"><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="Margin" Value="0,10"/></Style>
+    <!-- Lamps page lists and follow tiles. App-wide so the lazily built "Add or fix a lamp" panel can find them. -->
+    <Style x:Key="LampFollowItem" TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Tile" CornerRadius="10" Padding="10,12" Margin="2" BorderThickness="1" BorderBrush="Transparent"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Tile" Property="Background" Value="#1E2026"/><Setter TargetName="Tile" Property="BorderBrush" Value="#FF4D1A"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+    <Style x:Key="LampListStyle" TargetType="ListBox">
+      <Setter Property="Background" Value="#18181B" />
+      <Setter Property="Foreground" Value="#F4F4F5" />
+      <Setter Property="BorderBrush" Value="#3F3F46" />
+      <Setter Property="Padding" Value="6" />
+    </Style>
+    <Style x:Key="LampListItemStyle" TargetType="ListBoxItem">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListBoxItem">
+            <Border x:Name="Row" Padding="8" Margin="0,2" CornerRadius="6" Background="Transparent">
+              <ContentPresenter />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Row" Property="Background" Value="#252529" />
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Row" Property="Background" Value="#3D2823" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
 </ResourceDictionary>

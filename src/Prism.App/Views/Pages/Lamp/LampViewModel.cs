@@ -25,6 +25,21 @@ public sealed class LampViewModel : PageViewModel
     public RelayCommand ShowSetupCommand => new(() => IsSetupOpen = true);
     public RelayCommand<string> BothColorCommand => new(hex => { if (hex is not null) foreach (var tile in Tiles) tile.ColorEntry = hex; });
     public RelayCommand<string> BothFollowCommand => new(follow => { if (follow is not null) foreach (var tile in Tiles) tile.Follow = follow; });
+    /// <summary>One-tap looks for every lamp. Night light turns the second lamp off and dims the first.</summary>
+    public sealed record Mood(string Name, string Color, int Brightness, bool SecondOn);
+    public IReadOnlyList<Mood> Moods { get; } = [new("Read", "#FFE6C7", 90, true), new("Relax", "#FFB070", 45, true), new("Movie", "#4D6BFF", 20, true), new("Night light", "#FF8A3D", 6, false), new("Party", "#FF4DB8", 100, true)];
+    private string moodStatus = "";
+    public string MoodStatus { get => moodStatus; private set => Set(ref moodStatus, value); }
+    public RelayCommand<string> MoodCommand => new(name =>
+    {
+        if (Moods.FirstOrDefault(m => m.Name == name) is not { } mood) return;
+        for (int i = 0; i < Tiles.Count; i++)
+        {
+            var tile = Tiles[i];
+            tile.Follow = "own"; tile.ColorEntry = mood.Color; tile.Brightness = mood.Brightness; tile.On = i == 0 || mood.SecondOn;
+        }
+        MoodStatus = mood.Name + " is on";
+    });
     public RelayCommand ToggleBothCommand => new(() => { bool next = !Tiles.Any(t => t.On); foreach (var tile in Tiles) tile.On = next; });
     public string ToggleBothText => Tiles.Any(t => t.On) ? "Turn both off" : "Turn both on";
     public IReadOnlyList<LampRow> SharedLampRows => State is { } state ? LampRow.From(state) : [];

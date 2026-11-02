@@ -103,7 +103,7 @@ public class NumberTicker : FrameworkElement
 
     private FormattedText BuildText(double pixelsPerDip) => new(
         Text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-        new Typeface(new FontFamily("Space Grotesk, Segoe UI"), FontStyles.Normal, FontWeight, FontStretches.Normal),
+        Typefaces.Number(FontWeight),
         Math.Max(1, FontSize), ColorUtil.Brush(Foreground), pixelsPerDip);
 
     protected override Size MeasureOverride(Size availableSize)

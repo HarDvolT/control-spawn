@@ -181,7 +181,7 @@ public class RingGauge : FrameworkElement
             if (!string.IsNullOrWhiteSpace(Caption))
             {
                 var label = new FormattedText(Caption, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                    new Typeface(new FontFamily("pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal),
+                    Typefaces.Number(FontWeights.SemiBold),
                     size * .18, ColorUtil.Brush(ColorUtil.TextPrimary), VisualTreeHelper.GetDpi(this).PixelsPerDip);
                 dc.DrawText(label, new Point(center.X - label.Width / 2, center.Y - label.Height / 2));
             }
@@ -190,7 +190,7 @@ public class RingGauge : FrameworkElement
         var valueText = double.IsFinite(Value) ? FormatValue() + (Suffix.Contains("\u00b0C") ? Suffix.Replace("\u00b0C", DisplayPreferences.Unit) : Suffix) : "\u2014";
         var valueSize = double.IsFinite(ValueFontSize) ? ValueFontSize : Math.Max(10, size * 0.25);
         var valueBrush = ColorUtil.Brush(ColorUtil.TextPrimary);
-        var typeface = new Typeface(new FontFamily("pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+        var typeface = Typefaces.Number(FontWeights.SemiBold);
         var formatted = new FormattedText(valueText, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             typeface, valueSize, valueBrush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
         var y = center.Y - formatted.Height / 2;

@@ -81,7 +81,7 @@ public sealed class CaseIllustration : FrameworkElement
         dc.Pop();
         void Label(string text, double x, double y, double size)
         {
-            var ft = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("pack://application:,,,/Prism.App;component/Assets/Fonts/#Inter"), size, B("#7C808A"), VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            var ft = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typefaces.Body(FontWeights.Normal), size, B("#7C808A"), VisualTreeHelper.GetDpi(this).PixelsPerDip);
             dc.DrawText(ft, new Point(x, y));
         }
         void Ring(double x, double y, double r, RgbDeviceState? device)

@@ -1,34 +1,5 @@
 <ResourceDictionary xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:v="clr-namespace:Prism.App.Views" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <DataTemplate DataType="{x:Type vm:LampViewModel}">
-    <DataTemplate.Resources>
-      <Style x:Key="LampFollowItem" TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Tile" CornerRadius="10" Padding="10,12" Margin="2" BorderThickness="1" BorderBrush="Transparent"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Tile" Property="Background" Value="#1E2026"/><Setter TargetName="Tile" Property="BorderBrush" Value="#FF4D1A"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
-      <Style x:Key="LampListStyle" TargetType="ListBox">
-        <Setter Property="Background" Value="#18181B" />
-        <Setter Property="Foreground" Value="#F4F4F5" />
-        <Setter Property="BorderBrush" Value="#3F3F46" />
-        <Setter Property="Padding" Value="6" />
-      </Style>
-      <Style x:Key="LampListItemStyle" TargetType="ListBoxItem">
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="Template">
-          <Setter.Value>
-            <ControlTemplate TargetType="ListBoxItem">
-              <Border x:Name="Row" Padding="8" Margin="0,2" CornerRadius="6" Background="Transparent">
-                <ContentPresenter />
-              </Border>
-              <ControlTemplate.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                  <Setter TargetName="Row" Property="Background" Value="#252529" />
-                </Trigger>
-                <Trigger Property="IsSelected" Value="True">
-                  <Setter TargetName="Row" Property="Background" Value="#3D2823" />
-                </Trigger>
-              </ControlTemplate.Triggers>
-            </ControlTemplate>
-          </Setter.Value>
-        </Setter>
-      </Style>
-    </DataTemplate.Resources>
     <StackPanel>
       <DockPanel Margin="0,0,0,16">
         <StackPanel DockPanel.Dock="Right" VerticalAlignment="Bottom">
@@ -110,22 +81,32 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
       <c:CardGrid>
-        <c:GlassCard Span="6" MinHeight="202">
+        <c:GlassCard Span="8">
           <StackPanel>
-            <TextBlock Text="Moods" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
-            <TextBlock Text="No saved moods available" Style="{StaticResource SmallMuted}" Margin="0,0,0,12"/>
-            <c:SpacedGrid Columns="5" Gap="8"><Border Background="#17181D" CornerRadius="14" Height="76"><TextBlock Text="&#x2014;" Foreground="#7C808A" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><Border Background="#17181D" CornerRadius="14" Height="76"/><Border Background="#17181D" CornerRadius="14" Height="76"/><Border Background="#17181D" CornerRadius="14" Height="76"/><Border Background="#17181D" CornerRadius="14" Height="76"/></c:SpacedGrid>
+            <DockPanel Margin="0,0,0,14">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding MoodStatus}" Style="{StaticResource SmallMuted}" VerticalAlignment="Center"/>
+              <StackPanel><TextBlock Text="Moods" Style="{StaticResource CardTitle}"/><TextBlock Text="Sets every lamp in one tap" Style="{StaticResource SmallMuted}" Margin="0,2,0,0"/></StackPanel>
+            </DockPanel>
+            <ItemsControl ItemsSource="{Binding Moods}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><c:SpacedGrid Columns="5" Gap="10"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Command="{Binding DataContext.MoodCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Padding="6,14" HorizontalContentAlignment="Center" AutomationProperties.Name="{Binding Name, StringFormat=Mood {0}}">
+                    <StackPanel>
+                      <c:LampOrb Width="38" Height="38" ColorHex="{Binding Color}" Margin="0,0,0,8"/>
+                      <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
           </StackPanel>
         </c:GlassCard>
-        <c:GlassCard Span="6" MinHeight="202">
+        <c:GlassCard Span="4">
           <StackPanel>
-            <TextBlock Text="Schedule" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
-            <TextBlock Text="No schedule data available" Style="{StaticResource SmallMuted}" Margin="0,0,0,12"/>
-            <StackPanel>
-              <DockPanel Height="40"><c:ToggleSwitch DockPanel.Dock="Right" IsEnabled="False" ToolTip="Schedule unavailable"/><TextBlock DockPanel.Dock="Left" Width="64" Text="&#x2014;" FontSize="16" VerticalAlignment="Center" Foreground="#7C808A"/><Border Background="#1E2026" Height="8" CornerRadius="4" Margin="0,0,32,0" VerticalAlignment="Center"/></DockPanel>
-              <DockPanel Height="40"><c:ToggleSwitch DockPanel.Dock="Right" IsEnabled="False" ToolTip="Schedule unavailable"/><TextBlock DockPanel.Dock="Left" Width="64" Text="&#x2014;" FontSize="16" VerticalAlignment="Center" Foreground="#7C808A"/><Border Background="#1E2026" Height="8" CornerRadius="4" Margin="0,0,32,0" VerticalAlignment="Center"/></DockPanel>
-              <DockPanel Height="40"><c:ToggleSwitch DockPanel.Dock="Right" IsEnabled="False" ToolTip="Schedule unavailable"/><TextBlock DockPanel.Dock="Left" Width="64" Text="&#x2014;" FontSize="16" VerticalAlignment="Center" Foreground="#7C808A"/><Border Background="#1E2026" Height="8" CornerRadius="4" Margin="0,0,32,0" VerticalAlignment="Center"/></DockPanel>
-            </StackPanel>
+            <TextBlock Text="Schedules" Style="{StaticResource CardTitle}" Margin="0,0,0,8"/>
+            <TextBlock Text="Lamps switch on their own with scenes: at night, while you game, or when the PC locks. Set it up once in Scenes, under Automations." Style="{StaticResource SmallMuted}" TextWrapping="Wrap"/>
+            <Button Content="Open automations &#x2192;" Command="{Binding OpenPageCommand}" CommandParameter="Scenes" Style="{StaticResource TextAction}" HorizontalAlignment="Left" Margin="0,14,0,0"/>
           </StackPanel>
         </c:GlassCard>
       </c:CardGrid>

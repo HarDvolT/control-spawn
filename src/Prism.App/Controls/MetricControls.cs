@@ -53,7 +53,7 @@ public abstract class MetricControl : FrameworkElement
     protected void Text(DrawingContext dc, string text, Point at, double size = 20)
     {
         var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            new Typeface("Space Grotesk, Segoe UI"), size, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            Typefaces.Number(FontWeights.SemiBold), size, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
         dc.DrawText(formatted, at);
     }
     protected string Number => double.IsFinite(Value) ? (Suffix.Contains('\u00b0') ? DisplayPreferences.Temperature(Display) : Display).ToString("0", CultureInfo.InvariantCulture) + (Suffix.Contains("\u00b0C") ? Suffix.Replace("\u00b0C", DisplayPreferences.Unit) : Suffix) : "\u2014";

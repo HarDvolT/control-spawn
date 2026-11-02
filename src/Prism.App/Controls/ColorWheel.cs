@@ -1,3 +1,4 @@
+using Prism.App.Common;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -37,7 +38,7 @@ public sealed class ColorWheel : FrameworkElement
             dc.DrawEllipse(new RadialGradientBrush(Color.FromArgb(100, c.R, c.G, c.B), Color.FromArgb(0, c.R, c.G, c.B)), null, orb, 46, 46);
             dc.DrawEllipse(new LinearGradientBrush(c, Color.FromRgb((byte)(c.R * .75), (byte)(c.G * .75), (byte)(c.B * .75)), 90), null, orb, 26, 26);
             var text = new FormattedText(ColorHex, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                new Typeface("pack://application:,,,/Prism.App;component/Assets/Fonts/#Space Grotesk"), 12, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                Typefaces.Number(FontWeights.SemiBold), 12, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
             dc.DrawText(text, new Point(center.X - text.Width / 2, center.Y + 22));
         }
         double max = Math.Max(c.R, Math.Max(c.G, c.B)), min = Math.Min(c.R, Math.Min(c.G, c.B)), delta = max - min;
