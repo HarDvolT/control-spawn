@@ -92,7 +92,9 @@ public sealed class GaugeItem : ObservableObject
     public string Sub { get; private set; }
     public string ColorHex { get; private set; }
     public double Percent { get; private set; }
-    public System.Collections.ObjectModel.ObservableCollection<double> History { get; } = new();
+    private IReadOnlyList<double> _history = [];
+    /// <summary>Replaced as a whole each update: one redraw per chart instead of one per point.</summary>
+    public IReadOnlyList<double> History { get => _history; set { if (!_history.SequenceEqual(value)) { _history = value; OnPropertyChanged(); } } }
     public string LevelText => !double.IsFinite(Percent) ? "Unavailable" : ColorHex switch
     { "#36D6FF" => "Cool", "#3DDC84" => "Normal", "#F5A524" => "Warm", "#FF4D4F" => "Hot", _ => "Live" };
     public string Suffix => Label.Contains("temp") ? "\u00b0" : "%";
@@ -102,7 +104,7 @@ public sealed class GaugeItem : ObservableObject
     public void Update(GaugeItem item)
     {
         Label = item.Label; Value = item.Value; Sub = item.Sub; ColorHex = item.ColorHex; Percent = item.Percent;
-        if (double.IsFinite(Percent)) { History.Add(Percent); while (History.Count > 24) History.RemoveAt(0); }
+        if (double.IsFinite(Percent)) History = History.Append(Percent).TakeLast(24).ToArray();
         OnPropertyChanged(string.Empty);
     }
 }

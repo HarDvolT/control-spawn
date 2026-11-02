@@ -41,7 +41,8 @@ public sealed class DashboardViewModel : PageViewModel
 
     public ObservableCollection<double> CpuHistory { get; } = new();
     public ObservableCollection<double> GpuHistory { get; } = new();
-    public ObservableCollection<double> PingHistory { get; } = new();
+    private IReadOnlyList<double> _pingHistory = [];
+    public IReadOnlyList<double> PingHistory { get => _pingHistory; private set { _pingHistory = value; OnPropertyChanged(); } }
     public IReadOnlyList<string> Swatches { get; } = ["#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF"];
     public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp, 0);
     public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot, 0);
@@ -169,27 +170,19 @@ public sealed class DashboardViewModel : PageViewModel
         if (state.History is { } history)
         {
             Func<TelemetrySample, double?>[] readings = [s => s.CpuLoad, s => s.CpuTemp, s => s.GpuLoad, s => s.GpuTemp];
+            var recent = history.TakeLast(24).ToArray();
             for (var i = 0; i < readings.Length; i++)
-            {
-                Gauges[i].History.Clear();
-                foreach (var sample in history.TakeLast(24))
-                    if (readings[i](sample) is { } v && double.IsFinite(v)) Gauges[i].History.Add(v);
-            }
-            PingHistory.Clear();
-            foreach (var sample in history.TakeLast(24))
-                if (sample.PingMs is { } ping && double.IsFinite(ping)) PingHistory.Add(ping);
+                Gauges[i].History = recent.Select(readings[i]).Where(v => v is { } d && double.IsFinite(d)).Select(v => v!.Value).ToArray();
+            var pings = recent.Select(s => s.PingMs).Where(v => v is { } d && double.IsFinite(d)).Select(v => v!.Value).ToArray();
+            if (!pings.SequenceEqual(PingHistory)) PingHistory = pings;
         }
 
-        Fans.Clear();
-        foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
-        {
-            Fans.Add(new FanRow(
-                fan.Name,
-                fan.IsPump ? "Fixed at 100%" : $"Header {fan.Header}",
-                Format.Rpm(fan.Rpm),
-                fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100),
-                fan.IsPump));
-        }
+        // Swap only the rows that changed, so unchanged fan tiles (and their spinning icons) are left alone.
+        var rows = state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump))
+            .Select(fan => new FanRow(fan.Name, fan.IsPump ? "Fixed at 100%" : $"Header {fan.Header}", Format.Rpm(fan.Rpm),
+                fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump)).ToList();
+        if (rows.Count != Fans.Count) { Fans.Clear(); foreach (var row in rows) Fans.Add(row); }
+        else for (int i = 0; i < rows.Count; i++) if (rows[i] != Fans[i]) Fans[i] = rows[i];
 
         _suppressMode = true;
         SelectedFanMode = state.FanMode == FanMode.Standard ? "Balanced" : state.FanMode == FanMode.Full ? "Full" : Format.FanModeName(state.FanMode);
