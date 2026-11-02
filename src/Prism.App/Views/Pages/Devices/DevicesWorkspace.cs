@@ -116,7 +116,7 @@ public sealed class DevicesWorkspace : UserControl
                 card.Swatch.Visibility = lamp is not null || rgb is not null ? Visibility.Visible : Visibility.Collapsed;
                 card.Swatch.Background = new SolidColorBrush(ColorUtil.Parse(lamp?.Color ?? model?.State?.Lighting.Color, Colors.Transparent));
                 card.Info.Text = device.Model ?? device.DetectedName ?? (model?.State?.Lighting.Devices.FirstOrDefault(d => d.Id == device.Id) is { } rgbInfo ? $"{rgbInfo.Kind} \u00b7 {rgbInfo.LedCount} LEDs" : device.Ip ?? FriendlyLabelConverter.Label(device.Source));
-                card.Buttons.Visibility = device.Configured || device.Dismissed || IsRgb(device) ? Visibility.Collapsed : Visibility.Visible;
+                card.Buttons.Visibility = device.Configured || device.Dismissed || IsRgb(device) || device.Kind == DeviceKind.NetworkDevice ? Visibility.Collapsed : Visibility.Visible;
             }
     }
     private bool IsRgb(DeviceState d) => model?.State?.Lighting.Devices.Any(r => r.Id == d.Id) == true;

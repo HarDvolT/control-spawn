@@ -99,7 +99,7 @@ public sealed class MonitorViewModel : PageViewModel
     public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp, 0);
     public string GpuChip => "GPU " + Format.Temp(State?.System.GpuTemp, 0);
     public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot, 0);
-    public string InternetScore => $"{State?.Router?.Verdict ?? "Unavailable"} \u00b7 {State?.Router?.Score?.ToString() ?? Format.Dash}";
+    public string InternetScore => $"{Format.SignalWord(State?.Router) ?? "Unavailable"} \u00b7 {State?.Router?.Score?.ToString() ?? Format.Dash}";
 
     protected override void Refresh()
     {

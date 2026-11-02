@@ -548,8 +548,12 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 }
                 catch (Exception e) when (!token.IsCancellationRequested && e is IOException or SocketException or OperationCanceledException or InvalidOperationException or System.Security.Cryptography.CryptographicException or System.Text.Json.JsonException or KeyNotFoundException or UnauthorizedAccessException)
                 {
-                    warnings[lampId] = $"{config.Name}: lamp unavailable; check transport and token configuration.";
-                    lock (stateGate) lampStates[lampId] = new("yeelink.light.color5", false, config.On, config.Brightness, config.Color, config.Follow, transport, config.Id, config.Name, config.DeviceId, connectedHost, "Lamp unavailable; check token and discovery.");
+                    // A lamp switched off at the wall is normal and only shows as offline; a token problem needs the user, so it stays a warning.
+                    bool tokenProblem = e is System.Security.Cryptography.CryptographicException or UnauthorizedAccessException or KeyNotFoundException;
+                    if (tokenProblem) warnings[lampId] = $"{config.Name}: the lamp rejected its token. Import it again on the Devices page.";
+                    else warnings.TryRemove(lampId, out _);
+                    lock (stateGate) lampStates[lampId] = new("yeelink.light.color5", false, config.On, config.Brightness, config.Color, config.Follow, transport, config.Id, config.Name, config.DeviceId, connectedHost,
+                        tokenProblem ? "Token rejected" : "Switched off or out of Wi-Fi range");
                     if (lamp is not null) await lamp.DisposeAsync(); lamp = null; applied = null;
                     retry = clock.Elapsed + TimeSpan.FromSeconds(30);
                 }

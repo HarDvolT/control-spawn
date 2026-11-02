@@ -174,7 +174,7 @@ public sealed class ModemViewModel : PageViewModel
         Band = router.Band ?? Format.Dash;
         Score = router.Score ?? double.NaN;
         BarCount = router.Bars ?? 0;
-        Verdict = router.Verdict ?? Format.Dash;
+        Verdict = Format.SignalWord(router) ?? Format.Dash;
         Sentence = router.Sentence ?? string.Empty;
         VerdictColor = ColorUtil.ToHex(ColorUtil.ForVerdict(Verdict));
 

@@ -19,8 +19,8 @@ public sealed class DesktopWidgetHost : IWidgetHost, IDisposable
         {
             if (!vm.Enabled) { if (_windows.TryGetValue(vm.Id, out var hidden)) hidden.Hide(); continue; }
             if (!_windows.TryGetValue(vm.Id, out var window)) { window = new WidgetWindow(vm); _windows.Add(vm.Id, window); }
-            window.RefreshPlacement();
-            window.Show();
+            // Show only hidden widgets: calling Show() on a visible window pulls it in front of every other app.
+            if (!window.IsVisible) { window.RefreshPlacement(); window.Show(); }
         }
     }
     public void Dispose() { foreach (var window in _windows.Values) window.Close(); _windows.Clear(); }

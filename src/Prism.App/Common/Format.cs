@@ -8,6 +8,21 @@ namespace Prism.App.Common;
 /// </summary>
 public static class Format
 {
+    /// <summary>The one-word signal rating. The router sends either a word or a whole sentence, so map both, then fall back to the score.</summary>
+    public static string? SignalWord(Prism.Core.Ipc.RouterState? router)
+    {
+        if (router is null) return null;
+        var verdict = router.Verdict?.Trim();
+        if (verdict is "Excellent" or "Good" or "Fair" or "Poor") return verdict;
+        if (verdict is not null)
+        {
+            if (verdict.StartsWith("Great", StringComparison.OrdinalIgnoreCase)) return "Excellent";
+            if (verdict.StartsWith("Solid", StringComparison.OrdinalIgnoreCase)) return "Good";
+            if (verdict.StartsWith("Usable", StringComparison.OrdinalIgnoreCase)) return "Fair";
+            if (verdict.StartsWith("Weak", StringComparison.OrdinalIgnoreCase)) return "Poor";
+        }
+        return router.Score switch { >= 80 => "Excellent", >= 60 => "Good", >= 40 => "Fair", >= 0 => "Poor", _ => null };
+    }
     public const string Dash = "—";
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 

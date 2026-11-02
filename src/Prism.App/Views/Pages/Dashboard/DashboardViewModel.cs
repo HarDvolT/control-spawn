@@ -46,8 +46,8 @@ public sealed class DashboardViewModel : PageViewModel
     public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp, 0);
     public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot, 0);
     public string NetworkChip => State?.Router is { } router ? (router.Network ?? "Unavailable") + " " + router.Band : "Unavailable";
-    public string InternetColor => ColorUtil.ToHex(ColorUtil.ForVerdict(State?.Router?.Verdict));
-    public string InternetScore => $"{State?.Router?.Verdict ?? "Unavailable"} · {State?.Router?.Score?.ToString() ?? Format.Dash}";
+    public string InternetColor => ColorUtil.ToHex(ColorUtil.ForVerdict(Format.SignalWord(State?.Router)));
+    public string InternetScore => $"{Format.SignalWord(State?.Router) ?? "Unavailable"} · {State?.Router?.Score?.ToString() ?? Format.Dash}";
     public string InternetDetail => "Ping " + Format.Number(State?.Router?.PingMs) + " ms · ↓ " + Format.Mbps(State?.System.NetDownMbps);
     public string FanSubtitle => SelectedFanMode switch { "Silent" => "Quiet · you will barely hear it", "Turbo" => "Performance cooling", _ => "Automatic temperature control" };
     public RelayCommand<string> PickColorCommand => new(color => { if (color is not null) _ = RunAsync(() => Client.SetLightingAsync(LightingEffect.Static, color, LightingBrightness, LightingSpeed)); });

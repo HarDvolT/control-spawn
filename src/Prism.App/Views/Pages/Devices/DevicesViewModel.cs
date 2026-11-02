@@ -30,6 +30,7 @@ public sealed class DevicesViewModel : PageViewModel
     protected override void Refresh()
     {
         Groups = (State?.Devices ?? []).GroupBy(d => d.Kind switch { DeviceKind.RgbController or DeviceKind.FanHeader => "PC", DeviceKind.Lamp => "Lamps", DeviceKind.Router or DeviceKind.NetworkDevice => "Network", DeviceKind.Appliance => "Appliances", _ => "Other" }).OrderBy(g => g.Key == "PC" ? 0 : g.Key == "Lamps" ? 1 : g.Key == "Network" ? 2 : 3).Select(g => new DeviceGroup(g.Key, g.OrderBy(d => d.Kind).ThenBy(d => d.Name).ToArray())).ToArray();
-        NewDevices = State?.NewDevices ?? []; NotifyAll();
+        // Phones and laptops on the Wi-Fi are listed, not offered for setup: Prism has nothing to control on them.
+        NewDevices = (State?.NewDevices ?? []).Where(d => d.Kind != DeviceKind.NetworkDevice).ToList(); NotifyAll();
     }
 }
