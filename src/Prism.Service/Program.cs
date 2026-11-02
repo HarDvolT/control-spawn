@@ -32,6 +32,21 @@ public static class Program
             var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
             _ = Task.Delay(TimeSpan.FromSeconds(seconds)).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
         }
+        // --stop-file <path>: scripts ask for a clean stop (fans back to the BIOS) by creating this file.
+        int stopIndex = Array.FindIndex(args, a => a.Equals("--stop-file", StringComparison.OrdinalIgnoreCase));
+        if (stopIndex >= 0 && stopIndex + 1 < args.Length)
+        {
+            var stopFile = Path.GetFullPath(args[stopIndex + 1]);
+            var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+            _ = Task.Run(async () =>
+            {
+                while (!lifetime.ApplicationStopping.IsCancellationRequested)
+                {
+                    if (File.Exists(stopFile)) { try { File.Delete(stopFile); } catch (IOException) { } lifetime.StopApplication(); return; }
+                    try { await Task.Delay(500, lifetime.ApplicationStopping); } catch (OperationCanceledException) { return; }
+                }
+            });
+        }
         await host.RunAsync();
     }
 }
