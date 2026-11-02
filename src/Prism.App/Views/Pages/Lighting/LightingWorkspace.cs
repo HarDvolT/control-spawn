@@ -90,6 +90,8 @@ public sealed class LightingWorkspace : UserControl
     private readonly PaletteStrip palette = new();
     private readonly SpacedGrid gallery = new() { Columns = 3, Gap = 10 };
     private readonly WrapPanel extraEffects = new(), devices = new();
+    private Border? argbBanner;
+    private readonly TextBlock followNotice = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new(0, 14, 0, 8) };
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 0) };
     private readonly ComboBox palettes = new() { ItemsSource = Palettes.BuiltIn.Keys, Margin = new(0, 4, 0, 4) };
     private readonly TextBox hex = new() { Text = "#FF4D1A", Width = 110, Background = new SolidColorBrush(Color.FromRgb(37, 37, 41)), Foreground = Brushes.WhiteSmoke, BorderBrush = Brushes.DimGray, BorderThickness = new(1), Padding = new(8) };
@@ -189,13 +191,13 @@ public sealed class LightingWorkspace : UserControl
         setupButton.Click += (_, _) => { setup.Visibility = setup.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; setup.IsExpanded = true; };
         DockPanel.SetDock(setupButton, Dock.Right); setupRow.Children.Add(setupButton);
         setupRow.Children.Add(new TextBlock { Text = "ARGB headers start at 0 LEDs. Set the exact LED count to light your case fans and strip, down to the last LED.", TextWrapping = TextWrapping.Wrap, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 18, 0) });
-        host.Children.Add(new Border { Child = setupRow, Padding = new(18, 14, 18, 14), CornerRadius = new(16), Margin = new(0, 0, 0, 16), BorderThickness = new(1), BorderBrush = new SolidColorBrush(Color.FromArgb(85, 245, 165, 36)), Background = new LinearGradientBrush(Color.FromArgb(40, 245, 165, 36), Color.FromArgb(5, 245, 165, 36), 0) });
+        host.Children.Add(argbBanner = new Border { Child = setupRow, Padding = new(18, 14, 18, 14), CornerRadius = new(16), Margin = new(0, 0, 0, 16), BorderThickness = new(1), BorderBrush = new SolidColorBrush(Color.FromArgb(85, 245, 165, 36)), Background = new LinearGradientBrush(Color.FromArgb(40, 245, 165, 36), Color.FromArgb(5, 245, 165, 36), 0) });
         host.Children.Add(setup); host.Children.Add(root);
         var previewBody = new StackPanel();
         Header(previewBody, "LIVE PREVIEW", 11); ((TextBlock)previewBody.Children[0]).Margin = new(0, 0, 0, 4);
         var illustration = new CaseIllustration { Margin = new(0, 1, 0, 0) }; previewBody.Children.Add(illustration);
         stage.Visibility = Visibility.Collapsed; previewBody.Children.Add(stage);
-        previewBody.Children.Add(devices);
+        previewBody.Children.Add(followNotice); previewBody.Children.Add(devices);
         canvasPanel.Children.Add(new GlassCard { Content = previewBody, MinHeight = 535 });
         var tools = new StackPanel { Visibility = Visibility.Collapsed, Margin = new(0, 12, 0, 0) };
         tools.Children.Add(mode); tools.Children.Add(transform); tools.Children.Add(editor);
@@ -317,19 +319,37 @@ public sealed class LightingWorkspace : UserControl
         if (signature != deviceSignature)
         {
             deviceSignature = signature; devices.Children.Clear();
+            // Devices with the same name (two RAM sticks) get a number so each chip is identifiable.
+            var sameName = model.Devices.GroupBy(d => d.Name).Where(g => g.Count() > 1).ToDictionary(g => g.Key, g => g.ToList());
             foreach (var d in model.Devices)
             {
+                bool on = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false;
+                var label = sameName.TryGetValue(d.Name, out var twins) ? $"{d.Name} {twins.IndexOf(d) + 1}" : d.Name;
                 var body = new StackPanel { Orientation = Orientation.Horizontal };
-                body.Children.Add(new System.Windows.Shapes.Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(ColorUtil.Parse(d.Synced ? model.ColorHex : "#7C808A", Colors.Gray)), Margin = new(0, 0, 8, 0) });
-                body.Children.Add(new TextBlock { Text = d.Name, FontSize = 12, Foreground = Brushes.WhiteSmoke, FontWeight = FontWeights.SemiBold });
-                var toggle = new System.Windows.Controls.Primitives.ToggleButton { Content = body, IsChecked = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false, Margin = new(0, 0, 8, 8), ToolTip = "Sync " + d.Name };
-                var chrome = new FrameworkElementFactory(typeof(Border)); chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(16)); chrome.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(30, 32, 38))); chrome.SetValue(Border.BorderBrushProperty, new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))); chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1)); chrome.SetValue(Border.PaddingProperty, new Thickness(10, 7, 10, 7));
+                body.Children.Add(new TextBlock { Text = on ? "✓" : "○", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(on ? ColorUtil.Accent : Color.FromRgb(124, 128, 138)), Margin = new(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
+                body.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = on ? Brushes.WhiteSmoke : new SolidColorBrush(Color.FromRgb(163, 166, 174)), FontWeight = FontWeights.SemiBold });
+                if (!on) body.Children.Add(new TextBlock { Text = " · own colour", FontSize = 12, Foreground = new SolidColorBrush(ColorUtil.Fair) });
+                var toggle = new System.Windows.Controls.Primitives.ToggleButton { Content = body, IsChecked = on, Margin = new(0, 0, 8, 8), ToolTip = on ? $"{label} follows the case colour. Click to give it its own colour." : $"{label} keeps its own colour. Click to make it follow the case.", Cursor = System.Windows.Input.Cursors.Hand };
+                System.Windows.Automation.AutomationProperties.SetName(toggle, $"{label} follows case colour");
+                // Included chips are tinted orange; excluded ones are hollow with an amber dashed outline, so the difference is obvious at a glance.
+                var chrome = new FrameworkElementFactory(typeof(Border)); chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(16));
+                chrome.SetValue(Border.BackgroundProperty, new SolidColorBrush(on ? Color.FromArgb(38, 255, 77, 26) : Colors.Transparent));
+                chrome.SetValue(Border.BorderBrushProperty, new SolidColorBrush(on ? Color.FromArgb(150, 255, 77, 26) : Color.FromArgb(150, 245, 165, 36)));
+                chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1)); chrome.SetValue(Border.PaddingProperty, new Thickness(10, 7, 12, 7));
                 var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty)); chrome.AppendChild(presenter);
                 toggle.Template = new ControlTemplate(typeof(System.Windows.Controls.Primitives.ToggleButton)) { VisualTree = chrome };
                 toggle.Click += (_, _) => { d.Synced = toggle.IsChecked == true; model.SetDeviceCommand.Execute(d); _ = model.SetParametersAsync(model.Parameters with { Devices = new Dictionary<string, bool>(model.Parameters.Devices ?? new Dictionary<string, bool>()) { [d.Id] = d.Synced } }); };
                 devices.Children.Add(toggle);
             }
+            int excluded = model.Devices.Count(d => !(d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false));
+            followNotice.Text = excluded == 0 ? "APPLIES TO · every device follows the case colour"
+                : $"APPLIES TO · {excluded} device{(excluded == 1 ? "" : "s")} keep{(excluded == 1 ? "s" : "")} {(excluded == 1 ? "its" : "their")} own colour. Click a chip to include it.";
+            followNotice.Foreground = new SolidColorBrush(excluded == 0 ? Color.FromRgb(124, 128, 138) : ColorUtil.Fair);
         }
+        // The setup banner only matters while an ARGB header still has 0 LEDs.
+        if (argbBanner is not null)
+            argbBanner.Visibility = model.State?.Lighting.Devices.Any(dev => dev.Zones?.Any(z => z.MaxLeds > z.MinLeds && z.LedCount == 0 && z.Name.Contains("Addressable", StringComparison.OrdinalIgnoreCase)) == true) == true
+                ? Visibility.Visible : Visibility.Collapsed;
         suppress = false;
     }
 }
