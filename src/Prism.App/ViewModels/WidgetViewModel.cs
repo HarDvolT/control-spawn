@@ -232,9 +232,12 @@ public sealed class WidgetViewModel : ObservableObject
     public IReadOnlyList<string> Swatches { get; }
     public ObservableCollection<FanRow> FanRows { get; } = new();
     public ObservableCollection<SceneOption> Scenes { get; } = new();
-    public ObservableCollection<double> PingHistory { get; } = new();
-    public ObservableCollection<double> NetDownHistory { get; } = new();
-    public ObservableCollection<double> NetUpHistory { get; } = new();
+    // Whole lists replaced once per update: one change per chart instead of a layout pass per point,
+    // which matters in a transparent window that repaints in software.
+    private IReadOnlyList<double> _pingHistory = [], _netDownHistory = [], _netUpHistory = [];
+    public IReadOnlyList<double> PingHistory { get => _pingHistory; private set { _pingHistory = value; OnPropertyChanged(); } }
+    public IReadOnlyList<double> NetDownHistory { get => _netDownHistory; private set { _netDownHistory = value; OnPropertyChanged(); } }
+    public IReadOnlyList<double> NetUpHistory { get => _netUpHistory; private set { _netUpHistory = value; OnPropertyChanged(); } }
     public ObservableCollection<BarItem> ModemBars { get; } = new();
 
     public RelayCommand<string> SetFanModeCommand { get; }
@@ -323,18 +326,15 @@ public sealed class WidgetViewModel : ObservableObject
         _upText = Format.Mbps(system.NetUpMbps);
         if (state.History is { } history)
         {
-            NetDownHistory.Clear(); NetUpHistory.Clear(); PingHistory.Clear();
-            foreach (var sample in history.TakeLast(40))
-            {
-                Push(NetDownHistory, sample.NetDownMbps ?? double.NaN);
-                Push(NetUpHistory, sample.NetUpMbps ?? double.NaN);
-                Push(PingHistory, sample.PingMs ?? double.NaN);
-            }
+            var recent = history.TakeLast(40).ToArray();
+            NetDownHistory = Series(recent.Select(s => s.NetDownMbps));
+            NetUpHistory = Series(recent.Select(s => s.NetUpMbps));
+            PingHistory = Series(recent.Select(s => s.PingMs));
         }
         else
         {
-            Push(NetDownHistory, system.NetDownMbps ?? double.NaN);
-            Push(NetUpHistory, system.NetUpMbps ?? double.NaN);
+            NetDownHistory = Append(NetDownHistory, system.NetDownMbps);
+            NetUpHistory = Append(NetUpHistory, system.NetUpMbps);
         }
 
         _fanMode = Format.FanModeName(state.FanMode);
@@ -379,7 +379,7 @@ public sealed class WidgetViewModel : ObservableObject
             ModemSinr = Format.Db(router.Sinr5g);
             PingText = Format.MsValue(router.PingMs);
             PingColor = ColorUtil.ToHex(router.PingMs is null ? ColorUtil.TextTertiary : router.PingMs < 35 ? ColorUtil.Good : router.PingMs < 80 ? ColorUtil.Fair : ColorUtil.Poor);
-            if (state.History is null && router.PingMs is { } ping) Push(PingHistory, ping);
+            if (state.History is null && router.PingMs is { } ping) PingHistory = Append(PingHistory, ping);
 
             modemScore = router.Score;
             ModemBars.Clear();
@@ -457,6 +457,9 @@ public sealed class WidgetViewModel : ObservableObject
 
     private void Persist() => Changed?.Invoke();
 
+    private static double[] Series(IEnumerable<double?> values) => values.Where(v => v is { } d && double.IsFinite(d)).Select(v => Math.Round(v!.Value, 1)).ToArray();
+    private static IReadOnlyList<double> Append(IReadOnlyList<double> history, double? value) =>
+        value is { } v && double.IsFinite(v) ? history.Append(Math.Round(v, 1)).TakeLast(40).ToArray() : history;
     private static void Push(ObservableCollection<double> history, double value)
     {
         if (!double.IsFinite(value)) return;

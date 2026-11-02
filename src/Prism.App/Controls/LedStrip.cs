@@ -15,6 +15,8 @@ namespace Prism.App.Controls;
 public class LedStrip : FrameworkElement
 {
     public bool WaveHeights { get; set; }
+    /// <summary>False holds one frame (desktop widgets: transparent windows redraw in software, so constant motion is costly).</summary>
+    public bool Live { get; set; } = true;
     public static readonly DependencyProperty EffectKindProperty = DependencyProperty.Register(
         nameof(EffectKind), typeof(LightingEffect), typeof(LedStrip),
         new FrameworkPropertyMetadata(LightingEffect.Smart, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -57,7 +59,7 @@ public class LedStrip : FrameworkElement
         SnapsToDevicePixels = true;
         UseLayoutRounding = true;
         _timer.Tick += OnFrame;
-        Motion.WhileVisible(this, _timer.Start, _timer.Stop);
+        Motion.WhileVisible(this, () => { if (Live) _timer.Start(); }, _timer.Stop);
     }
 
     public LightingEffect EffectKind { get => (LightingEffect)GetValue(EffectKindProperty); set => SetValue(EffectKindProperty, value); }

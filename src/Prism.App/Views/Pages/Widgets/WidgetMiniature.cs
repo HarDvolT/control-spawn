@@ -8,7 +8,8 @@ using Prism.App.Widgets;
 
 namespace Prism.App.Views;
 
-/// <summary>The compact, glanceable v2 desktop cards, bound to the same widget model.</summary>
+/// <summary>The compact, glanceable v2 desktop cards, bound to the same widget model.
+/// Nothing in them moves between updates: they sit on the desktop all day, so constant motion would cost CPU for nothing.</summary>
 public sealed class WidgetMiniature : UserControl
 {
     public WidgetMiniature(WidgetViewModel model)
@@ -36,14 +37,14 @@ public sealed class WidgetMiniature : UserControl
                 foreach (var (label, text, value, color) in new[] { ("CPU", "CpuTemperatureLabel", "CpuTemperature", "#3DDC84"), ("GPU", "GpuTemperatureLabel", "GpuTemperature", "#3DDC84"), ("Load", "CpuText", "CpuPercent", "#FF4D1A") })
                 {
                     var row = new DockPanel { Margin = new(0, 8, 0, 0) }; var number = Reading(text); DockPanel.SetDock(number, Dock.Right); row.Children.Add(number); row.Children.Add(Label(label, 16)); body.Children.Add(row);
-                    var meter = new GlowProgressBar { Height = 6, Margin = new(0, 5, 0, 0), BarColor = (Color)ColorConverter.ConvertFromString(color) }; meter.SetBinding(GlowProgressBar.ValueProperty, new Binding(value)); body.Children.Add(meter);
+                    var meter = new GlowProgressBar { Height = 6, Margin = new(0, 5, 0, 0), Shimmer = false, BarColor = (Color)ColorConverter.ConvertFromString(color) }; meter.SetBinding(GlowProgressBar.ValueProperty, new Binding(value)); body.Children.Add(meter);
                 }
                 break;
             case WidgetKind.Fans:
                 var heading = new DockPanel(); var pump = Reading("MiniPump", 13); DockPanel.SetDock(pump, Dock.Right); heading.Children.Add(pump); heading.Children.Add(Reading("MiniFanHeading", 14)); body.Children.Add(heading);
                 var fans = new ItemsControl(); fans.SetBinding(ItemsControl.ItemsSourceProperty, new Binding("MiniFanRows")); fans.ItemsPanel = new ItemsPanelTemplate(new FrameworkElementFactory(typeof(System.Windows.Controls.Primitives.UniformGrid)));
                 var template = new FrameworkElementFactory(typeof(StackPanel)); template.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal); template.SetValue(MarginProperty, new Thickness(0, 10, 10, 0));
-                var rotor = new FrameworkElementFactory(typeof(FanRotor)); rotor.SetValue(WidthProperty, 18d); rotor.SetValue(HeightProperty, 18d); rotor.SetValue(MarginProperty, new Thickness(0, 0, 8, 0)); template.AppendChild(rotor);
+                var rotor = new FrameworkElementFactory(typeof(FanRotor)); rotor.SetValue(WidthProperty, 18d); rotor.SetValue(HeightProperty, 18d); rotor.SetValue(MarginProperty, new Thickness(0, 0, 8, 0)); rotor.SetValue(FanRotor.SpinSecondsProperty, 0d); template.AppendChild(rotor);
                 var rpm = new FrameworkElementFactory(typeof(TextBlock)); rpm.SetValue(TextBlock.FontSizeProperty, 17d); rpm.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold); rpm.SetBinding(TextBlock.TextProperty, new Binding("RpmText")); template.AppendChild(rpm);
                 fans.ItemTemplate = new DataTemplate { VisualTree = template }; body.Children.Add(fans);
                 break;

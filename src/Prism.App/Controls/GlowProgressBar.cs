@@ -56,7 +56,7 @@ public class GlowProgressBar : FrameworkElement
         UseLayoutRounding = true;
         _timer.Tick += OnFrame;
         Loaded += (_, _) => { if (Value > 0 && DisplayValue <= 0) SetDisplay(Value, animate: true); };
-        Motion.WhileVisible(this, _timer.Start, _timer.Stop);
+        Motion.WhileVisible(this, () => { if (Shimmer) _timer.Start(); }, _timer.Stop);
         MinHeight = 8;
     }
 
@@ -84,6 +84,8 @@ public class GlowProgressBar : FrameworkElement
         set => SetValue(TrackColorProperty, value);
     }
 
+    /// <summary>The moving highlight and the glide to new values. Off in desktop widgets, which redraw in software.</summary>
+    public bool Shimmer { get; set; } = true;
     public bool ShowLabel
     {
         get => (bool)GetValue(ShowLabelProperty);
@@ -133,7 +135,8 @@ public class GlowProgressBar : FrameworkElement
     private void SetDisplay(double value, bool animate)
     {
         value = double.IsFinite(value) ? value : 0;
-        if (!animate || Motion.ReduceAnimations || !IsLoaded)
+        // Without shimmer (desktop widgets) values also jump: a gliding bar in a transparent window means a full software repaint every frame.
+        if (!animate || !Shimmer || Motion.ReduceAnimations || !IsLoaded)
         {
             BeginAnimation(DisplayValueProperty, null);
             DisplayValue = value;

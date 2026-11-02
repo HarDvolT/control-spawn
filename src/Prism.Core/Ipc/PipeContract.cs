@@ -85,7 +85,9 @@ public sealed record StateMessage(
     string Type = "state", IReadOnlyList<LampState>? Lamps = null,
     IReadOnlyList<DeviceState>? Devices = null, IReadOnlyList<DeviceState>? NewDevices = null,
     IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null,
-    IReadOnlyList<TelemetrySample>? History = null, IReadOnlyList<SceneSummary>? Scenes = null, AutomationState? Automations = null);
+    IReadOnlyList<TelemetrySample>? History = null, IReadOnlyList<SceneSummary>? Scenes = null, AutomationState? Automations = null,
+    // True when History holds only samples newer than the previous push; the client appends them to what it has.
+    bool HistoryIsDelta = false);
 
 /// <summary>Rules that switch scenes on their own. Priority: locked PC, then a running game, then night hours.</summary>
 public sealed record AutomationSettings(

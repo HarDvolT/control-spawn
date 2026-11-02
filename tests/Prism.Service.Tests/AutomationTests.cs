@@ -96,4 +96,43 @@ public sealed class AutomationTests
         Assert.False((await processor.HandleAsync(Request(2, Commands.SetAutomations, new { nightStart = "25:99" }))).Ok);
         Assert.False((await processor.HandleAsync(Request(3, Commands.SetSessionLocked, new { }))).Ok);
     }
+
+    private sealed class GrowingHistory : IServiceRuntime
+    {
+        private int calls;
+        public StateMessage GetState(ServiceSettings settings)
+        {
+            int count = Interlocked.Increment(ref calls) + 2;
+            var history = Enumerable.Range(0, count).Select(i => new TelemetrySample(DateTimeOffset.UnixEpoch.AddSeconds(i), i, null, null, null, null, null, null)).ToArray();
+            return StateAssembler.Assemble(new(DateTimeOffset.UnixEpoch, []), settings, [2, 6, 7], [], null, null, new(true, false, [], false)) with { History = history };
+        }
+        public Task ApplyAsync(ServiceSettings settings, CancellationToken token) => Task.CompletedTask;
+        public Task<SpeedTestResult?> StartSpeedTestAsync(CancellationToken token) => Task.FromResult<SpeedTestResult?>(null);
+    }
+
+    [Fact]
+    public async Task SubscribersGetTheFullHistoryOnceThenOnlyNewSamples()
+    {
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var processor = new CommandProcessor(new MemorySettingsStore(), new GrowingHistory());
+        var (client, server) = ServiceTests.MemoryDuplex.Create();
+        await using var a = client; await using var b = server;
+        var session = new PipeSession(processor).RunAsync(server, stop.Token);
+        using var writer = new System.IO.StreamWriter(client, new System.Text.UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+        using var reader = new System.IO.StreamReader(client, leaveOpen: true);
+        await writer.WriteLineAsync(JsonSerializer.Serialize(Request(1, Commands.Hello, new { version = 1, client = "app" }), PipeContract.Json));
+        await reader.ReadLineAsync(stop.Token);
+        await writer.WriteLineAsync(JsonSerializer.Serialize(Request(2, Commands.Subscribe), PipeContract.Json));
+        var states = new List<StateMessage>();
+        while (states.Count < 2)
+        {
+            using var json = JsonDocument.Parse((await reader.ReadLineAsync(stop.Token))!);
+            if (json.RootElement.GetProperty("type").GetString() == "state") states.Add(json.RootElement.Deserialize<StateMessage>(PipeContract.Json)!);
+        }
+        Assert.False(states[0].HistoryIsDelta); Assert.True(states[0].History!.Count >= 3);
+        Assert.True(states[1].HistoryIsDelta);
+        Assert.All(states[1].History!, s => Assert.True(s.Timestamp > states[0].History![^1].Timestamp));
+        Assert.NotEmpty(states[1].History!);
+        await client.DisposeAsync(); await session;
+    }
 }

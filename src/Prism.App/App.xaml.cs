@@ -13,6 +13,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        CrashLog.Install(this);
         var options = LaunchOptions.Parse(e.Args);
         _instance = new SingleInstance(options.Mock ? "Prism.App.Mock" : "Prism.App", () => Dispatcher.BeginInvoke(OpenMain));
         if (!_instance.IsPrimary) { Shutdown(); return; }

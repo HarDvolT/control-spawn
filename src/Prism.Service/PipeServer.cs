@@ -45,8 +45,20 @@ public sealed class PipeSession(CommandProcessor commands)
         {
             try
             {
+                // The full history (up to an hour of samples) goes once; later pushes carry only the new samples,
+                // which keeps each update a few KB instead of half a megabyte.
+                DateTimeOffset? sentUpTo = null;
                 await foreach (var _ in updates.Reader.ReadAllAsync(linked.Token))
-                    if (Volatile.Read(ref subscribed)) await WriteAsync(commands.GetState());
+                {
+                    if (!Volatile.Read(ref subscribed)) continue;
+                    var state = commands.GetState();
+                    var history = state.History ?? [];
+                    var latest = history.Count > 0 ? history[^1].Timestamp : sentUpTo;
+                    if (sentUpTo is { } since && (history.Count == 0 || history[0].Timestamp <= since))
+                        state = state with { History = history.Where(s => s.Timestamp > since).ToArray(), HistoryIsDelta = true };
+                    await WriteAsync(state);
+                    sentUpTo = latest;
+                }
             }
             finally { linked.Cancel(); }
         }

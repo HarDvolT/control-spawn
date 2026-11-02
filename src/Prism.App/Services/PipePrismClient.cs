@@ -88,12 +88,24 @@ public sealed class PipePrismClient : PrismClientBase
         SetConnection(ServiceConnection.Disconnected);
     }
 
+    private readonly List<TelemetrySample> _history = new();
+    /// <summary>Rebuilds the full history from the first full push plus the new samples in each later push.</summary>
+    private StateMessage MergeHistory(StateMessage state)
+    {
+        if (state.History is null) return state;
+        if (!state.HistoryIsDelta) _history.Clear();
+        foreach (var sample in state.History)
+            if (_history.Count == 0 || sample.Timestamp > _history[^1].Timestamp) _history.Add(sample);
+        if (_history.Count > 3600) _history.RemoveRange(0, _history.Count - 3600);
+        return state with { History = _history.ToArray(), HistoryIsDelta = false };
+    }
+
     private void Dispatch(string line)
     {
         if (!JsonLineProtocol.TryParse(line, out var state, out var response)) return;
         if (state is not null)
         {
-            Publish(state);
+            Publish(MergeHistory(state));
             return;
         }
         if (response is not null && _pending.TryRemove(response.Id, out var pending))

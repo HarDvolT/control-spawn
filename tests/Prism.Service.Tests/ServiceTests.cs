@@ -387,7 +387,7 @@ public sealed class ServiceTests
     }
 
     /// <summary>Two byte channels, fragmented reads; no OS pipe, sockets, services or hardware.</summary>
-    private sealed class MemoryDuplex(Channel<byte> input, Channel<byte> output) : Stream
+    internal sealed class MemoryDuplex(Channel<byte> input, Channel<byte> output) : Stream
     {
         public static (Stream Client, Stream Server) Create()
         {
