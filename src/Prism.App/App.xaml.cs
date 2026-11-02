@@ -33,6 +33,7 @@ public partial class App : Application
             else if (!_quitting) { args.Cancel = true; Dispatcher.BeginInvoke(Quit); }
         };
         _tray = new TrayIcon(vm, _widgets, OpenMain, Quit);
+        WidgetCard.OpenPage = page => { vm.Navigate(page); OpenMain(); };
         if (!options.Tray && !settings.StartMinimizedToTray) window.Show();
         if (settings.ShowWidgetsAtStartup) _widgets.ShowAll();
         await _client.StartAsync();

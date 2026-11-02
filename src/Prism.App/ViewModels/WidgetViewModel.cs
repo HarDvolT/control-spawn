@@ -373,8 +373,8 @@ public sealed class WidgetViewModel : ObservableObject
         if (state.Router is { } router)
         {
             ModemNetwork = router.Network ?? "5G modem";
-            ModemVerdict = router.Verdict ?? Format.Dash;
-            ModemColor = ColorUtil.ToHex(router.Verdict == "Good" ? ColorUtil.Good : router.Verdict == "Fair" ? ColorUtil.Fair : router.Verdict == "Poor" ? ColorUtil.Poor : ColorUtil.TextTertiary);
+            ModemVerdict = Format.SignalWord(router) ?? Format.Dash;
+            ModemColor = ColorUtil.ToHex(ColorUtil.ForVerdict(Format.SignalWord(router)));
             ModemRsrp = Format.Dbm(router.Rsrp5g, 0);
             ModemSinr = Format.Db(router.Sinr5g);
             PingText = Format.MsValue(router.PingMs);

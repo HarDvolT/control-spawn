@@ -50,8 +50,8 @@ public partial class DesktopPreview : UserControl
         {
             item.PropertyChanged += LayoutChanged; _observed.Add(item);
             if (!item.Enabled) continue;
-            var tile = new Border { DataContext = item, Width = item.Width * (item.Kind == WidgetKind.Lamp ? 1.4 : 2.1), Background = System.Windows.Media.Brushes.Transparent,
-                Child = new Viewbox { Stretch = System.Windows.Media.Stretch.Uniform, LayoutTransform = new System.Windows.Media.ScaleTransform(1, .75), IsHitTestVisible = false, Child = new WidgetMiniature(item) { Width = item.Kind == WidgetKind.Lamp ? 160 : 250 } } };
+            var tile = new Border { DataContext = item, Width = item.Width * (2.1), Background = System.Windows.Media.Brushes.Transparent,
+                Child = new Viewbox { Stretch = System.Windows.Media.Stretch.Uniform, IsHitTestVisible = false, Child = new Prism.App.Widgets.WidgetCard(item) } };
             Canvas.SetLeft(tile,(item.Layout.X - _originX) * XScale(item)); Canvas.SetTop(tile,(item.Layout.Y - _originY) * YScale(item));
             tile.MouseLeftButtonDown += BeginDrag; tile.MouseMove += MoveDrag; tile.MouseLeftButtonUp += EndDrag;
             Surface.Children.Add(tile);
@@ -84,7 +84,7 @@ public partial class DesktopPreview : UserControl
             placed.Add(rect);
         }
     }
-    private double XScale(WidgetViewModel item) => Math.Max(.1, (Surface.Width - item.Width * (item.Kind == WidgetKind.Lamp ? 1.4 : 2.1)) / Math.Max(1, Surface.Width - item.Width));
+    private double XScale(WidgetViewModel item) => Math.Max(.1, (Surface.Width - item.Width * (2.1)) / Math.Max(1, Surface.Width - item.Width));
     private double YScale(WidgetViewModel item) => Math.Max(.1, (Surface.Height - item.Height * 2.1) / Math.Max(1, Surface.Height - item.Height));
     private void BeginDrag(object sender, MouseButtonEventArgs e)
     {

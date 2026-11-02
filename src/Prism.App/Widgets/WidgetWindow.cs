@@ -27,9 +27,8 @@ public sealed class WidgetWindow : Window
         Background = Brushes.Transparent; ResizeMode = ResizeMode.NoResize;
         System.Windows.Shell.WindowChrome.SetWindowChrome(this, new System.Windows.Shell.WindowChrome { CaptionHeight = 0, ResizeBorderThickness = new Thickness(0), GlassFrameThickness = new Thickness(-1), CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false });
         SizeToContent = SizeToContent.Height;
-        Content = vm.Kind is WidgetKind.SystemMonitor or WidgetKind.Fans or WidgetKind.Modem or WidgetKind.Lamp or WidgetKind.AirFryer
-            ? new System.Windows.Controls.Viewbox { Stretch = Stretch.Uniform, Child = new WidgetMiniature(vm) { Width = 250 } }
-            : new WidgetContent();
+        // Every widget is a WidgetCard drawn at 250 px and scaled to the chosen size.
+        Content = new System.Windows.Controls.Viewbox { Stretch = Stretch.Uniform, Child = new WidgetCard(vm) };
         SourceInitialized += (_, _) => { ApplyBackdrop(); Place(); UpdateOptions(); };
         vm.PropertyChanged += OptionsChanged;
         Closed += (_, _) => vm.PropertyChanged -= OptionsChanged;

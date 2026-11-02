@@ -60,6 +60,20 @@ internal static class Program
             sensorClient.DisposeAsync().AsTask().GetAwaiter().GetResult();
             return errors.Length == 0 ? 0 : 2;
         }
+        if (args.Contains("--widgets"))
+        {
+            var widgetClient = new MockPrismClient();
+            var sheet = new WrapPanel { Width = 1120, Background = new LinearGradientBrush(Color.FromRgb(42, 22, 40), Color.FromRgb(12, 32, 48), 45) };
+            foreach (var kind in Enum.GetValues<WidgetKind>())
+            {
+                var widget = new WidgetViewModel(new WidgetLayout { Kind = kind, Metrics = WidgetMetrics.Defaults(kind), Background = "Glass" }, widgetClient);
+                widget.Apply(widgetClient.CurrentState);
+                sheet.Children.Add(new Border { Margin = new(20), Child = new Prism.App.Widgets.WidgetCard(widget), VerticalAlignment = VerticalAlignment.Top });
+            }
+            Render(sheet, Path.Combine(output, "Widgets-sheet.png"), 1120);
+            widgetClient.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            return 0;
+        }
         if (args.Contains("--v2"))
         {
             var previewClient = new MockPrismClient();
