@@ -21,6 +21,30 @@ public sealed class SpatialEffectTests
         Assert.All(SpatialEffects.Render(scene, parameters with { Devices = new Dictionary<string, bool> { ["ram"] = false } }, 1, Points, "ram"), c => Assert.Equal(RgbColor.Black, c));
     }
     [Fact]
+    public void CyclingEffectsLoopWithoutAJump()
+    {
+        // Spectrum ends on purple and starts on red: the loop must blend across, not snap.
+        var stops = Palettes.BuiltIn["Spectrum"];
+        static int Step(RgbColor a, RgbColor b) => Math.Max(Math.Abs(a.R - b.R), Math.Max(Math.Abs(a.G - b.G), Math.Abs(a.B - b.B)));
+        for (double t = 0; t < 1; t += 0.005)
+            Assert.True(Step(Palettes.SampleLoop(stops, t), Palettes.SampleLoop(stops, t + 0.005)) < 16, $"jump at {t:0.000}");
+        Assert.Equal(Palettes.SampleLoop(stops, 0), Palettes.SampleLoop(stops, 1));
+    }
+
+    [Fact]
+    public void SpeedChangesCarryOnFromTheSamePoint()
+    {
+        var clock = new PhaseClock();
+        Assert.Equal(10, clock.Time("case", 10, 1), 9);
+        Assert.Equal(12, clock.Time("case", 12, 1), 9);
+        Assert.Equal(12, clock.Time("case", 12, 2), 9);   // twice as fast: no jump at the change
+        Assert.Equal(14, clock.Time("case", 13, 2), 9);
+        Assert.Equal(18, clock.Time("case", 15, 0), 9);   // stopped at 15 s, after two more seconds at double speed
+        Assert.Equal(18, clock.Time("case", 20, 0), 9);   // and it holds there
+        Assert.Equal(3, clock.Time("fans", 3, 1), 9);     // each look keeps its own clock
+    }
+
+    [Fact]
     public void LegacyRenderAlsoAcceptsZeroSpeedAndFreezesPhase()
     {
         var clock = new ManualClock(); var input = new FakeInputs(); var engine = new EffectEngine(clock, input, input, input);

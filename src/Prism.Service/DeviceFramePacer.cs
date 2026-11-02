@@ -14,7 +14,7 @@ public sealed class DeviceFramePacer
     public static readonly TimeSpan KeepAlive = TimeSpan.FromSeconds(2);
     /// <summary>Largest per-channel difference still treated as "the same colour" (avoids bus traffic for invisible changes).</summary>
     public const int Tolerance = 2;
-    public static readonly TimeSpan TickSlack = TimeSpan.FromMilliseconds(6);
+    public static readonly TimeSpan TickSlack = TimeSpan.FromMilliseconds(4);
 
     private readonly Dictionary<string, (TimeSpan At, RgbColor[] Colors)> sent = new();
     private readonly Dictionary<string, (TimeSpan Since, RgbColor[] Colors)> pending = new();
@@ -35,8 +35,10 @@ public sealed class DeviceFramePacer
     {
         // Every write can flash the card's LEDs through other colours (live, 2026-11-02), so it gets few of them.
         "GPU" => TimeSpan.FromSeconds(1d / 6),
-        "RAM" => TimeSpan.FromSeconds(1d / 20),
-        _ => TimeSpan.FromSeconds(1d / 30)
+        // DIMM temperature reads now take the SMBus only every 10 s, so the RAM can keep up with fast effects.
+        "RAM" => TimeSpan.FromSeconds(1d / 30),
+        // The board's USB link takes a frame in ~0.1 ms, so the fans get every tick.
+        _ => TimeSpan.FromSeconds(1d / 60)
     };
 
     public bool ShouldSend(string deviceId, string kind, IReadOnlyList<RgbColor> colors, TimeSpan now)
@@ -50,7 +52,16 @@ public sealed class DeviceFramePacer
         }
         // Loop ticks land a few ms either side of the frame time; without this slack an early tick dropped a whole frame.
         if (since < MinInterval(kind) - TickSlack) return false;
-        return since >= KeepAliveFor(kind) || !Same(last.Colors, colors);
+        // Only the shared buses (GPU, RAM) skip near-identical frames. On the board's USB link every step is sent: slow
+        // effects move 1-2 steps a frame, and skipping those made the fans update in uneven bursts (live, 2026-11-02).
+        return since >= KeepAliveFor(kind) || (kind is "GPU" or "RAM" ? !Same(last.Colors, colors) : !Identical(last.Colors, colors));
+    }
+
+    private static bool Identical(RgbColor[] a, IReadOnlyList<RgbColor> b)
+    {
+        if (a.Length != b.Count) return false;
+        for (int i = 0; i < a.Length; i++) if (!a[i].Equals(b[i])) return false;
+        return true;
     }
 
     /// <summary>
