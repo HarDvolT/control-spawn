@@ -28,13 +28,20 @@ public sealed class GraphiteBackground : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(7, 8, 10)), null, new Rect(RenderSize));
-        var dots = new SolidColorBrush(Color.FromArgb(8, 255, 255, 255));
-        for (double x = 0; x < ActualWidth; x += 24)
-            for (double y = 0; y < ActualHeight; y += 24) dc.DrawEllipse(dots, null, new Point(x, y), 1, 1);
+        // One tiled brush instead of thousands of separate dots keeps every redraw cheap.
+        dc.DrawRectangle(DotGrid, null, new Rect(RenderSize));
         dc.PushTransform(drift);
         Glow(dc, new Point(140, 80), 390, Color.FromArgb(28, 255, 77, 26));
         Glow(dc, new Point(ActualWidth - 100, 430), 465, Color.FromArgb(22, 54, 214, 255));
         dc.Pop();
+    }
+    private static readonly DrawingBrush DotGrid = CreateDotGrid();
+    private static DrawingBrush CreateDotGrid()
+    {
+        var dot = new GeometryDrawing(new SolidColorBrush(Color.FromArgb(8, 255, 255, 255)), null, new EllipseGeometry(new Point(1, 1), 1, 1));
+        var tile = new DrawingGroup(); tile.Children.Add(new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(0, 0, 24, 24)))); tile.Children.Add(dot);
+        var brush = new DrawingBrush(tile) { TileMode = TileMode.Tile, Viewport = new Rect(0, 0, 24, 24), ViewportUnits = BrushMappingMode.Absolute, Stretch = Stretch.None };
+        brush.Freeze(); return brush;
     }
     private static void Glow(DrawingContext dc, Point at, double radius, Color color)
     {

@@ -124,7 +124,7 @@ public sealed class ScenesViewModel : PageViewModel
         var lamps = LampChoices.FirstOrDefault(l => l.Key == s.Lamps).Label ?? "Same as PC";
         var color = s.Effect == LightingEffect.Off ? "#5A5D66" : s.Color;
         return new SceneDefinition(s.Name, color, s.Effect, s.Fans, s.Lamps, s.Lamps != "off", (int)Math.Round(s.Brightness * 100),
-            "Manual", $"{effect}, {Math.Round(s.Brightness * 100)}%", fans, "Lamps " + lamps.ToLowerInvariant(), s.Fans switch { FanMode.Silent => 22, FanMode.Turbo => 70, FanMode.Full => 90, _ => 44 });
+            "Manual", $"{effect}, {Math.Round(s.Brightness * 100)}%", fans, s.Lamps switch { "off" => "Lamps off", "pc" => "Lamps follow PC", "cool" => "Lamps cool white", _ => "Lamps warm white" }, s.Fans switch { FanMode.Silent => 22, FanMode.Turbo => 70, FanMode.Full => 90, _ => 44 });
     }
 
     private async Task SaveAsync()

@@ -55,7 +55,7 @@
             <TextBlock Text="{Binding EditorTitle}" Style="{StaticResource CardTitle}"/>
             <DockPanel Margin="0,8,24,0" MaxWidth="420" HorizontalAlignment="Left">
               <TextBlock Text="Name" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-              <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" MaxLength="32" MinWidth="220" AutomationProperties.Name="Scene name"/>
+              <Border Background="#17181D" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="10,6" MinWidth="240"><TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" MaxLength="32" Background="Transparent" BorderThickness="0" Foreground="#F4F5F7" CaretBrush="#FF4D1A" FontSize="14" AutomationProperties.Name="Scene name"/></Border>
             </DockPanel>
           </StackPanel>
         </DockPanel>
