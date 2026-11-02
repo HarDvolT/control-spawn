@@ -62,7 +62,7 @@ public sealed class CaseMapPreview : FrameworkElement
             var saved = model?.Map ?? new([]);
             var placements = CaseMap.Default(devices).Devices.Select(d => saved.Devices.FirstOrDefault(p => p.Device == d.Device && p.Zone == d.Zone) ?? d)
                 .Concat(saved.Devices.Where(d => !CaseMap.Default(devices).Devices.Any(p => p.Device == d.Device && p.Zone == d.Zone))).ToArray();
-            return draft ?? new(placements, saved.Lamp, saved.Lamps);
+            return draft ?? CaseMap.Normalize(new(placements, saved.Lamp, saved.Lamps), devices);
         }
     }
     public static IReadOnlyList<RgbDeviceState> DemoDevices { get; } = [new("ram1", "RAM 1", "RAM", true, true, 10), new("ram2", "RAM 2", "RAM", true, true, 10),
@@ -74,13 +74,12 @@ public sealed class CaseMapPreview : FrameworkElement
         double w = ActualWidth, h = ActualHeight;
         if (w < 1 || h < 1) return;
         dc.DrawRoundedRectangle(Brush("#141418"), new Pen(Brush("#34343D"), 1), new Rect(3, 3, w - 6, h - 6), mini ? 10 : 22, mini ? 10 : 22);
-        dc.DrawRoundedRectangle(Brush("#1B1B21"), new Pen(Brush("#292931"), 1), new Rect(w * 0.15, h * 0.18, w * 0.60, h * 0.64), 8, 8);
-        // Case fans and PSU give scale to the map without hiding the LEDs.
-        for (int f = 0; f < 3; f++)
+        if (!mini)
         {
-            var centre = new Point(w * 0.87, h * (0.25 + f * 0.22)); double r = Math.Min(w * 0.075, h * 0.08);
-            dc.DrawEllipse(Brush("#1D1D24"), new Pen(Brush("#34343D"), 1), centre, r, r);
-            dc.DrawEllipse(null, new Pen(Brush("#2B2B34"), 3), centre, r * 0.7, r * 0.7);
+            // The board tray and graphics card slot, where the case picture has them; the fans are drawn by their own LEDs.
+            Rect Area(double x0, double y0, double x1, double y1) { var a = Pixel(new(x0, y0)); var b = Pixel(new(x1, y1)); return new(a, b); }
+            dc.DrawRoundedRectangle(Brush("#18181D"), new Pen(Brush("#26262E"), 1), Area(0.044, 0.247, 0.68, 0.72), 10, 10);
+            dc.DrawRoundedRectangle(Brush("#18181D"), new Pen(Brush("#26262E"), 1), Area(0.044, 0.747, 0.68, 0.879), 8, 8);
         }
         var devices = model?.State?.Lighting.Devices ?? DemoDevices;
         var map = CurrentMap;
@@ -99,6 +98,7 @@ public sealed class CaseMapPreview : FrameworkElement
             illustrative ? new(140, 60, 180) : capture is null ? RgbColor.Black : Palettes.Parse(capture.ScreenCentre),
             illustrative ? new(255, 130, 40) : capture is null ? RgbColor.Black : Palettes.Parse(capture.ScreenRight));
         hits.Clear();
+        int ramLabels = 0;
         foreach (var device in devices)
         {
             var placement = CaseMap.Placement(map, device, devices);
@@ -147,8 +147,16 @@ public sealed class CaseMapPreview : FrameworkElement
                     if (group.Length > 0)
                     {
                         var bounds = new Rect(new Point(group.Min(v => v.X) - rx - 6, group.Min(v => v.Y) - ry - 6), new Point(group.Max(v => v.X) + rx + 6, group.Max(v => v.Y) + ry + 6));
-                        dc.DrawRoundedRectangle(Brush("#25252D"), new Pen(SelectedPlacement?.Device == device.Id && SelectedPlacement.Zone == zoneIndex ? Brush("#FF4D1A") : Brush("#44444D"), 1), bounds, 5, 5);
-                        if (!mini) Label(dc, zoneIndex is null ? device.Name : device.Zones![zoneIndex.Value].Name, new(bounds.Left, bounds.Bottom + 5), 10, Brush("#A1A1AA"));
+                        // Frames only while arranging or for the selected part; always-on boxes buried the fans.
+                        bool selected = SelectedPlacement?.Device == device.Id && SelectedPlacement.Zone == zoneIndex;
+                        if (MapEditing || selected) dc.DrawRoundedRectangle(Brush("#25252D"), new Pen(selected ? Brush("#FF4D1A") : Brush("#44444D"), 1), bounds, 5, 5);
+                        // Short names a person uses; sticks side by side share one "RAM" label instead of overlapping.
+                        bool isRam = zoneIndex is null && device.Kind.Contains("RAM", StringComparison.OrdinalIgnoreCase);
+                        string? name = zoneIndex is { } zi ? CaseMap.PartName(device, zi)
+                            : isRam ? (ramLabels++ == 0 ? "RAM" : null)
+                            : device.Kind.Contains("GPU", StringComparison.OrdinalIgnoreCase) ? "Graphics card"
+                            : device.Kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase) ? "Board logo" : device.Name;
+                        if (!mini && name is not null) Label(dc, name, new(bounds.Left, bounds.Bottom + 4), 10, Brush("#A1A1AA"));
                     }
                 }
                 for (int glow = 3; glow > 0; glow--) dc.DrawEllipse(new SolidColorBrush(Color.FromArgb((byte)(15 + (3 - glow) * 7), c.R, c.G, c.B)), null, point, rx + glow * (mini ? 1.5 : 4), ry + glow * (mini ? 1.5 : 4));
@@ -174,8 +182,14 @@ public sealed class CaseMapPreview : FrameworkElement
                     var lampDevice = new RgbDeviceState(lampId, item.Name ?? "Lamp", "Lamp", true, true, 1);
                     lampColor = sensorLighting.Composite(lampDevice, lampState.Lighting.Bindings, lampState, time, [lampColor], scene.Brightness)[0];
                 }
-                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(lampColor.R, lampColor.G, lampColor.B)), new Pen(Brush("#E4E4E7"), 1.5), lp, 10, 10);
-                Label(dc, item.Name ?? "Lamp", new(lp.X > ActualWidth * 0.7 ? lp.X - 76 : lp.X + 14, lp.Y - 22), 10, Brush("#E4E4E7"));
+                var lampBrush = new SolidColorBrush(Color.FromRgb(lampColor.R, lampColor.G, lampColor.B));
+                dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(60, lampColor.R, lampColor.G, lampColor.B)), null, lp, 16, 16);
+                dc.DrawEllipse(lampBrush, new Pen(Brush("#E4E4E7"), 1.5), lp, 8, 8);
+                // The name sits in a small pill under the dot so it stays readable over LEDs.
+                var text = new FormattedText(CaseIllustration.LampName(model?.State, item, lampHits.Count - 1), CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 10, Brush("#E4E4E7"), VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                var pill = new Rect(Math.Clamp(lp.X - text.Width / 2 - 6, 4, w - text.Width - 16), lp.Y + 12, text.Width + 12, text.Height + 4);
+                dc.DrawRoundedRectangle(Brush("#E6141418"), new Pen(Brush("#34343D"), 1), pill, 8, 8);
+                dc.DrawText(text, new Point(pill.X + 6, pill.Y + 2));
             }
             var point = Pixel(CaseMap.LampPoint(map, devices));
             if (lamps is not { Count: > 0 }) dc.DrawEllipse(null, new Pen(Brush("#E4E4E7"), 1.5), point, 10, 10);

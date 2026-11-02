@@ -98,6 +98,19 @@ public sealed class OpenRgbClient(IConnectionFactory connections) : IRgbBackend
         }
         finally { gate.Release(); }
     }
+    /// <summary>Sets one zone's colours. OpenRGB then writes only that zone to the device, not every zone.</summary>
+    public async Task SetZoneColorsAsync(uint controller, int zone, IReadOnlyList<RgbColor> colors, CancellationToken cancellationToken = default)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            ValidateController(controller);
+            var zones = Controllers[(int)controller].Zones;
+            if (zone < 0 || zone >= zones.Count) throw new ArgumentOutOfRangeException(nameof(zone));
+            await SendAsync(controller, 1051, OpenRgbProtocol.UpdateZoneLeds(zone, colors), cancellationToken);
+        }
+        finally { gate.Release(); }
+    }
     /// <summary>
     /// Sets the LED count of a resizable zone (ARGB headers start at 0 LEDs in OpenRGB, so a strip stays dark
     /// until it is sized). RGBCONTROLLER_RESIZEZONE = 1000, payload int32 zone index + int32 new size.

@@ -28,6 +28,27 @@ public sealed class CaseIllustration : FrameworkElement
         Unloaded += (_, _) => { if (model is not null) model.PropertyChanged -= Changed; };
         Loaded += (_, _) => { if (model is not null) { model.PropertyChanged -= Changed; model.PropertyChanged += Changed; } };
     }
+    /// <summary>Which lamp orb, if any, is at this point (orbs sit at x 584 in the 640 × 400 drawing).</summary>
+    private LampState? LampAt(Point at)
+    {
+        double x = at.X * 640 / Math.Max(1, ActualWidth), y = at.Y * 400 / Math.Max(1, ActualHeight);
+        var lamps = model?.State?.Lamps ?? [];
+        for (int i = 0; i < lamps.Count && i < 2; i++)
+            if (Math.Abs(x - 584) < 40 && Math.Abs(y - (118 + i * 140)) < 44) return lamps[i];
+        return null;
+    }
+    protected override void OnMouseMove(System.Windows.Input.MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        var lamp = LampAt(e.GetPosition(this));
+        Cursor = lamp is { Connected: true } ? System.Windows.Input.Cursors.Hand : null;
+        ToolTip = lamp is null ? null : lamp.Connected ? $"Click to turn {(lamp.On ? "off" : "on")}" : "Lamp offline";
+    }
+    protected override void OnMouseLeftButtonUp(System.Windows.Input.MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonUp(e);
+        if (model is not null && LampAt(e.GetPosition(this)) is { Connected: true } lamp) { _ = model.ToggleLampAsync(lamp); e.Handled = true; }
+    }
     private void Changed(object? sender, PropertyChangedEventArgs e) => InvalidateVisual();
     private static Brush B(string value) => new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
     /// <summary>The name the user gave a lamp on the Devices page, falling back to "Lamp 1", "Lamp 2".</summary>
@@ -37,6 +58,40 @@ public sealed class CaseIllustration : FrameworkElement
         foreach (var candidate in new[] { named, lamp.Name })
             if (!string.IsNullOrWhiteSpace(candidate) && !candidate.Contains('.')) return candidate;
         return "Lamp " + (index + 1);
+    }
+
+    /// <summary>
+    /// What a device's LEDs show right now, as the service renders them: the effect, painted layers, sensor bindings,
+    /// and parts switched off under "Applies to" left dark. <paramref name="overlay"/> stands in for an unsaved paint draft.
+    /// </summary>
+    public static RgbColor[] LiveColors(LightingViewModel model, StateMessage state, RgbDeviceState device, IReadOnlyList<RgbDeviceState> devices,
+        double time, SensorLighting sensorLighting, IReadOnlyList<string>? overlay = null)
+    {
+        var scene = new Scene("Preview", state.Lighting.Effect, Palettes.Parse(state.Lighting.Color), state.Lighting.Speed, state.Lighting.Brightness);
+        var positions = CaseMap.Positions(device, CaseMap.Placement(model.Map, device, devices), model.Map);
+        var input = state.Lighting.Inputs;
+        var frame = new ReactiveFrame(state.System.CpuLoad ?? 0, state.System.GpuLoad ?? 0,
+                state.System.RamTotalGb > 0 ? (state.System.RamUsedGb ?? 0) / state.System.RamTotalGb.Value : 0,
+                state.System.CpuTemp ?? double.NaN, state.System.GpuTemp ?? double.NaN, input?.AudioBands ?? [], input?.Beat ?? 0,
+                input is null ? RgbColor.Black : Palettes.Parse(input.ScreenLeft), input is null ? RgbColor.Black : Palettes.Parse(input.ScreenCentre), input is null ? RgbColor.Black : Palettes.Parse(input.ScreenRight));
+        // Parts with their own look render as the service renders them (see ServiceRuntime.RenderDevice).
+        var looks = state.Lighting.PartLooks;
+        RgbColor[] Look(PartLook look) => SpatialEffects.Render(new("Part", look.Effect, Palettes.Parse(look.Color), look.Speed, look.Brightness),
+            (state.Lighting.Effect == look.Effect ? model.Parameters : new EffectParameters { Palette = Palettes.ForEffect(look.Effect) }) with { Devices = null },
+            time, positions, device.Id, device.Kind, frame);
+        var colors = looks?.GetValueOrDefault(device.Id) is { } own ? Look(own) : SpatialEffects.Render(scene, model.Parameters, time, positions, device.Id, device.Kind, frame);
+        for (int z = 0; z < (device.Zones?.Count ?? 0) && looks is not null; z++)
+            if (looks.GetValueOrDefault(SensorSources.ZoneTarget(device.Id, z)) is { } zoneLook)
+            {
+                var part = Look(zoneLook); var zone = device.Zones![z];
+                for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount && i < colors.Length; i++) colors[i] = part[i];
+            }
+        colors = LedLayers.Composite(colors, device.CustomColors, overlay ?? device.OverlayColors, device.CustomEnabled).ToArray();
+        colors = sensorLighting.Composite(device, state.Lighting.Bindings, state, time, colors, scene.Brightness).ToArray();
+        for (int z = 0; z < (device.Zones?.Count ?? 0); z++)
+            if (model.Parameters.Devices?.GetValueOrDefault(SensorSources.ZoneTarget(device.Id, z), true) == false)
+                for (int i = device.Zones![z].FirstLed; i < device.Zones[z].FirstLed + device.Zones[z].LedCount && i < colors.Length; i++) colors[i] = RgbColor.Black;
+        return colors;
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -65,12 +120,13 @@ public sealed class CaseIllustration : FrameworkElement
         Label(board is null ? "MOTHERBOARD" : Short(board.Name), 56, 118, 10);
         if (board is not null)
         {
-            dc.PushTransform(new TranslateTransform(318, 116));
-            dc.DrawGeometry(Colour(board, 0), null, Geometry.Parse("M0,0 L26,-8 16,16Z")); dc.Pop();
+            // The board's own lit logo, on its left-hand side beside the CPU block, as on the real board.
+            dc.PushTransform(new TranslateTransform(56, 182));
+            dc.DrawGeometry(Colour(board, 0), null, Geometry.Parse("M0,0 L34,-10 21,21Z")); dc.Pop();
         }
         // Pump fan ring on the CPU block.
-        FanRing(new Point(126, 190), 34, pump, 16);
-        Label(pump is { } p1 ? $"PUMP FAN · HEADER {p1.Header}" : "PUMP FAN", 78, 240, 10);
+        FanRing(new Point(146, 190), 34, pump, 16);
+        Label(pump is { } p1 ? $"PUMP FAN · HEADER {p1.Header}" : "PUMP FAN", 98, 240, 10);
         // Radiator fans across the top of the case.
         for (int i = 0; i < 3; i++)
             FanRing(new Point(100 + i * 80, 60), 28, Radiator(i), 14);
@@ -79,13 +135,13 @@ public sealed class CaseIllustration : FrameworkElement
         // RAM sticks.
         for (int i = 0; i < 2; i++)
         {
-            var stick = new Rect(222 + i * 30, 128, 18, 128);
+            var stick = new Rect(246 + i * 30, 128, 18, 128);
             dc.DrawRoundedRectangle(B("#17181D"), new Pen(B("#24262D"), 1), stick, 5, 5);
             if (i < ram.Length)
                 for (int j = 0; j < ram[i].LedCount && j < 10; j++)
                     dc.DrawRoundedRectangle(Colour(ram[i], j), null, new Rect(stick.X + 4, stick.Y + 5 + j * 12, 10, 9), 3, 3);
         }
-        Label("RAM", 237, 262, 10);
+        Label("RAM", 261, 262, 10);
         // Graphics card.
         dc.DrawRoundedRectangle(B("#15161B"), new Pen(B("#24262D"), 1), new Rect(40, 290, 318, 48), 12, 12);
         if (gpu is not null)
@@ -160,16 +216,7 @@ public sealed class CaseIllustration : FrameworkElement
             if (model?.State is not { } state || !device.Connected || device.LedCount == 0 || !device.Synced && !device.CustomEnabled) return B("#252731");
             if (rendered.TryGetValue(device.Id, out var cached))
             { var known = cached[Math.Clamp(index, 0, cached.Length - 1)]; return new SolidColorBrush(Color.FromRgb(known.R, known.G, known.B)); }
-            var scene = new Scene("Preview", state.Lighting.Effect, Palettes.Parse(state.Lighting.Color), state.Lighting.Speed, state.Lighting.Brightness);
-            var positions = CaseMap.Positions(device, CaseMap.Placement(model.Map, device, devices), model.Map);
-            var input = state.Lighting.Inputs;
-            var colors = SpatialEffects.Render(scene, model.Parameters, time, positions, device.Id, device.Kind,
-                new ReactiveFrame(state.System.CpuLoad ?? 0, state.System.GpuLoad ?? 0,
-                    state.System.RamTotalGb > 0 ? (state.System.RamUsedGb ?? 0) / state.System.RamTotalGb.Value : 0,
-                    state.System.CpuTemp ?? double.NaN, state.System.GpuTemp ?? double.NaN, input?.AudioBands ?? [], input?.Beat ?? 0,
-                    input is null ? RgbColor.Black : Palettes.Parse(input.ScreenLeft), input is null ? RgbColor.Black : Palettes.Parse(input.ScreenCentre), input is null ? RgbColor.Black : Palettes.Parse(input.ScreenRight)));
-            colors = LedLayers.Composite(colors, device.CustomColors, device.OverlayColors, device.CustomEnabled).ToArray();
-            colors = sensorLighting.Composite(device, state.Lighting.Bindings, state, time, colors, scene.Brightness).ToArray();
+            var colors = LiveColors(model, state, device, devices, time, sensorLighting);
             if (colors.Length == 0) return B("#252731");
             rendered[device.Id] = colors;
             var c = colors[Math.Clamp(index, 0, colors.Length - 1)]; return new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B));

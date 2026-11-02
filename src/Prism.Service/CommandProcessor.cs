@@ -326,13 +326,30 @@ public sealed partial class CommandProcessor
                     if (parameters is not null) lighting = lighting with { Parameters = parameters with { Devices = null } };
                     next = Settings with { Lighting = lighting, Lamps = lamps,
                         SyncedDevices = runtime.GetState(Settings).Lighting.Devices.ToDictionary(d => d.Id, _ => true),
-                        LedLayers = reset ? new() : Settings.LedLayers, Bindings = reset ? new() : Settings.Bindings };
+                        LedLayers = reset ? new() : Settings.LedLayers, Bindings = reset ? new() : Settings.Bindings, PartLooks = reset ? new() : Settings.PartLooks };
                     break;
                 }
                 case Commands.SetLighting:
                     next = Settings with { Lighting = new(EnumValue<LightingEffect>(a, "effect"), Text(a, "color"),
                         a.TryGetProperty("brightness", out var lightBrightness) ? lightBrightness.GetDouble() : Settings.Lighting.Brightness,
                         a.TryGetProperty("speed", out var lightSpeed) ? lightSpeed.GetDouble() : Settings.Lighting.Speed, Settings.Lighting.Parameters) }; break;
+                case Commands.SetPartLook:
+                {
+                    var part = Text(a, "part");
+                    if (string.IsNullOrWhiteSpace(part) || part.Length > 256) throw new ArgumentException("Invalid part.");
+                    var looks = new Dictionary<string, PartLook>(Settings.PartLooks);
+                    if (a.TryGetProperty("clear", out var clear) && clear.GetBoolean()) looks.Remove(part);
+                    else
+                    {
+                        // A new part look starts from the whole-case look, so the first change is the only thing that differs.
+                        var from = looks.GetValueOrDefault(part) ?? new(Settings.Lighting.Effect, Settings.Lighting.Color, Settings.Lighting.Brightness, Settings.Lighting.Speed);
+                        looks[part] = new(a.TryGetProperty("effect", out _) ? EnumValue<LightingEffect>(a, "effect") : from.Effect,
+                            a.TryGetProperty("color", out _) ? Text(a, "color") : from.Color,
+                            a.TryGetProperty("brightness", out var pb) ? pb.GetDouble() : from.Brightness,
+                            a.TryGetProperty("speed", out var ps) ? ps.GetDouble() : from.Speed);
+                    }
+                    next = Settings with { PartLooks = looks }; break;
+                }
                 case Commands.SetDeviceSync:
                     var sync = new Dictionary<string, bool>(Settings.SyncedDevices) { [Text(a, "device")] = a.GetProperty("enabled").GetBoolean() };
                     next = Settings with { SyncedDevices = sync }; break;

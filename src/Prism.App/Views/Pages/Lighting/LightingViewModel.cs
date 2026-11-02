@@ -57,9 +57,26 @@ public sealed class LightingViewModel : PageViewModel
         new { effect = Effect.ToString(), color = ColorHex, brightness = Brightness, speed = Speed, resetOverrides });
 
     public EffectParameters Parameters { get; private set; } = new();
+
+    /// <summary>
+    /// The part the Per device view has selected ("device" or "device/zone/N"), or null for the whole case. While set,
+    /// effect, colour, brightness and speed show and change that part's own look, not the case's.
+    /// </summary>
+    public string? PartTarget
+    {
+        get => _partTarget;
+        set { if (_partTarget == value) return; _partTarget = value; OnPropertyChanged(); Refresh(); }
+    }
+    private string? _partTarget;
+    public PartLook? PartLookOf(string key) => State?.Lighting.PartLooks?.GetValueOrDefault(key);
+    public Task SetPartLookAsync(string part, bool clear = false) => clear
+        ? RunAsync(() => Client.SendAsync(Commands.SetPartLook, new { part, clear = true }))
+        : RunAsync(() => Client.SendAsync(Commands.SetPartLook, new { part, effect = Effect.ToString(), color = ColorHex, brightness = Brightness, speed = Speed }));
     public LightingMap Map { get; private set; } = new([]);
     public EventEffectOptions Events { get; private set; } = new();
     public string SceneName { get; set; } = "Gaming";
+    /// <summary>Switches one lamp on or off, as clicking its orb in the case picture does.</summary>
+    public Task ToggleLampAsync(LampState lamp) => RunAsync(() => Client.SendAsync(Commands.SetLamp, new { lamp = lamp.Id, on = !lamp.On }));
     public async Task SaveSceneAsync()
     {
         await RunAsync(() => Client.SendAsync(Commands.SaveLightingScene, new { name = SceneName }));
@@ -162,19 +179,21 @@ public sealed class LightingViewModel : PageViewModel
         Parameters = lighting.Parameters ?? new() { Palette = Palettes.ForEffect(lighting.Effect) };
         Map = lighting.Map ?? new([]);
         Events = lighting.Events ?? new();
-        Effect = lighting.Effect;
-        ColorHex = lighting.Color;
-        Brightness = lighting.Brightness;
-        Speed = lighting.Speed;
-        BrightnessPercent = Math.Clamp(lighting.Brightness * 100, 0, 100);
-        SpeedPercent = Math.Clamp(lighting.Speed / 2 * 100, 0, 100);
+        // A selected part with its own look shows that look; otherwise the case's, which its first change copies.
+        var own = PartTarget is { } target ? lighting.PartLooks?.GetValueOrDefault(target) : null;
+        Effect = own?.Effect ?? lighting.Effect;
+        ColorHex = own?.Color ?? lighting.Color;
+        Brightness = own?.Brightness ?? lighting.Brightness;
+        Speed = own?.Speed ?? lighting.Speed;
+        BrightnessPercent = Math.Clamp(Brightness * 100, 0, 100);
+        SpeedPercent = Math.Clamp(Speed / 2 * 100, 0, 100);
         _suppress = false;
 
         Temperature = state.System.CpuTemp ?? 45;
         _follow = state.Lamp?.Follow ?? "pc";
 
         foreach (var effect in Effects)
-            effect.IsSelected = effect.Effect == lighting.Effect;
+            effect.IsSelected = effect.Effect == Effect;
 
         Devices.Clear();
         foreach (var device in lighting.Devices)
@@ -211,7 +230,8 @@ public sealed class LightingViewModel : PageViewModel
         OnPropertyChanged(nameof(EffectName));
         OnPropertyChanged(nameof(EffectSubtitle));
         await PushLightingAsync();
-        if (Parameters.Stops is null) await SetParametersAsync(Parameters with { Palette = Palettes.ForEffect(Effect) });
+        // A part's effect uses its own default palette in the service, so the case's tuning is left alone.
+        if (PartTarget is null && Parameters.Stops is null) await SetParametersAsync(Parameters with { Palette = Palettes.ForEffect(Effect) });
     }
 
     /// <summary>Sets effect, colour and palette in one go and sends a single update, so a preset never flashes through in-between states.</summary>
@@ -221,7 +241,7 @@ public sealed class LightingViewModel : PageViewModel
         foreach (var option in Effects) option.IsSelected = option.Effect == effect;
         OnPropertyChanged(nameof(ColorEntry)); OnPropertyChanged(nameof(EffectName)); OnPropertyChanged(nameof(EffectSubtitle));
         await PushLightingAsync();
-        if (palette is not null && palette != Parameters.Palette) await SetParametersAsync(Parameters with { Palette = palette, Stops = null });
+        if (PartTarget is null && palette is not null && palette != Parameters.Palette) await SetParametersAsync(Parameters with { Palette = palette, Stops = null });
     }
 
     private async Task SelectColorAsync(string hex)
@@ -233,7 +253,9 @@ public sealed class LightingViewModel : PageViewModel
 
     private async Task PushLightingAsync()
     {
-        await RunLatestAsync("lighting", Commands.SetLighting, new { effect = Effect.ToString(), color = ColorHex, brightness = Brightness, speed = Speed });
+        if (PartTarget is { } part)
+            await RunLatestAsync("lighting:part:" + part, Commands.SetPartLook, new { part, effect = Effect.ToString(), color = ColorHex, brightness = Brightness, speed = Speed });
+        else await RunLatestAsync("lighting", Commands.SetLighting, new { effect = Effect.ToString(), color = ColorHex, brightness = Brightness, speed = Speed });
     }
 
     private async Task SetDeviceAsync(DeviceOption? option)

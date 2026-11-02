@@ -34,18 +34,44 @@ public static class CaseMap
 {
     public static LightingMap Default(IReadOnlyList<RgbDeviceState> devices)
     {
+        // Matches the case picture: RAM beside the CPU, the graphics card under the board, the board's logo on its right.
         int ram = 0, other = 0;
         var placements = devices.Select(d => d.Kind.Contains("RAM", StringComparison.OrdinalIgnoreCase)
-            ? new DevicePlacement(d.Id, 0.58 + 0.10 * (ram++ % 3), 0.35, 0.42, 90)
+            ? new DevicePlacement(d.Id, 0.426 + 0.06 * (ram++ % 4), 0.478, 0.35, 90)
             : d.Kind.Contains("GPU", StringComparison.OrdinalIgnoreCase) || d.Name.Contains("GPU", StringComparison.OrdinalIgnoreCase)
-                ? new DevicePlacement(d.Id, 0.43, 0.70, 0.48, 0)
+                ? new DevicePlacement(d.Id, 0.36, 0.80, 0.56, 0)
                 : d.Kind.Contains("strip", StringComparison.OrdinalIgnoreCase) || d.Name.Contains("strip", StringComparison.OrdinalIgnoreCase)
                     ? new DevicePlacement(d.Id, 0.5, 0.12, 0.66, 0)
-                    : new DevicePlacement(d.Id, 0.25 + 0.05 * (other++ % 4), 0.40, 0.4, 90)).ToList();
+                    : new DevicePlacement(d.Id, 0.62 - 0.05 * (other++ % 4), 0.47, 0.05, 90)).ToList();
         foreach (var device in devices)
             for (int z = 0; z < (device.Zones?.Count ?? 0); z++)
                 if (device.Zones![z].MaxLeds > device.Zones[z].MinLeds) placements.Add(HeaderDefault(device, z));
         return new(placements);
+    }
+    /// <summary>
+    /// Saved placements that are only the first layout's defaults (RAM at the far right, the board in the middle, the GPU
+    /// above its slot) were never placed by anyone, so they follow the current defaults instead.
+    /// </summary>
+    private static bool IsLegacyDevicePlacement(DevicePlacement p)
+    {
+        static bool Near(double a, double b) => Math.Abs(a - b) < 1e-6;
+        if (p.Zone is not null || p.Flip || p.Rings != 0) return false;
+        return Near(p.Y, 0.35) && Near(p.Length, 0.42) && Near(p.Rotation, 90) && (Near(p.X, 0.58) || Near(p.X, 0.68) || Near(p.X, 0.78))
+            || Near(p.X, 0.43) && Near(p.Y, 0.70) && Near(p.Length, 0.48) && Near(p.Rotation, 0)
+            || Near(p.Y, 0.40) && Near(p.Length, 0.4) && Near(p.Rotation, 90) && (Near(p.X, 0.25) || Near(p.X, 0.30) || Near(p.X, 0.35) || Near(p.X, 0.40));
+    }
+    /// <summary>The map with every never-placed entry swapped for today's default, as the editor should show and drag it.</summary>
+    public static LightingMap Normalize(LightingMap map, IReadOnlyList<RgbDeviceState> devices)
+    {
+        var defaults = Default(devices).Devices;
+        DevicePlacement Fix(DevicePlacement p)
+        {
+            if (!IsLegacyDevicePlacement(p) && !IsLegacyHeaderLine(p)) return p;
+            return defaults.FirstOrDefault(d => d.Device == p.Device && d.Zone == p.Zone) ?? p;
+        }
+        var saved = map.Devices.Select(Fix).ToList();
+        saved.AddRange(defaults.Where(d => !saved.Any(s => s.Device == d.Device && s.Zone == d.Zone)));
+        return map with { Devices = saved };
     }
     /// <summary>The line every header shared before headers had their own places; a saved one is treated as never placed.</summary>
     private static bool IsLegacyHeaderLine(DevicePlacement p) => p is { X: 0.5, Y: 0.12, Length: 0.66, Rotation: 0, Flip: false, Rings: 0 };
@@ -68,8 +94,23 @@ public static class CaseMap
             _ => new(device.Id, 0.5, 0.06, 0.66, 0, Zone: zone)
         };
     }
+    /// <summary>What a person calls a part of a device: the board's own LEDs, or what its ARGB headers drive here.</summary>
+    public static string PartName(RgbDeviceState device, int zone)
+    {
+        var zones = device.Zones ?? [];
+        if (zone < 0 || zone >= zones.Count) return device.Name;
+        if (zones[zone].MaxLeds <= zones[zone].MinLeds) return device.Kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase) ? "Board logo" : zones[zone].Name;
+        var used = zones.Select((z, i) => (Zone: z, Index: i)).Where(z => z.Zone.MaxLeds > z.Zone.MinLeds && z.Zone.LedCount > 0).Select(z => z.Index).ToList();
+        return used.IndexOf(zone) switch
+        {
+            0 => zones[zone].LedCount > 12 ? "Pump & radiator" : "Pump fan",
+            1 => "Case fans",
+            _ => $"ARGB header {zone}"
+        };
+    }
     public static DevicePlacement Placement(LightingMap? map, RgbDeviceState device, IReadOnlyList<RgbDeviceState> all) =>
-        map?.Devices.FirstOrDefault(d => d.Device == device.Id && d.Zone is null) ?? Default(all).Devices.First(d => d.Device == device.Id && d.Zone is null);
+        map?.Devices.FirstOrDefault(d => d.Device == device.Id && d.Zone is null) is { } saved && !IsLegacyDevicePlacement(saved)
+            ? saved : Default(all).Devices.First(d => d.Device == device.Id && d.Zone is null);
     public static MapPoint[] Positions(RgbDeviceState device, DevicePlacement placement, LightingMap? map = null)
     {
         var result = new MapPoint[device.LedCount];
@@ -116,21 +157,13 @@ public static class CaseMap
     public static MapPoint LampPoint(LightingMap? map, IReadOnlyList<RgbDeviceState> devices, string id, int index)
     {
         if (map?.Lamps?.GetValueOrDefault(id) is { } point) return point;
-        return index == 0 ? LampPoint(map, devices) : new(0.82, Math.Min(0.9, 0.65 + (index - 1) * 0.12));
+        // Further lamps start in the free top-right corner, under the first, clear of the fans, until someone drags them.
+        return index == 0 ? LampPoint(map, devices) : new(0.64, Math.Min(0.22, 0.07 + index * 0.13));
     }
     public static MapPoint LampPoint(LightingMap? map, IReadOnlyList<RgbDeviceState> devices)
     {
-        if (map?.Lamp is { } point) return point;
-        var strip = devices.FirstOrDefault(d => d.Zones?.Any(z => z.MaxLeds > z.MinLeds) == true || d.Kind.Contains("strip", StringComparison.OrdinalIgnoreCase));
-        if (strip?.Zones?.Any(z => z.MaxLeds > z.MinLeds) == true)
-        {
-            int index = strip.Zones.ToList().FindIndex(z => z.MaxLeds > z.MinLeds);
-            var p = map?.Devices.FirstOrDefault(d => d.Device == strip.Id && d.Zone == index);
-            if (p is null || IsLegacyHeaderLine(p)) p = HeaderDefault(strip, index);
-            return new(p.X, p.Y);
-        }
-        if (strip is not null) { var p = Placement(map, strip, devices); return new(p.X, p.Y); }
-        return new(0.5, 0.12);
+        // A lamp nobody placed starts in the free top-right corner of the case, between the radiator and the case fans.
+        return map?.Lamp ?? new(0.64, 0.07);
     }
 }
 
@@ -213,7 +246,9 @@ public static class SpatialEffects
                 case LightingEffect.Heartbeat:
                     double rate = p.HeartbeatCpu ? 0.8 + Clamp(input.CpuLoad / 100) * 1.6 : 1;
                     double phase = Frac(t * rate);
-                    c = Scale(scene.Color, Math.Exp(-Math.Pow((phase - 0.12) / 0.045, 2)) + 0.65 * Math.Exp(-Math.Pow((phase - 0.32) / 0.065, 2))); break;
+                    // Below a few percent the scaled colour loses its hue (an orange becomes a dull red), so the tail snaps to black.
+                    double beat = Math.Exp(-Math.Pow((phase - 0.12) / 0.045, 2)) + 0.65 * Math.Exp(-Math.Pow((phase - 0.32) / 0.065, 2));
+                    c = beat < 0.04 ? RgbColor.Black : Scale(scene.Color, beat); break;
                 case LightingEffect.Candle: c = Scale(Palette(0.55 + 0.25 * Noise(0, t * 2)), 0.7 + 0.3 * Noise(4, t * 5)); break;
                 case LightingEffect.Sparkle: case LightingEffect.StarryNight:
                     double star = Math.Pow(Math.Max(0, Math.Sin(t * 1.7 + Hash(pos.X * 97, pos.Y * 101) * 15)), 16);

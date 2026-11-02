@@ -85,6 +85,8 @@ public sealed class EffectTile : FrameworkElement
         try { colors = SpatialEffects.Render(scene, parameters, time, Positions, "tile", "Strip", frame); }
         catch (ArgumentException) { colors = new RgbColor[Positions.Length]; }
         dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(13, 14, 18)), null, new Rect(0, 0, ActualWidth, ActualHeight), 9, 9);
+        // A tile squeezed below its gutters (window resized very small) would make negative LED rects and throw.
+        if (ActualWidth < 16 || ActualHeight < 14) return;
         double cell = (ActualWidth - 12) / Columns, rowHeight = (ActualHeight - 10) / Rows;
         for (int i = 0; i < colors.Length; i++)
         {

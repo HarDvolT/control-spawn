@@ -48,7 +48,7 @@ public sealed class SpatialEffectTests
         Assert.InRange(horizontal[0].X, 0.1999, 0.2001);
         var strip = device with { Id = "strip", Kind = "strip" };
         LightingMap map = new([new("strip", 0.3, 0.2, 0.4, 0)]);
-        Assert.Equal(new(0.3, 0.2), CaseMap.LampPoint(map, [strip]));
+        Assert.Equal(new(0.64, 0.07), CaseMap.LampPoint(map, [strip]));
         Assert.Equal(new(0.7, 0.8), CaseMap.LampPoint(map with { Lamp = new(0.7, 0.8) }, [strip]));
         var scene = new Scene("Flow", LightingEffect.GradientFlow, new(255, 0, 0));
         Assert.Equal(SpatialEffects.Render(scene, new(), 1, [forward[1]])[0], SpatialEffects.Render(scene, new(), 1, [flip[1]])[0]);
@@ -61,7 +61,7 @@ public sealed class SpatialEffectTests
         var map = new LightingMap([new("board", 0.3, 0.4), new("board", 0.6, 0.3, 0.4, 0, true, 1)]);
         var positions = CaseMap.Positions(board, map.Devices[0], map);
         Assert.InRange(positions[2].X, 0.7999, 0.8001); Assert.InRange(positions[4].X, 0.3999, 0.4001);
-        Assert.Equal(new(0.6, 0.3), CaseMap.LampPoint(map, [board]));
+        Assert.Equal(new(0.64, 0.07), CaseMap.LampPoint(map, [board]));
         var matrix = board with { LedCount = 3, Zones = [new("Grid", "Matrix", 0, 3, 3, 3, MatrixWidth: 2, MatrixHeight: 2, Matrix: [0, -1, 1, 2])] };
         positions = CaseMap.Positions(matrix, new("board", 0.5, 0.5, 0.4, 0));
         Assert.Equal(3, positions.Length); Assert.Equal(positions[0].X, positions[1].X); Assert.True(positions[2].X > positions[1].X);

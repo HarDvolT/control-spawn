@@ -47,6 +47,7 @@ public sealed partial class MockPrismClient : PrismClientBase
     private double _brightness = 0.8;
     private double _speed = 1;
     private readonly HashSet<string> _unsyncedDevices = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PartLook> _partLooks = new();
     private readonly Dictionary<string, IReadOnlyList<FanPoint>> _curves = new(StringComparer.OrdinalIgnoreCase);
     private string _curveSource = "Cpu";
 
@@ -171,7 +172,7 @@ public sealed partial class MockPrismClient : PrismClientBase
         };
 
         system = system with { Disks = system.Disks.Select(d => d with { ActivityPercent = 50 + 40 * Math.Sin(t) }).ToArray(), GpuMemoryJunction = 65 + 10 * Math.Sin(t * 0.3) };
-        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events, Bindings: new Dictionary<string, SensorBinding>(_bindings), IdentifyingZones: identifyUntil > now ? [new("board", 1, _stripSize, _stripSize == 0 ? 0 : (int)(now.TimeOfDay.TotalSeconds * 6) % _stripSize + 1)] : []);
+        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events, Bindings: new Dictionary<string, SensorBinding>(_bindings), PartLooks: new Dictionary<string, PartLook>(_partLooks), IdentifyingZones: identifyUntil > now ? [new("board", 1, _stripSize, _stripSize == 0 ? 0 : (int)(now.TimeOfDay.TotalSeconds * 6) % _stripSize + 1)] : []);
         var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "miio", "lamp:470875761", firstLampName, 470875761, "192.0.2.1");
 
         var rsrp5 = Math.Round(-97 + Math.Sin(t * 0.11) * 3);
@@ -393,6 +394,21 @@ public sealed partial class MockPrismClient : PrismClientBase
                     if (TryNumber(element, "speed", out var speed)) _speed = Math.Clamp(speed, 0, 2);
                     publish = BuildState();
                     response = new Response(0, true);
+                    break;
+                case Commands.SetPartLook:
+                    if (TryString(element, "part", out var part))
+                    {
+                        if (TryBool(element, "clear", out var clear) && clear) _partLooks.Remove(part);
+                        else
+                        {
+                            var from = _partLooks.GetValueOrDefault(part) ?? new(_effect, _lightColor, _brightness, _speed);
+                            _partLooks[part] = new(TryString(element, "effect", out var pe) && Enum.TryParse<LightingEffect>(pe, true, out var partEffect) ? partEffect : from.Effect,
+                                TryString(element, "color", out var pc) ? pc : from.Color, TryNumber(element, "brightness", out var pb) ? Math.Clamp(pb, 0, 1) : from.Brightness,
+                                TryNumber(element, "speed", out var ps) ? Math.Clamp(ps, 0, 2) : from.Speed);
+                        }
+                        publish = BuildState(); response = new(0, true);
+                    }
+                    else response = new(0, false, "part is required");
                     break;
                 case Commands.SetDeviceSync:
                     if (TryString(element, "device", out var device) && TryBool(element, "enabled", out var enabled))

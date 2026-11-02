@@ -41,6 +41,7 @@ public static class Commands
     public const string SetFanCurve = "setFanCurve";     // args: { "group": "...", "points": [[t,%] x8], "source": "Cpu|Motherboard|Gpu|Maximum" }
     public const string SetSensorBinding = "setSensorBinding";
     public const string SetLighting = "setLighting";     // args: { "effect": "Static|...", "color": "#RRGGBB", "brightness": 0..1, "speed": 0..2 }
+    public const string SetPartLook = "setPartLook";     // args: { "part": "<device id or device/zone/N>", "effect"?, "color"?, "brightness"?, "speed"? } or { "part", "clear": true }
     public const string SetDeviceSync = "setDeviceSync"; // args: { "device": "<id>", "enabled": true }
     public const string SetLamp = "setLamp";             // args: { "lamp"?: id (default first), "on"?: true, "brightness"?: 1..100, "follow"?: "pc|average|own|map", "color"?: "#RRGGBB", "name"?: string }
     public const string ApplyScene = "applyScene";       // args: { "name": "Gaming" }
@@ -128,7 +129,10 @@ public sealed record FanState(int Header, string Name, double? Rpm, double? Perc
 public sealed record FanControlState(IReadOnlyList<FanPoint> Points, TemperatureSource Source, double Minimum,
     double Hysteresis, double SpinUpPerSecond, double SpinDownPerSecond);
 public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices,
-    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null, IReadOnlyList<ZoneIdentification>? IdentifyingZones = null);
+    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null, IReadOnlyList<ZoneIdentification>? IdentifyingZones = null,
+    IReadOnlyDictionary<string, PartLook>? PartLooks = null);
+/// <summary>A part (a device, or one zone such as an ARGB header) running its own effect instead of the whole-case look.</summary>
+public sealed record PartLook(LightingEffect Effect, string Color, double Brightness, double Speed);
 public sealed record ZoneIdentification(string Device, int Zone, int Size, int LedIndex);
 public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Connected, bool Synced, int LedCount,
     IReadOnlyList<RgbZoneState>? Zones = null,

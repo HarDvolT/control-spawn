@@ -169,7 +169,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 ThrottlingEvents = thermalObservedSince is null ? null : thermalEpisodes, ThrottlingObservedSince = thermalObservedSince } };
             var frame = FrameInputs();
             static string Hex(RgbColor? color) { var c = color ?? RgbColor.Black; return $"#{c.R:X2}{c.G:X2}{c.B:X2}"; }
-            return DeviceNames.Apply(state with { Appliances = appliances.States, Lighting = state.Lighting with { IdentifyingZones = identification.Where(p => clock.Elapsed < p.Value.Until).Select(p => new ZoneIdentification(p.Key, p.Value.Zone, p.Value.Size, p.Value.Size == 0 ? 0 : (int)(clock.Elapsed.TotalSeconds * 6) % p.Value.Size + 1)).ToArray(), BindingReadings = sensorLighting.Readings(value.Bindings), Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
+            return DeviceNames.Apply(state with { Appliances = appliances.States, Lighting = state.Lighting with { PartLooks = value.PartLooks, IdentifyingZones = identification.Where(p => clock.Elapsed < p.Value.Until).Select(p => new ZoneIdentification(p.Key, p.Value.Zone, p.Value.Size, p.Value.Size == 0 ? 0 : (int)(clock.Elapsed.TotalSeconds * 6) % p.Value.Size + 1)).ToArray(), BindingReadings = sensorLighting.Readings(value.Bindings), Inputs = new(frame.Audio?.ToArray() ?? [], frame.Beat,
                 Hex(frame.ScreenLeft), Hex(frame.ScreenCentre), Hex(frame.ScreenRight)) } }, value.Devices, value.Discovery);
         }
     }
@@ -346,16 +346,33 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     continue;
                 }
                 RgbDeviceState[] current; lock (stateGate) current = devices;
-                foreach (var device in current.Where(d => identification.TryGetValue(d.Id, out var identifying) && clock.Elapsed < identifying.Until || (failsafe && value.Events.FanFailsafe) || value.Bindings.Keys.Any(k => k == d.Id || k.StartsWith(d.Id + "/zone/", StringComparison.Ordinal)) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb) && value.Lighting.Parameters?.Devices?.GetValueOrDefault(d.Id, true) != false))
+                foreach (var device in current.Where(d => identification.TryGetValue(d.Id, out var identifying) && clock.Elapsed < identifying.Until || (failsafe && value.Events.FanFailsafe) || value.Bindings.Keys.Any(k => k == d.Id || k.StartsWith(d.Id + "/zone/", StringComparison.Ordinal)) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb)))
                 {
+                    // A device switched off under "Applies to" still gets frames: Render sends it black. Skipping it left the
+                    // LEDs frozen on whatever they showed last.
                     if (!mock && !directModes.Contains(device.Id))
                     { using var directTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); directTimeout.CancelAfter(TimeSpan.FromSeconds(2)); await ((OpenRgbClient)rgb).SetDirectModeAsync(rgbIndices[device.Id], directTimeout.Token); directModes.Add(device.Id); }
                     var now = clock.Elapsed;
-                    var colors = RenderDevice(value, device, current, now.TotalSeconds);
+                    var colors = RenderDevice(value, device, current, DeviceFramePacer.FrameTime(device.Kind, now.TotalSeconds));
                     if (!pacer.ShouldSend(device.Id, device.Kind, colors, now)) continue;
                     // GPU and RAM lighting share a bus with sensor reads: wait for our turn. Retried next tick.
                     if (!mock && BusTurns.ForDeviceKind(device.Kind) is { } bus && !bus.TryBeginWrite()) continue;
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
+                    // The GPU's chip writes every zone on a full update, and each write can flash; send only the zones that changed.
+                    if (!mock && device.Kind == "GPU" && rgb is OpenRgbClient zoned && pacer.Last(device.Id) is { Length: > 0 } last && last.Length == colors.Count && device.Zones is { Count: > 1 } gpuZones
+                        && Enumerable.Range(0, gpuZones.Count).Where(z => gpuZones[z].LedCount > 0 && DeviceFramePacer.ZoneChanged(last, colors, gpuZones[z].FirstLed, gpuZones[z].LedCount)).ToArray() is { Length: > 0 } changed)
+                    {
+                        // Unchanged zones keep their last colours in the record, so a slow drift still adds up to a change.
+                        var merged = last.ToArray();
+                        foreach (var z in changed)
+                        {
+                            var zone = gpuZones[z];
+                            await zoned.SetZoneColorsAsync(rgbIndices[device.Id], z, colors.Skip(zone.FirstLed).Take(zone.LedCount).ToArray(), timeout.Token);
+                            for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount; i++) merged[i] = colors[i];
+                        }
+                        pacer.Sent(device.Id, merged, now);
+                        continue;
+                    }
                     await rgb.SetColorsAsync(rgbIndices[device.Id], colors, timeout.Token);
                     pacer.Sent(device.Id, colors, now);
                 }
@@ -394,11 +411,50 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         }
         var layer = value.LedLayers.GetValueOrDefault(device.Id);
         var positions = CaseMap.Positions(device, CaseMap.Placement(value.Map, device, current), value.Map);
-        var rendered = SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, positions, device.Id, device.Kind, FrameInputs());
+        var inputs = FrameInputs();
+        var rendered = value.PartLooks.TryGetValue(device.Id, out var own)
+            ? SpatialEffects.Render(PartScene(own), PartParameters(own, value), time, positions, device.Id, device.Kind, inputs)
+            : SpatialEffects.Render(value.Lighting.ToScene(), value.Lighting.GetParameters(), time, positions, device.Id, device.Kind, inputs);
+        // A board header with its own look (say the case fans breathing blue under a rainbow) renders over its own LEDs.
+        for (int z = 0; z < (device.Zones?.Count ?? 0); z++)
+            if (value.PartLooks.TryGetValue(SensorSources.ZoneTarget(device.Id, z), out var zoneLook))
+            {
+                var zone = device.Zones![z];
+                var part = SpatialEffects.Render(PartScene(zoneLook), PartParameters(zoneLook, value), time, positions, device.Id, device.Kind, inputs);
+                for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount && i < rendered.Length; i++) rendered[i] = part[i];
+            }
         var colors = LedLayers.Composite(rendered, layer?.Custom, layer?.Overlay, layer?.CustomEnabled == true || value.Lighting.Effect == LightingEffect.Custom);
-        var sensorState = GetState(value);
-        colors = sensorLighting.Composite(device, value.Bindings, sensorState, time, colors, value.Lighting.Brightness);
-        return eventEffects.Composite(colors, positions, time, value.Events, SensorLighting.AlertLeds(device, value.Bindings, sensorState));
+        IReadOnlySet<int>? alerts = null;
+        // Sensor lighting needs the readings; assembling the full state for every device on every frame cost most of
+        // the service's CPU and made frames late, so it is only done for sensor-driven devices, once per tick.
+        if (value.Bindings.Keys.Any(k => k == device.Id || k.StartsWith(device.Id + "/zone/", StringComparison.Ordinal)))
+        {
+            var sensorState = SensorState(value);
+            colors = sensorLighting.Composite(device, value.Bindings, sensorState, time, colors, value.Lighting.Brightness);
+            alerts = SensorLighting.AlertLeds(device, value.Bindings, sensorState);
+        }
+        var result = eventEffects.Composite(colors, positions, time, value.Events, alerts);
+        // Parts switched off under "Applies to" (a board header such as the case fans) stay dark.
+        if (value.Lighting.Parameters?.Devices is { } chosen && device.Zones is { } parts)
+            for (int z = 0; z < parts.Count; z++)
+                if (chosen.GetValueOrDefault(SensorSources.ZoneTarget(device.Id, z), true) == false)
+                    for (int i = parts[z].FirstLed; i < parts[z].FirstLed + parts[z].LedCount && i < result.Length; i++) result[i] = RgbColor.Black;
+        return result;
+    }
+    private static Scene PartScene(PartLook look) => new("Part", look.Effect, LightingConfiguration.ParseColor(look.Color), look.Speed, look.Brightness);
+    // A part keeps the case's tuning (palette, direction, size) but never its "Applies to" switches, which would blank it.
+    private static EffectParameters PartParameters(PartLook look, ServiceSettings value) =>
+        (value.Lighting.Effect == look.Effect ? value.Lighting.GetParameters() : new EffectParameters { Palette = Palettes.ForEffect(look.Effect) }) with { Devices = null };
+
+    // Read by the lighting and lamp loops at once, so it is swapped as one reference.
+    private sealed record CachedState(TimeSpan At, StateMessage State);
+    private CachedState? sensorStateCache;
+    private StateMessage SensorState(ServiceSettings value)
+    {
+        if (Volatile.Read(ref sensorStateCache) is { } cached && clock.Elapsed - cached.At < TimeSpan.FromMilliseconds(30)) return cached.State;
+        var state = GetState(value);
+        Volatile.Write(ref sensorStateCache, new CachedState(clock.Elapsed, state));
+        return state;
     }
 
     private async Task LampAsync(CancellationToken token)

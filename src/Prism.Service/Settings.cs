@@ -39,6 +39,8 @@ public sealed record ServiceSettings
     public EventEffectOptions Events { get; init; } = new();
     public Dictionary<string, bool> SyncedDevices { get; init; } = new();
     public Dictionary<string, LedConfiguration> LedLayers { get; init; } = new();
+    /// <summary>Parts with their own effect, keyed like "Applies to": a device id or "device/zone/N".</summary>
+    public Dictionary<string, PartLook> PartLooks { get; init; } = new();
     public Dictionary<string, Dictionary<int, int>> ZoneSizes { get; init; } = new();
     public LampConfiguration Lamp { get; init; } = new();
     public IReadOnlyList<LampConfiguration>? Lamps { get; init; }
@@ -95,6 +97,8 @@ public sealed record ServiceSettings
         LightingValidation.Map(Map);
         if (Events is null) throw new ArgumentException("Missing event options.");
         ValidateLighting(Lighting); ValidateLamp(Lamp);
+        if (PartLooks is null || PartLooks.Any(p => string.IsNullOrWhiteSpace(p.Key) || p.Key.Length > 256 || p.Value is null)) throw new ArgumentException("Invalid part look.");
+        foreach (var look in PartLooks.Values) ValidateLighting(new(look.Effect, look.Color, look.Brightness, look.Speed));
         foreach (var item in ConfiguredLamps) ValidateLamp(item);
         if (ConfiguredLamps.Select(l => l.Id).Distinct().Count() != ConfiguredLamps.Count) throw new ArgumentException("Duplicate lamp id.");
         foreach (var scene in Scenes.Values)

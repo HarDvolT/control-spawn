@@ -93,6 +93,9 @@ internal static class Program
                 var reference = BitmapFrame.Create(new Uri(Path.GetFullPath($"docs/design-v2/V2{designName}.png")));
                 var height = args.FirstOrDefault(a => a.StartsWith("--height=")) is { } h && int.TryParse(h[9..], out var forced) ? forced : reference.PixelHeight;
                 previewShell.Measure(new Size(1440, height)); previewShell.Arrange(new Rect(0, 0, 1440, height)); previewShell.UpdateLayout();
+                // --mode=1 shows the Lighting page's Per device view, --mode=2 its Sensor view.
+                if (args.FirstOrDefault(a => a.StartsWith("--mode=")) is { } m && int.TryParse(m[7..], out var mode) && Find<LightingWorkspace>(previewShell) is { } workspace)
+                { workspace.Mode = mode; previewShell.UpdateLayout(); }
                 Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Render);
                 previewShell.InvalidateMeasure(); previewShell.UpdateLayout();
                 var bitmap = new RenderTargetBitmap(1440, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(previewShell);
@@ -288,6 +291,14 @@ internal static class Program
         submenu.Save(Path.Combine(output, "TraySubmenu.png"));
         Console.WriteLine("Verified linear curve geometry and six slider fill cases; rendered detached controls and menus.");
     }
+    private static T? Find<T>(DependencyObject root) where T : DependencyObject
+    {
+        if (root is T found) return found;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            if (Find<T>(VisualTreeHelper.GetChild(root, i)) is { } child) return child;
+        return null;
+    }
+
     private static void Render(FrameworkElement view, string path, double width)
     {
         FrameworkElement frame = view;
