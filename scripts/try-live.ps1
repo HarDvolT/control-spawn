@@ -14,7 +14,7 @@ $app = Join-Path $root 'src\Prism.App\bin\Release\net8.0-windows\Prism.App.exe'
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'
 foreach ($f in $service, $app) { if (-not (Test-Path $f)) { Write-Host "Missing $f - build Release first" -ForegroundColor Red; exit 1 } }
 "Live run $(Get-Date)" | Out-File $out -Encoding utf8
-function Log($m) { "$(Get-Date -Format HH:mm:ss)  $m" | Out-File $out -Append; Write-Host "$(Get-Date -Format HH:mm:ss)  $m" }
+function Log($m) { "$(Get-Date -Format HH:mm:ss)  $m" | Out-File $out -Append -Encoding utf8; Write-Host "$(Get-Date -Format HH:mm:ss)  $m" }
 
 Get-Process Prism.App, Prism.Service -ErrorAction SilentlyContinue | Stop-Process -Force
 $stopped = @()
@@ -47,12 +47,20 @@ try {
     if ([Console]::KeyAvailable -and [Console]::ReadKey($true).Key -eq 'Enter') { break }
     if ($svcProc.HasExited) { Log 'The Prism service stopped on its own - see prism-live.log in your temp folder'; break }
     $w.WriteLine("{""id"":$id,""command"":""getState""}"); $id++
-    do { $line = $r.ReadLine() } while ($line -and $line -notmatch '"type":"response"')
-    $now = if ($line -match '"automations":\{.*?"rule":(null|"([^"]*)").*?"scene":(null|"([^"]*)").*?"detail":(null|"([^"]*)")') {
-      if ($Matches[2]) { "Automation ON: $($Matches[4]) because $($Matches[6])" } else { 'No automation active (your own scene)' }
-    } else { 'Could not read automation state' }
+    # Timed reads, so a slow reply can never stop Enter from working; pushed state updates are skipped.
+    $line = $null
+    for ($i = 0; $i -lt 20 -and -not $line; $i++) {
+      $t = $r.ReadLineAsync(); if (-not $t.Wait(5000)) { break }
+      if ($t.Result -match '"type":"response"') { $line = $t.Result }
+    }
+    $auto = if ($line) { try { ($line | ConvertFrom-Json).data.automations } catch { $null } } else { $null }
+    # Empty fields are left out of the reply, so "no rule" shows up as a missing rule.
+    $now = if (-not $line) { 'No reply from the Prism service' }
+      elseif ($null -eq $auto) { 'Service did not report automations' }
+      elseif ($auto.rule) { "Automation ON: $($auto.scene) because $($auto.detail)" }
+      else { 'No automation active (your own scene)' }
     if ($now -ne $last) { Log $now; $last = $now }
-    Start-Sleep -Seconds 3
+    for ($s = 0; $s -lt 30 -and -not [Console]::KeyAvailable; $s++) { Start-Sleep -Milliseconds 100 }
   }
   $c.Dispose()
 } finally {
