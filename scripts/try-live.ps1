@@ -12,6 +12,11 @@ if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as admini
 $service = Join-Path $root 'src\Prism.Service\bin\Release\net8.0-windows\Prism.Service.exe'
 $app = Join-Path $root 'src\Prism.App\bin\Release\net8.0-windows\Prism.App.exe'
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'
+Get-Process Prism.App, Prism.Service -ErrorAction SilentlyContinue | Stop-Process -Force
+# Always run the latest code: build the service and app first.
+Write-Host 'Building the latest Prism...' -ForegroundColor Cyan
+dotnet build (Join-Path $root 'Prism.sln') -c Release -v q --nologo | Out-Null
+if ($LASTEXITCODE -ne 0) { Write-Host 'Build failed - run dotnet build to see why' -ForegroundColor Red; exit 1 }
 foreach ($f in $service, $app) { if (-not (Test-Path $f)) { Write-Host "Missing $f - build Release first" -ForegroundColor Red; exit 1 } }
 "Live run $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { "$(Get-Date -Format HH:mm:ss)  $m" | Out-File $out -Append -Encoding utf8; Write-Host "$(Get-Date -Format HH:mm:ss)  $m" }
