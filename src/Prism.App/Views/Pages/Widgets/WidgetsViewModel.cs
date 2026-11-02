@@ -62,6 +62,30 @@ public sealed class WidgetsViewModel : PageViewModel
     public RelayCommand ToggleEditCommand { get; }
 
     public IReadOnlyList<string> Sizes { get; } = ["Small", "Medium", "Large"];
+    public IReadOnlyList<string> Backgrounds { get; } = ["Glass", "Solid", "Clear"];
+
+    // "Look" applies to every widget at once; each widget's own right-click menu still overrides it.
+    public string AllSize
+    {
+        get => Widgets.FirstOrDefault()?.Size.ToString() ?? "Medium";
+        set { if (Enum.TryParse<WidgetSize>(value, out var size)) foreach (var w in Widgets) w.Size = size; OnPropertyChanged(); _host.Sync(); }
+    }
+    public string AllBackground
+    {
+        get => Widgets.FirstOrDefault()?.Background ?? "Glass";
+        set { if (value is null) return; foreach (var w in Widgets) w.Background = value; OnPropertyChanged(); }
+    }
+    public bool AllOnTop
+    {
+        get => Widgets.Count > 0 && Widgets.All(w => w.AlwaysOnTop);
+        set { foreach (var w in Widgets) w.AlwaysOnTop = value; OnPropertyChanged(); }
+    }
+    public bool AllClickThrough
+    {
+        get => Widgets.Count > 0 && Widgets.All(w => w.ClickThrough);
+        set { foreach (var w in Widgets) w.ClickThrough = value; OnPropertyChanged(); }
+    }
+    public RelayCommand LineUpCommand => new(() => { _host.LineUp(); StatusText = "Widgets lined up on the right of your main screen"; });
 
     public WidgetViewModel? Selected
     {

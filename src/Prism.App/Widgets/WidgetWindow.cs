@@ -12,10 +12,6 @@ public sealed class WidgetWindow : Window
     private readonly WidgetViewModel _vm;
     [DllImport("user32.dll", EntryPoint="GetWindowLongW")] private static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll", EntryPoint="SetWindowLongW")] private static extern int SetWindowLong(IntPtr hwnd, int index, int value);
-    [DllImport("user32.dll")] private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint key, byte alpha, uint flags);
-    [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-    [DllImport("dwmapi.dll")] private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref Margins margins);
-    private struct Margins { public int Left, Right, Top, Bottom; }
     public WidgetWindow(WidgetViewModel vm)
     {
         _vm = vm; DataContext = vm;
@@ -23,13 +19,14 @@ public sealed class WidgetWindow : Window
         Title = "Prism \u00b7 " + vm.Name;
         // No AllowsTransparency: that forces WPF to paint the whole window on the CPU on every change.
         // Windows draws the rounded corners and the blurred glass instead, on the graphics card.
-        WindowStyle = WindowStyle.None; ShowInTaskbar = false;
+        // See-through window: the card's own rounded, translucent background shows the wallpaper behind it.
+        // Painting a transparent window costs CPU per change, so widgets update once a second and never animate.
+        WindowStyle = WindowStyle.None; AllowsTransparency = true; ShowInTaskbar = false;
         Background = Brushes.Transparent; ResizeMode = ResizeMode.NoResize;
-        System.Windows.Shell.WindowChrome.SetWindowChrome(this, new System.Windows.Shell.WindowChrome { CaptionHeight = 0, ResizeBorderThickness = new Thickness(0), GlassFrameThickness = new Thickness(-1), CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false });
         SizeToContent = SizeToContent.Height;
         // Every widget is a WidgetCard drawn at 250 px and scaled to the chosen size.
         Content = new System.Windows.Controls.Viewbox { Stretch = Stretch.Uniform, Child = new WidgetCard(vm) };
-        SourceInitialized += (_, _) => { ApplyBackdrop(); Place(); UpdateOptions(); };
+        SourceInitialized += (_, _) => { Place(); UpdateOptions(); };
         vm.PropertyChanged += OptionsChanged;
         Closed += (_, _) => vm.PropertyChanged -= OptionsChanged;
         Width = vm.Width;
@@ -38,23 +35,6 @@ public sealed class WidgetWindow : Window
     {
         if (e.PropertyName is nameof(WidgetViewModel.Size) or nameof(WidgetViewModel.AlwaysOnTop) or nameof(WidgetViewModel.ClickThrough)) UpdateOptions();
     }
-    private void ApplyBackdrop()
-    {
-        var handle = new WindowInteropHelper(this).Handle;
-        if (handle == IntPtr.Zero) return;
-        try
-        {
-            int dark = 1, round = 2, acrylic = 3;
-            DwmSetWindowAttribute(handle, 20, ref dark, sizeof(int));     // dark mode frame
-            DwmSetWindowAttribute(handle, 33, ref round, sizeof(int));    // rounded corners
-            DwmSetWindowAttribute(handle, 38, ref acrylic, sizeof(int));  // blurred glass behind transparent pixels
-            var all = new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 };
-            DwmExtendFrameIntoClientArea(handle, ref all);
-            if (HwndSource.FromHwnd(handle) is { CompositionTarget: { } target }) target.BackgroundColor = Colors.Transparent;
-        }
-        catch (DllNotFoundException) { }
-        catch (EntryPointNotFoundException) { }
-    }
     private void UpdateOptions()
     {
         Width = _vm.Width; Topmost = _vm.AlwaysOnTop;
@@ -62,8 +42,6 @@ public sealed class WidgetWindow : Window
         if (handle == IntPtr.Zero) return;
         var style = GetWindowLong(handle, -20);
         SetWindowLong(handle, -20, _vm.ClickThrough ? style | 0x80000 | 0x20 : style & ~0x20);
-        // A layered window needs an alpha set or it stays invisible; fully opaque keeps the glass look.
-        if (_vm.ClickThrough) SetLayeredWindowAttributes(handle, 0, 255, 2);
     }
     public void RefreshPlacement() { if (IsLoaded) Place(); }
 

@@ -16,17 +16,25 @@
           <ColumnDefinition Width="2.08*" />
           <ColumnDefinition Width="1*" />
         </Grid.ColumnDefinitions>
-        <StackPanel Margin="0,0,16,0">
-          <c:GlassCard Span="8" Padding="14">
-            <StackPanel>
-              <TextBlock Text="Desktop preview" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="4,0,0,10" />
-              <v:DesktopPreview VerticalAlignment="Top" Margin="0" Height="628" />
-            </StackPanel>
-          </c:GlassCard>
-          <TextBlock Visibility="Collapsed" Text="Drag widgets on your real desktop · they snap to a grid" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="4,10" />
-        </StackPanel>
+        <c:GlassCard Margin="0,0,16,0" Padding="18">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+              <TextBlock DockPanel.Dock="Right" Text="Live, the same as on your desktop" Style="{StaticResource SmallMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="Your widgets" Style="{StaticResource CardTitle}"/>
+            </DockPanel>
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
+              <v:ScreenMap DockPanel.Dock="Left" Width="210" Height="118" Margin="0,0,18,0"/>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="PLACEMENT" Style="{StaticResource SectionLabel}"/>
+                <TextBlock Text="Drag a widget on your desktop to move it. Right-click one to resize it, change its background, pin it on top or hide it." Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,6,0,12"/>
+                <Button Content="Line up on the right" Command="{Binding LineUpCommand}" HorizontalAlignment="Left" Padding="16,0" MinHeight="36"/>
+              </StackPanel>
+            </DockPanel>
+            <v:WidgetShowcase/>
+          </DockPanel>
+        </c:GlassCard>
         <StackPanel Grid.Column="1">
-          <c:GlassCard StaggerIndex="3" Span="4">
+          <c:GlassCard>
             <StackPanel>
               <TextBlock Text="Widgets" Style="{StaticResource CardTitle}" Margin="0,0,0,10" />
               <ItemsControl ItemsSource="{Binding Widgets}">
@@ -56,13 +64,18 @@
             </StackPanel>
           </c:GlassCard>
           <Border Height="16" />
-          <c:GlassCard StaggerIndex="1"><StackPanel><TextBlock Text="Look" Style="{StaticResource CardTitle}" Margin="0,0,0,12"/><TextBlock Text="Size" Style="{StaticResource SmallMuted}" Margin="0,0,0,8"/>
-            <c:SegmentedControl ItemsSource="{Binding Sizes}" SelectedItem="{Binding SelectedSize, Mode=TwoWay}" Background="Transparent" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource OutlinedSegmentItem}"/>
-            <TextBlock Text="Background" Style="{StaticResource SmallMuted}" Margin="0,12,0,8"/><c:SegmentedControl Background="Transparent" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource OutlinedSegmentItem}" ItemsSource="{Binding Selected.Backgrounds}" SelectedItem="{Binding Selected.Background, Mode=TwoWay}"/>
-            <DockPanel Margin="0,12,0,0"><c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding Selected.AlwaysOnTop, Mode=TwoWay}" AutomationProperties.Name="Always on top"/><StackPanel><TextBlock Text="Always on top" FontWeight="SemiBold"/><TextBlock Text="Stay above other windows" Style="{StaticResource SmallMuted}"/></StackPanel></DockPanel>
-            <DockPanel Margin="0,10,0,0"><c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding Selected.ClickThrough, Mode=TwoWay}" AutomationProperties.Name="Click through"/><StackPanel><TextBlock Text="Click through" FontWeight="SemiBold"/><TextBlock Text="Clicks pass to the desktop" Style="{StaticResource SmallMuted}"/></StackPanel></DockPanel>
-            
-          </StackPanel></c:GlassCard>
+          <c:GlassCard>
+            <StackPanel>
+              <TextBlock Text="Look" Style="{StaticResource CardTitle}"/>
+              <TextBlock Text="For all widgets" Style="{StaticResource SmallMuted}" Margin="0,2,0,12"/>
+              <TextBlock Text="SIZE" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
+              <c:SegmentedControl ItemsSource="{Binding Sizes}" SelectedItem="{Binding AllSize, Mode=TwoWay}" Background="Transparent" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource OutlinedSegmentItem}"/>
+              <TextBlock Text="BACKGROUND" Style="{StaticResource SectionLabel}" Margin="0,14,0,8"/>
+              <c:SegmentedControl ItemsSource="{Binding Backgrounds}" SelectedItem="{Binding AllBackground, Mode=TwoWay}" Background="Transparent" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource OutlinedSegmentItem}"/>
+              <DockPanel Margin="0,16,0,0"><c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding AllOnTop, Mode=TwoWay}" AutomationProperties.Name="Always on top"/><StackPanel><TextBlock Text="Always on top" FontWeight="SemiBold"/><TextBlock Text="Stay above other windows" Style="{StaticResource SmallMuted}"/></StackPanel></DockPanel>
+              <DockPanel Margin="0,12,0,0"><c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding AllClickThrough, Mode=TwoWay}" AutomationProperties.Name="Click through"/><StackPanel><TextBlock Text="Click through" FontWeight="SemiBold"/><TextBlock Text="Clicks pass to the desktop" Style="{StaticResource SmallMuted}"/></StackPanel></DockPanel>
+            </StackPanel>
+          </c:GlassCard>
         </StackPanel>
       </Grid>
       <Border Height="16" />
@@ -76,32 +89,7 @@
           </c:SpacedGrid>
         </StackPanel>
       </c:GlassCard>
-      <Expander Header="Advanced widget options" Foreground="#A3A6AE" Margin="0,10,0,0"><StackPanel><TextBlock Text="Background opacity" Style="{StaticResource SmallMuted}"/><c:ThickSlider Minimum="20" Maximum="100" Value="{Binding Selected.OpacityPercent, Mode=TwoWay}" AutomationProperties.Name="Background opacity" Margin="0,8"/><CheckBox Content="Lock position" IsChecked="{Binding Selected.Locked}"/><CheckBox Content="Snap to 8 px grid" IsChecked="{Binding Selected.SnapToGrid}"/><Button Content="Remove from desktop" Command="{Binding RemoveCommand}" Margin="0,8"/>
-              <Expander Header="Metrics" Foreground="{StaticResource TextSecondaryBrush}">
-                <StackPanel>
-                  <DockPanel Margin="0,5">
-                    <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding Selected.ShowCpu, Mode=TwoWay}" AutomationProperties.Name="CPU usage" />
-                    <TextBlock Text="CPU usage" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
-                  </DockPanel>
-                  <DockPanel Margin="0,5">
-                    <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding Selected.ShowGpu, Mode=TwoWay}" AutomationProperties.Name="GPU usage" />
-                    <TextBlock Text="GPU usage" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
-                  </DockPanel>
-                  <DockPanel Margin="0,5">
-                    <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding Selected.ShowTemps, Mode=TwoWay}" AutomationProperties.Name="Temperatures" />
-                    <TextBlock Text="Temperatures" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
-                  </DockPanel>
-                  <DockPanel Margin="0,5">
-                    <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding Selected.ShowRam, Mode=TwoWay}" AutomationProperties.Name="Memory" />
-                    <TextBlock Text="Memory" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
-                  </DockPanel>
-                  <DockPanel Margin="0,5">
-                    <c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding Selected.ShowNet, Mode=TwoWay}" AutomationProperties.Name="Network speed" />
-                    <TextBlock Text="Network speed" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4" />
-                  </DockPanel>
-                </StackPanel>
-              </Expander></StackPanel></Expander>
-      <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
       <TextBlock Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" Text="{Binding LastError}" Style="{StaticResource Muted}" TextWrapping="Wrap" Foreground="#FF8A8A" Margin="0,12" />
     </StackPanel>
   </DataTemplate>

@@ -30,7 +30,9 @@ public sealed class DesktopWidgetHost : IWidgetHost, IDisposable
     /// Widgets that would sit on top of each other are lined up down the right edge of their screen, 16 px apart,
     /// and the new positions are saved. Widgets that don't overlap stay exactly where the user put them.
     /// </summary>
-    private void ArrangeIfOverlapping()
+    public void LineUp() => Arrange(force: true);
+    private void ArrangeIfOverlapping() => Arrange(force: false);
+    private void Arrange(bool force)
     {
         if (ViewModel is null) return;
         foreach (var window in _windows.Values.Where(w => w.IsVisible)) window.UpdateLayout();
@@ -39,7 +41,7 @@ public sealed class DesktopWidgetHost : IWidgetHost, IDisposable
         bool Overlap(System.Windows.Rect a, System.Windows.Rect b) { a.Inflate(-4, -4); return a.IntersectsWith(b); }
         var rects = shown.Select(s => new System.Windows.Rect(s.Window.Left, s.Window.Top, s.Window.ActualWidth, s.Window.ActualHeight)).ToList();
         bool any = rects.Where((r, i) => rects.Skip(i + 1).Any(o => Overlap(r, o))).Any();
-        if (!any) return;
+        if (!any && !force) return;
         var area = System.Windows.SystemParameters.WorkArea;
         double x = area.Right - 16, y = area.Top + 16, columnWidth = 0;
         foreach (var (model, window) in shown.OrderBy(s => s.Window.Top))

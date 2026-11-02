@@ -95,7 +95,7 @@ public sealed class WidgetViewModel : ObservableObject
         set { if (!Backgrounds.Contains(value) || Layout.Background == value) return; Layout.Background = value; OnPropertyChanged(); OnPropertyChanged(nameof(BackgroundBrush)); Persist(); }
     }
     public System.Windows.Media.Brush BackgroundBrush => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(
-        Background == "Clear" ? (byte)0 : Background == "Solid" ? (byte)255 : (byte)(Opacity * 255), 17, 18, 22));
+        Background == "Clear" ? (byte)70 : Background == "Solid" ? (byte)255 : (byte)(Opacity * 255), 17, 18, 22));
     public string SizeName => WidgetSizes.Name(Layout.Size);
 
     public double Width => WidgetSizes.Width(Layout.Size);
