@@ -166,12 +166,12 @@ public sealed class LightingWorkspace : UserControl
         Place(grid, new GlassCard { Content = BuildColourCard() }, 0, 2);
 
         // Row 2: the effect library and the controls the chosen effect uses.
-        Place(grid, new GlassCard { Content = BuildEffectsCard() }, 2, 0);
-        Place(grid, new GlassCard { Content = BuildTuneCard() }, 2, 2);
+        var effectsCard = new GlassCard { Content = BuildEffectsCard() }; Place(grid, effectsCard, 2, 0);
+        var tuneCard = new GlassCard { Content = BuildTuneCard() }; Place(grid, tuneCard, 2, 2);
 
-        // Sensor mode adds its panel underneath, across the full width.
-        var sensor = new SensorBindingPanel { Visibility = Visibility.Collapsed, Margin = new(0, Gap, 0, 0) };
-        Grid.SetRow(sensor, 3); Grid.SetColumnSpan(sensor, 3); grid.Children.Add(sensor);
+        // Sensor mode swaps its panel in for the effect row, under the live preview, across the full width.
+        var sensor = new SensorBindingPanel { Visibility = Visibility.Collapsed };
+        Grid.SetRow(sensor, 2); Grid.SetColumnSpan(sensor, 3); grid.Children.Add(sensor);
 
         modes.SelectionChanged += (_, _) =>
         {
@@ -179,6 +179,7 @@ public sealed class LightingWorkspace : UserControl
             illustration.Visibility = device ? Visibility.Collapsed : Visibility.Visible;
             perDevice.Visibility = device ? Visibility.Visible : Visibility.Collapsed;
             sensor.Visibility = modes.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+            effectsCard.Visibility = tuneCard.Visibility = modes.SelectedIndex == 2 ? Visibility.Collapsed : Visibility.Visible;
             if (!device) { preview.LedEditing = preview.MapEditing = false; editor.Visibility = Visibility.Collapsed; }
             UpdateHeading();
         };
