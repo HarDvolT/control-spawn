@@ -2,7 +2,7 @@
 # 1. Temporarily stops the programs that fight over the lights: ASUS "LightingService" and Corsair iCUE's service.
 # 2. Starts OpenRGB as a local server, then the Prism service, then the Prism app (as you, not as administrator).
 # 3. Every 3 s logs which scene automation is active and why, to the screen and docs\live-automations.txt.
-# 4. On Enter: closes Prism; fans go back to the BIOS and the ASUS/Corsair services are restarted.
+# 4. On Q: closes Prism; fans go back to the BIOS and the ASUS/Corsair services are restarted.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $out = Join-Path $root 'docs\live-automations.txt'
@@ -37,14 +37,16 @@ try {
   # Start the app through Explorer so it runs as you, not as administrator.
   Start-Process explorer.exe -ArgumentList ('"' + $app + '"')
   Log 'Prism is running. Try: lock the PC (Win+L), start a game, or set night hours on the Scenes page.'
-  Write-Host 'Press Enter here to stop Prism.' -ForegroundColor Cyan
+  # Drop keys typed before now (like the Enter that ran this script), then stop only on Q.
+  while ([Console]::KeyAvailable) { $null = [Console]::ReadKey($true) }
+  Write-Host 'Press Q in this window to stop Prism.' -ForegroundColor Cyan
 
   $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
   $w = New-Object System.IO.StreamWriter($c); $w.AutoFlush = $true; $r = New-Object System.IO.StreamReader($c)
   $w.WriteLine('{"id":1,"command":"hello","args":{"version":1,"client":"app"}}'); $null = $r.ReadLine()
   $last = ''; $id = 2
   while ($true) {
-    if ([Console]::KeyAvailable -and [Console]::ReadKey($true).Key -eq 'Enter') { break }
+    if ([Console]::KeyAvailable -and [Console]::ReadKey($true).Key -eq 'Q') { break }
     if ($svcProc.HasExited) { Log 'The Prism service stopped on its own - see prism-live.log in your temp folder'; break }
     $w.WriteLine("{""id"":$id,""command"":""getState""}"); $id++
     # Timed reads, so a slow reply can never stop Enter from working; pushed state updates are skipped.
