@@ -67,6 +67,34 @@ public sealed class SpatialEffectTests
         Assert.Equal(3, positions.Length); Assert.Equal(positions[0].X, positions[1].X); Assert.True(positions[2].X > positions[1].X);
     }
     [Fact]
+    public void UnplacedHeadersBecomeAioChainAndCaseFans()
+    {
+        var board = new RgbDeviceState("board", "Board", "Motherboard", true, true, 206,
+            [new("Board", "Linear", 0, 2, 2, 2), new("H1", "Linear", 2, 48, 0, 120), new("H2", "Linear", 50, 36, 0, 120), new("H3", "Linear", 86, 120, 0, 120)]);
+        // A map saved before headers had places still holds the shared top line for every header.
+        var map = new LightingMap([new("board", 0.25, 0.4), new("board", 0.5, 0.12, 0.66, 0, Zone: 1), new("board", 0.5, 0.12, 0.66, 0, Zone: 2)]);
+        var p = CaseMap.Positions(board, map.Devices[0], map);
+        var pump = p[2..14]; var radiator = p[14..50]; var caseFans = p[50..86];
+        Assert.All(pump, q => Assert.InRange(Math.Sqrt(Math.Pow(q.X - 0.22, 2) + Math.Pow(q.Y - 0.47, 2)), 0.06, 0.07));
+        Assert.True(pump[0].Y < pump[6].Y, "ring starts at the top");
+        Assert.All(radiator, q => Assert.InRange(q.Y, 0, 0.2));
+        Assert.True(radiator[0].X < 0.2 && radiator[35].X > 0.4, "radiator fans chained after the pump run across the top");
+        Assert.All(caseFans, q => Assert.InRange(q.X, 0.7, 1));
+        Assert.True(caseFans[0].Y < 0.3 && caseFans[30].Y > 0.8, "case fans run down the front");
+        // A header the user placed keeps their placement.
+        var placed = CaseMap.Positions(board, map.Devices[0], map with { Devices = [.. map.Devices, new("board", 0.1, 0.5, 0.2, 90, Zone: 3)] });
+        Assert.All(placed[86..], q => Assert.InRange(q.X, 0.0999, 0.1001));
+    }
+    [Theory]
+    [InlineData(LightingEffect.Comet)] [InlineData(LightingEffect.Scanner)] [InlineData(LightingEffect.Rain)] [InlineData(LightingEffect.Breathing)]
+    public void MovingEffectsKeepAFaintGlowInsteadOfGoingDark(LightingEffect effect)
+    {
+        var line = Enumerable.Range(0, 40).Select(i => new MapPoint(0.5, i / 39d)).ToArray();
+        var scene = new Scene("Glow", effect, new(255, 80, 20));
+        for (double time = 0; time < 6; time += 0.37)
+            Assert.All(SpatialEffects.Render(scene, new() { Palette = "Spectrum" }, time, line), c => Assert.True(c.R + c.G + c.B > 0));
+    }
+    [Fact]
     public void SpatialWavesSharePhaseAcrossDevicesAndDirectionChangesFlow()
     {
         var scene = new Scene("Flow", LightingEffect.GradientFlow, new(255, 0, 0));

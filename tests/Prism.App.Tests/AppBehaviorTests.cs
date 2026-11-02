@@ -230,6 +230,18 @@ public sealed class AppBehaviorTests : IDisposable
     }
 
     [Fact]
+    public void Metric_history_keeps_order_for_late_samples_and_reports_the_newest()
+    {
+        var history = new MetricHistory(); var now = DateTimeOffset.UtcNow;
+        Assert.Null(history.Latest);
+        for (int i = 3700; i >= 0; i -= 2) history.Add(now - TimeSpan.FromSeconds(i), i);
+        history.Add(now - TimeSpan.FromSeconds(3), 3);
+        Assert.Equal(now, history.Latest);
+        Assert.Equal(new[] {4d, 3, 2, 0}, history.Read(now, TimeSpan.FromSeconds(4)));
+        Assert.True(history.Read(now, TimeSpan.FromHours(2)).Count <= 3601);
+    }
+
+    [Fact]
     public void Tray_visibility_changes_are_reflected_in_the_widgets_page()
     {
         var client = new RecordingClient(); var host = new NullWidgetHost();

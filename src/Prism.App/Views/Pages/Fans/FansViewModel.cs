@@ -180,7 +180,8 @@ public sealed class FansViewModel : PageViewModel
                 Format.RpmShort(fan.Rpm), percent, fan.IsPump, spin, fan.Header);
             var existing = Fans.FirstOrDefault(f => f.Id == next.Id);
             if (existing is null) { Fans.Add(next); existing = next; } else existing.Update(next);
-            existing.SetHistory((state.History ?? []).Select(s => s.FanRpms?.GetValueOrDefault(fan.Header)).Where(v => v.HasValue && double.IsFinite(v.Value)).Select(v => v!.Value));
+            // The last two minutes is all a fan row's sparkline shows; the full hour cost thousands of points per fan each second.
+            existing.SetHistory((state.History ?? []).TakeLast(120).Select(s => s.FanRpms?.GetValueOrDefault(fan.Header)).Where(v => v.HasValue && double.IsFinite(v.Value)).Select(v => v!.Value));
             existing.SetControl(fan);
             currentFans.Add(existing);
         }

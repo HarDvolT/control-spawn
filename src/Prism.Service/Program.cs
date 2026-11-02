@@ -22,6 +22,8 @@ public static class Program
             services.AddSingleton<IServiceRuntime>(s => s.GetRequiredService<ServiceRuntime>());
             services.AddSingleton<CommandProcessor>();
             services.AddHostedService<PrismWorker>();
+            // A hardware call that never returns must not hold a stop forever; the fans are handed back before this.
+            services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(10));
         });
         using var host = builder.Build();
         // --exit-after <seconds>: clean, timed shutdown for supervised tests, so the normal stop path
@@ -55,10 +57,13 @@ public sealed class PrismWorker(ServiceRuntime runtime, CommandProcessor command
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Hand start-up back to the host at once and open the pipe before any hardware: a sensor driver that is slow to
+        // load once kept the host from finishing start-up, so the app could not connect and a stop request went unheard.
+        await Task.Yield();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        var pipeTask = new PipeServer(commands).RunAsync(linked.Token);
         await runtime.ApplyAsync(commands.Settings, linked.Token);
         var runtimeTask = runtime.RunAsync(linked.Token);
-        var pipeTask = new PipeServer(commands).RunAsync(linked.Token);
         var automationTask = commands.RunAutomationsAsync(linked.Token);
         try { await await Task.WhenAny(runtimeTask, pipeTask); }
         catch (Exception) when (!stoppingToken.IsCancellationRequested)

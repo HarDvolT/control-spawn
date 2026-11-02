@@ -122,8 +122,11 @@ public sealed class MonitorViewModel : PageViewModel
         GpuLoad = system.GpuLoad ?? double.NaN;
         CpuPercentText = Format.Percent(system.CpuLoad);
         GpuPercentText = Format.Percent(system.GpuLoad);
+        // The client hands over the whole hour every second; only the samples not seen yet need adding.
+        var seen = _cpuSamples.Latest;
         foreach (var sample in state.History ?? [])
         {
+            if (sample.Timestamp <= seen) continue;
             _cpuSamples.Add(sample.Timestamp, sample.CpuLoad);
             _downSamples.Add(sample.Timestamp, sample.NetDownMbps);
             _upSamples.Add(sample.Timestamp, sample.NetUpMbps);

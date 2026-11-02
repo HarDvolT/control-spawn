@@ -18,7 +18,7 @@ public sealed class CaseIllustration : FrameworkElement
     private LightingViewModel? model;
     private static readonly Stopwatch clock = Stopwatch.StartNew();
     private readonly SensorLighting sensorLighting = new();
-    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1d / 20) };
+    private readonly DispatcherTimer timer = Motion.FrameTimer();
     public CaseIllustration()
     {
         Height = 400;
@@ -49,44 +49,53 @@ public sealed class CaseIllustration : FrameworkElement
         var gpu = devices.FirstOrDefault(d => d.Kind.Contains("GPU", StringComparison.OrdinalIgnoreCase));
         var board = devices.FirstOrDefault(d => d.Kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase));
         var strip = devices.FirstOrDefault(d => d.Kind.Contains("strip", StringComparison.OrdinalIgnoreCase));
-        // On most boards the ARGB headers are zones of the motherboard. Used headers light, in order: pump, side fans, bottom edge.
+        // On most boards the ARGB headers are zones of the motherboard. Used headers light, in order: the AIO (pump fan, then
+        // radiator fans chained after it, 12 LEDs each), the back and front case fans, then the bottom edge.
         var headers = (board?.Zones ?? []).Select((z, i) => (Zone: z, Index: i))
             .Where(z => z.Zone.MaxLeds > z.Zone.MinLeds && z.Zone.LedCount > 0).ToArray();
         (RgbDeviceState Device, RgbZoneState Zone, int Header)? Part(int order) => board is not null && order < headers.Length ? (board, headers[order].Zone, headers[order].Index) : null;
-        var pump = Part(0); var fans = Part(1); var tail = Part(2);
+        var aio = Part(0); var fans = Part(1); var tail = Part(2);
+        int aioRings = aio is { } chain && chain.Zone.LedCount > 12 ? Math.Clamp(chain.Zone.LedCount / 12, 2, 8) : 1;
+        (RgbDeviceState Device, RgbZoneState Zone, int Header)? pump = aio is { } c0 ? (c0.Device, aioRings > 1 ? Slice(c0.Zone, 0, aioRings) : c0.Zone, c0.Header) : null;
+        (RgbDeviceState Device, RgbZoneState Zone, int Header)? Radiator(int i) => aio is { } c && aioRings > 1 && i + 1 < aioRings ? (c.Device, Slice(c.Zone, i + 1, aioRings), c.Header) : null;
 
         // Case shell and motherboard tray.
         dc.DrawRoundedRectangle(B("#0E0F13"), new Pen(B("#2A2C33"), 1.5), new Rect(18, 18, 500, 364), 24, 24);
-        dc.DrawRoundedRectangle(B("#121318"), new Pen(B("#1E2026"), 1), new Rect(40, 40, 318, 236), 16, 16);
-        Label(board is null ? "MOTHERBOARD" : Short(board.Name), 56, 52, 10);
+        dc.DrawRoundedRectangle(B("#121318"), new Pen(B("#1E2026"), 1), new Rect(40, 108, 318, 172), 16, 16);
+        Label(board is null ? "MOTHERBOARD" : Short(board.Name), 56, 118, 10);
         if (board is not null)
         {
-            dc.PushTransform(new TranslateTransform(318, 50));
+            dc.PushTransform(new TranslateTransform(318, 116));
             dc.DrawGeometry(Colour(board, 0), null, Geometry.Parse("M0,0 L26,-8 16,16Z")); dc.Pop();
         }
-        // AIO pump ring on the CPU.
-        FanRing(new Point(126, 150), 46, pump, 18);
-        Label(pump is { } p1 ? $"AIO PUMP · HEADER {p1.Header}" : "AIO PUMP", 74, 210, 10);
+        // Pump fan ring on the CPU block.
+        FanRing(new Point(126, 190), 34, pump, 16);
+        Label(pump is { } p1 ? $"PUMP FAN · HEADER {p1.Header}" : "PUMP FAN", 78, 240, 10);
+        // Radiator fans across the top of the case.
+        for (int i = 0; i < 3; i++)
+            FanRing(new Point(100 + i * 80, 60), 28, Radiator(i), 14);
+        Label("RADIATOR", 300, aioRings > 1 ? 46 : 54, 10);
+        if (aioRings > 1 && aio is { } a2) Label($"HEADER {a2.Header}", 300, 60, 9);
         // RAM sticks.
         for (int i = 0; i < 2; i++)
         {
-            var stick = new Rect(222 + i * 30, 82, 18, 150);
+            var stick = new Rect(222 + i * 30, 128, 18, 128);
             dc.DrawRoundedRectangle(B("#17181D"), new Pen(B("#24262D"), 1), stick, 5, 5);
             if (i < ram.Length)
                 for (int j = 0; j < ram[i].LedCount && j < 10; j++)
-                    dc.DrawRoundedRectangle(Colour(ram[i], j), null, new Rect(stick.X + 4, stick.Y + 6 + j * 14, 10, 10), 3, 3);
+                    dc.DrawRoundedRectangle(Colour(ram[i], j), null, new Rect(stick.X + 4, stick.Y + 5 + j * 12, 10, 9), 3, 3);
         }
-        Label("RAM", 237, 240, 10);
+        Label("RAM", 237, 262, 10);
         // Graphics card.
         dc.DrawRoundedRectangle(B("#15161B"), new Pen(B("#24262D"), 1), new Rect(40, 290, 318, 48), 12, 12);
         if (gpu is not null)
             for (int i = 0; i < 24; i++)
                 dc.DrawRoundedRectangle(Colour(gpu, i * gpu.LedCount / 24), null, new Rect(54 + i * 12.2, 298, 9, 5), 2, 2);
         Label(gpu is null ? "GRAPHICS CARD" : Short(gpu.Name), 56, 314, 11);
-        // Radiator fans on the side.
+        // Case fans down the front.
         for (int i = 0; i < 3; i++)
             FanRing(new Point(446, 92 + i * 102), 40, fans is { } f ? (f.Device, Slice(f.Zone, i, 3), f.Header) : null, 16);
-        Label(fans is { } f2 ? $"SIDE FANS · HEADER {f2.Header}" : "SIDE FANS", 390, 356, 10);
+        Label(fans is { } f2 ? $"CASE FANS · HEADER {f2.Header}" : "CASE FANS", 390, 356, 10);
         // A further header, or a separate strip device, lights the bottom edge.
         var bottom = tail ?? (strip is not null ? (strip, new RgbZoneState("Strip", "Linear", 0, strip.LedCount, 0, strip.LedCount), -1) : null);
         if (bottom is { } b)

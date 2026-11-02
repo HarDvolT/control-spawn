@@ -190,7 +190,10 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         AppDomain.CurrentDomain.ProcessExit += exit;
         AppDomain.CurrentDomain.UnhandledException += crash;
         Console.CancelKeyPress += cancel;
-        var loops = new[] { SensorsAsync(linked.Token), LightingAsync(linked.Token), LampAsync(linked.Token), RouterAsync(linked.Token), HealthAsync(linked.Token), CaptureAsync(true, linked.Token), CaptureAsync(false, linked.Token), DiscoveryAsync(linked.Token) };
+        // The real sensor library loads its driver synchronously; on its own pool thread that can't hold up
+        // lighting, lamps or the rest (nor the service's start-up) while it does.
+        var sensorLoop = mock ? SensorsAsync(linked.Token) : Task.Run(() => SensorsAsync(linked.Token), CancellationToken.None);
+        var loops = new[] { sensorLoop, LightingAsync(linked.Token), LampAsync(linked.Token), RouterAsync(linked.Token), HealthAsync(linked.Token), CaptureAsync(true, linked.Token), CaptureAsync(false, linked.Token), DiscoveryAsync(linked.Token) };
         try
         {
             var first = await Task.WhenAny(loops);
@@ -215,6 +218,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 
     private async Task SensorsAsync(CancellationToken token)
     {
+        warnings["sensors"] = "Sensors are starting.";
         await using var monitor = new LhmHardwareMonitor(sensors);
         var previous = clock.Elapsed;
         void OnSnapshot(object? sender, HardwareSnapshot next)
@@ -272,6 +276,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     {
         if (Observe) { warnings["observe"] = "Observe mode: fans, RGB and lamp are not controlled."; await Task.Delay(Timeout.Infinite, token); }
         TimeSpan reconnect = TimeSpan.Zero, nextRefresh = TimeSpan.Zero, nextOfflineLog = TimeSpan.Zero;
+        using var steadyTicks = mock ? null : new TimerResolution();
         var pacer = new DeviceFramePacer();
         var directModes = new HashSet<string>();
         static (RgbDeviceState[] Devices, Dictionary<string, uint> Indices) Identify(OpenRgbClient client)

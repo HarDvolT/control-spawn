@@ -1,4 +1,4 @@
-# Runs the real Prism (fans, lights, lamps, router, automations) until you press Enter. Run as administrator.
+﻿# Runs the real Prism (fans, lights, lamps, router, automations) until you press Enter. Run as administrator.
 # 1. Temporarily stops the programs that fight over the lights: ASUS "LightingService" and Corsair iCUE's service.
 # 2. Starts OpenRGB as a local server, then the Prism service, then the Prism app (as you, not as administrator).
 # 3. Every 3 s logs which scene automation is active and why, to the screen and docs\live-automations.txt.
@@ -47,7 +47,11 @@ try {
   while ([Console]::KeyAvailable) { $null = [Console]::ReadKey($true) }
   Write-Host 'Press Q in this window to stop Prism.' -ForegroundColor Cyan
 
-  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
+  # Give the service up to 30 s to open its pipe (driver loading can be slow right after a restart).
+  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut)
+  for ($try = 0; -not $c.IsConnected; $try++) {
+    try { $c.Connect(1000) } catch [TimeoutException] { if ($try -ge 29 -or $svcProc.HasExited) { throw 'The Prism service did not open its pipe - see prism-live.log in your temp folder' } }
+  }
   $w = New-Object System.IO.StreamWriter($c); $w.AutoFlush = $true; $r = New-Object System.IO.StreamReader($c)
   $w.WriteLine('{"id":1,"command":"hello","args":{"version":1,"client":"app"}}'); $null = $r.ReadLine()
   $last = ''; $id = 2

@@ -110,7 +110,8 @@ public sealed partial class ServiceRuntime
                 }
                 warnings.TryRemove("discovery", out _);
             }
-            catch (Exception e) when (!token.IsCancellationRequested && e is IOException or System.Net.Sockets.SocketException or InvalidOperationException or OperationCanceledException)
+            // A settings file that can't be written (no rights, or another program holding it) must not stop the whole service.
+            catch (Exception e) when (!token.IsCancellationRequested && e is IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException or InvalidOperationException or OperationCanceledException)
             { warnings["discovery"] = "Device discovery temporarily unavailable."; }
         } while (await timer.WaitForNextTickAsync(token));
     }

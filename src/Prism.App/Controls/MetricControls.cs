@@ -41,10 +41,14 @@ public abstract class MetricControl : FrameworkElement
         if (c.IsLoaded && Motion.Glides(from, value, 100)) { var glide = Motion.Glide(value); glide.From = from; c.BeginAnimation(DisplayProperty, glide); }
         c.UpdateGlow();
     }
+    private StatusLevel? glowLevel;
     private void UpdateGlow()
     {
-        if (!UseStatusGlow) { Effect = null; return; }
+        if (!UseStatusGlow) { Effect = null; glowLevel = null; return; }
         var level = Thresholds.Level(Value, SensorKind);
+        // A new effect every reading forced the glow to be rebuilt each second; it only changes with the status colour.
+        if (level == glowLevel) return;
+        glowLevel = level;
         Effect = Thresholds.Glow(level);
         BeginAnimation(OpacityProperty, null);
         if (level == StatusLevel.Critical && IsLoaded && !Motion.ReduceAnimations)

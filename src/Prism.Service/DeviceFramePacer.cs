@@ -14,6 +14,7 @@ public sealed class DeviceFramePacer
     public static readonly TimeSpan KeepAlive = TimeSpan.FromSeconds(2);
     /// <summary>Largest per-channel difference still treated as "the same colour" (avoids bus traffic for invisible changes).</summary>
     public const int Tolerance = 2;
+    public static readonly TimeSpan TickSlack = TimeSpan.FromMilliseconds(6);
 
     private readonly Dictionary<string, (TimeSpan At, RgbColor[] Colors)> sent = new();
 
@@ -28,7 +29,8 @@ public sealed class DeviceFramePacer
     {
         if (!sent.TryGetValue(deviceId, out var last)) return true;
         var since = now - last.At;
-        if (since < MinInterval(kind)) return false;
+        // Loop ticks land a few ms either side of the frame time; without this slack an early tick dropped a whole frame.
+        if (since < MinInterval(kind) - TickSlack) return false;
         return since >= KeepAliveFor(kind) || !Same(last.Colors, colors);
     }
 

@@ -330,7 +330,9 @@ public sealed partial class CommandProcessor
                     break;
                 }
                 case Commands.SetLighting:
-                    next = Settings with { Lighting = new(EnumValue<LightingEffect>(a, "effect"), Text(a, "color"), a.GetProperty("brightness").GetDouble(), a.GetProperty("speed").GetDouble(), Settings.Lighting.Parameters) }; break;
+                    next = Settings with { Lighting = new(EnumValue<LightingEffect>(a, "effect"), Text(a, "color"),
+                        a.TryGetProperty("brightness", out var lightBrightness) ? lightBrightness.GetDouble() : Settings.Lighting.Brightness,
+                        a.TryGetProperty("speed", out var lightSpeed) ? lightSpeed.GetDouble() : Settings.Lighting.Speed, Settings.Lighting.Parameters) }; break;
                 case Commands.SetDeviceSync:
                     var sync = new Dictionary<string, bool>(Settings.SyncedDevices) { [Text(a, "device")] = a.GetProperty("enabled").GetBoolean() };
                     next = Settings with { SyncedDevices = sync }; break;

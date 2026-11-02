@@ -160,8 +160,11 @@ public sealed record ServiceHealth(bool Mock, bool Elevated, IReadOnlyList<strin
 
 // Additive protocol-1 spatial lighting types. Coordinates use top-left origin.
 public sealed record MapPoint(double X, double Y);
+/// <param name="Rings">LEDs form this many fan rings spread along the placement's line; 0 lays them on the line itself.</param>
+/// <param name="FirstRing">The first ring sits here instead of on the line, for a chain that starts elsewhere
+/// (an AIO's pump fan before its radiator fans); the other rings share the line.</param>
 public sealed record DevicePlacement(string Device, double X, double Y, double Length = 0.4,
-    double Rotation = 90, bool Flip = false, int? Zone = null);
+    double Rotation = 90, bool Flip = false, int? Zone = null, int Rings = 0, MapPoint? FirstRing = null);
 public sealed record LightingMap(IReadOnlyList<DevicePlacement> Devices, MapPoint? Lamp = null, IReadOnlyDictionary<string, MapPoint>? Lamps = null);
 public sealed record PaletteStop(double Position, string Color);
 public sealed record EffectParameters

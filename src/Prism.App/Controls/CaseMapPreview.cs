@@ -18,7 +18,7 @@ public sealed class CaseMapPreview : FrameworkElement
 {
     private readonly SensorLighting sensorLighting = new();
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
-    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1d / 20) };
+    private readonly DispatcherTimer timer = Motion.FrameTimer();
     private LightingViewModel? model;
     private readonly LightingEffect? effect;
     private LightingMap? draft;

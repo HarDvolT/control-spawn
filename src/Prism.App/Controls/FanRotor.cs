@@ -18,17 +18,28 @@ public sealed class FanRotor : FrameworkElement
         Width = Height = 34;
         RenderTransformOrigin = new Point(0.5, 0.5);
         RenderTransform = _rotation;
-        Motion.WhileVisible(this, Animate, () => _rotation.BeginAnimation(RotateTransform.AngleProperty, null));
+        Motion.WhileVisible(this, Animate, () => { _rotation.BeginAnimation(RotateTransform.AngleProperty, null); _runningSeconds = 0; });
     }
     public double SpinSeconds { get => (double)GetValue(SpinSecondsProperty); set => SetValue(SpinSecondsProperty, value); }
     public Color Color { get => (Color)GetValue(ColorProperty); set => SetValue(ColorProperty, value); }
-    private static void Restart(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((FanRotor)d).Animate();
+    private double _runningSeconds;
+    private static void Restart(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var rotor = (FanRotor)d;
+        // RPM wobbles a little every second; restarting for that made the rotor hitch. Only a real speed change restarts it.
+        if (rotor._runningSeconds > 0 && Math.Abs(rotor.SpinSeconds - rotor._runningSeconds) < rotor._runningSeconds * 0.15) return;
+        rotor.Animate();
+    }
     private void Animate()
     {
+        // Carry on from the current angle so a speed change never snaps the blades back to the start.
+        double angle = _rotation.Angle % 360;
         _rotation.BeginAnimation(RotateTransform.AngleProperty, null);
+        _rotation.Angle = angle; _runningSeconds = 0;
         if (!IsLoaded || !IsVisible || Motion.ReduceAnimations || !double.IsFinite(SpinSeconds) || SpinSeconds <= 0) return;
-        _rotation.BeginAnimation(RotateTransform.AngleProperty, Motion.Decorative(new DoubleAnimation(0, 360,
-            TimeSpan.FromSeconds(SpinSeconds)) { RepeatBehavior = RepeatBehavior.Forever }, 20));
+        _runningSeconds = SpinSeconds;
+        _rotation.BeginAnimation(RotateTransform.AngleProperty, Motion.Decorative(new DoubleAnimation(angle, angle + 360,
+            TimeSpan.FromSeconds(SpinSeconds)) { RepeatBehavior = RepeatBehavior.Forever }, 30));
     }
     protected override void OnRender(DrawingContext dc)
     {
