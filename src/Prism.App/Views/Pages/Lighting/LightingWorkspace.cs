@@ -118,9 +118,6 @@ public sealed class LightingWorkspace : UserControl
     private bool suppress;
     private string deviceSignature = "";
 
-    /// <summary>0 whole case, 1 per device, 2 sensor.</summary>
-    public int Mode { get => modes.SelectedIndex; set => modes.SelectedIndex = value; }
-
     public LightingWorkspace()
     {
         var host = new StackPanel(); Content = host;
@@ -174,12 +171,12 @@ public sealed class LightingWorkspace : UserControl
         Place(grid, new GlassCard { Content = BuildColourCard() }, 0, 2);
 
         // Row 2: the effect library and the controls the chosen effect uses.
-        Place(grid, new GlassCard { Content = BuildEffectsCard() }, 2, 0);
-        Place(grid, new GlassCard { Content = BuildTuneCard() }, 2, 2);
+        var effectsCard = new GlassCard { Content = BuildEffectsCard() }; Place(grid, effectsCard, 2, 0);
+        var tuneCard = new GlassCard { Content = BuildTuneCard() }; Place(grid, tuneCard, 2, 2);
 
-        // Sensor mode adds its panel underneath, across the full width.
-        var sensor = new SensorBindingPanel { Visibility = Visibility.Collapsed, Margin = new(0, Gap, 0, 0) };
-        Grid.SetRow(sensor, 3); Grid.SetColumnSpan(sensor, 3); grid.Children.Add(sensor);
+        // Sensor mode swaps its panel in for the effect row, under the live preview, across the full width.
+        var sensor = new SensorBindingPanel { Visibility = Visibility.Collapsed };
+        Grid.SetRow(sensor, 2); Grid.SetColumnSpan(sensor, 3); grid.Children.Add(sensor);
 
         modes.SelectionChanged += (_, _) =>
         {
@@ -189,6 +186,7 @@ public sealed class LightingWorkspace : UserControl
             // The studio has its own header and its own per-part switches, so the case-wide ones step aside.
             liveHeader.Visibility = followNotice.Visibility = this.devices.Visibility = device ? Visibility.Collapsed : Visibility.Visible;
             sensor.Visibility = modes.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+            effectsCard.Visibility = tuneCard.Visibility = modes.SelectedIndex == 2 ? Visibility.Collapsed : Visibility.Visible;
             if (!device) { preview.LedEditing = preview.MapEditing = false; editor.Visibility = Visibility.Collapsed; }
             UpdateHeading();
         };
