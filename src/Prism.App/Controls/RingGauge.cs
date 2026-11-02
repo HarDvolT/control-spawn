@@ -106,16 +106,13 @@ public class RingGauge : FrameworkElement
     private void SetDisplay(double value, bool animate)
     {
         value = double.IsFinite(value) ? value : 0;
-        if (!animate || Motion.ReduceAnimations || !IsLoaded)
+        if (!animate || !IsLoaded || !Motion.Glides(DisplayValue, value, Math.Max(1, Maximum)))
         {
             BeginAnimation(DisplayValueProperty, null);
             DisplayValue = value;
             return;
         }
-        BeginAnimation(DisplayValueProperty, new DoubleAnimation(value, TimeSpan.FromMilliseconds(800))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        });
+        BeginAnimation(DisplayValueProperty, Motion.Glide(value));
     }
 
     protected override void OnRender(DrawingContext dc)

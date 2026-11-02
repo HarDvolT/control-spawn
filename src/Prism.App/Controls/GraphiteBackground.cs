@@ -18,11 +18,9 @@ public sealed class GraphiteBackground : FrameworkElement
     { if (IsLoaded) Dispatcher.BeginInvoke(UpdateMotion); }
     private void UpdateMotion()
     {
+        // The glows stay still: drifting them repainted the whole window (millions of pixels on a high-DPI screen)
+        // ten times a second for a movement of 2.5 px a second that nobody could see.
         drift.BeginAnimation(TranslateTransform.XProperty, null);
-        // The drift moves 2.5 px a second, so 10 fps looks the same and avoids redrawing the full window at 60 fps.
-        if (!Motion.ReduceAnimations)
-            drift.BeginAnimation(TranslateTransform.XProperty, Motion.Decorative(new DoubleAnimation(0, 60, TimeSpan.FromSeconds(24))
-            { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 10));
     }
     protected override void OnRender(DrawingContext dc)
     {
@@ -57,11 +55,7 @@ public sealed class LiveIndicator : FrameworkElement
     public LiveIndicator()
     {
         VerticalAlignment = VerticalAlignment.Center;
-        Motion.WhileVisible(this, () =>
-        {
-            if (!Motion.ReduceAnimations) BeginAnimation(OpacityProperty, Motion.Decorative(new DoubleAnimation(1, .35, TimeSpan.FromSeconds(.8))
-            { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 20));
-        }, () => BeginAnimation(OpacityProperty, null));
+        // A steady dot: the colour says the status. Pulsing every status dot cost far more CPU than it was worth.
     }
     protected override void OnRender(DrawingContext dc)
     {

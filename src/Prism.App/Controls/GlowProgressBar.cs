@@ -136,17 +136,14 @@ public class GlowProgressBar : FrameworkElement
     {
         value = double.IsFinite(value) ? value : 0;
         // Without shimmer (desktop widgets) values also jump: a gliding bar in a transparent window means a full software repaint every frame.
-        if (!animate || !Shimmer || Motion.ReduceAnimations || !IsLoaded)
+        if (!animate || !Shimmer || !IsLoaded || !Motion.Glides(DisplayValue, value, 100))
         {
             BeginAnimation(DisplayValueProperty, null);
             DisplayValue = value;
             return;
         }
         _animating = true;
-        var animation = new DoubleAnimation(value, TimeSpan.FromMilliseconds(800))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
+        var animation = Motion.Glide(value);
         animation.Completed += (_, _) => _animating = false;
         BeginAnimation(DisplayValueProperty, animation);
     }

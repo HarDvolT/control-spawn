@@ -38,7 +38,7 @@ public abstract class MetricControl : FrameworkElement
         double from = c.Display;
         c.BeginAnimation(DisplayProperty, null);
         c.SetValue(DisplayProperty, value);
-        if (!Motion.ReduceAnimations && c.IsLoaded) c.BeginAnimation(DisplayProperty, new DoubleAnimation(from, value, TimeSpan.FromMilliseconds(380)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, FillBehavior = FillBehavior.HoldEnd });
+        if (c.IsLoaded && Motion.Glides(from, value, 100)) { var glide = Motion.Glide(value); glide.From = from; c.BeginAnimation(DisplayProperty, glide); }
         c.UpdateGlow();
     }
     private void UpdateGlow()
