@@ -85,7 +85,7 @@ public sealed partial class CommandProcessor
         }
         finally { gate.Release(); }
     }
-    public StateMessage GetState() => DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery);
+    public StateMessage GetState() => DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery) with { Automations = Automations };
     public event Action? StateChanged;
     public async Task<Response> HandleAsync(Request request, CancellationToken cancellationToken = default)
     {
@@ -97,6 +97,12 @@ public sealed partial class CommandProcessor
     {
         // A speed test must not hold the settings gate while fans/scenes need to change.
         if (request.Command == Commands.StartSpeedTest) return await SpeedResponseAsync(request.Id, cancellationToken);
+        // Lock reports only wake the automation check; they never change saved settings.
+        if (request.Command == Commands.SetSessionLocked)
+        {
+            try { SetSessionLocked(request.Args ?? default); return new(request.Id, true); }
+            catch (Exception e) when (e is InvalidOperationException or KeyNotFoundException) { return new(request.Id, false, "Expected { locked: true|false }."); }
+        }
         await gate.WaitAsync(cancellationToken);
         try
         {
@@ -366,10 +372,9 @@ public sealed partial class CommandProcessor
                 }
                 case Commands.ApplyScene:
                     if (!Settings.Scenes.TryGetValue(Text(a, "name"), out var scene)) throw new ArgumentException("Unknown scene.");
-                    next = Settings with { Fans = Settings.Fans.ToDictionary(f => f.Key, f => f.Value with { Mode = scene.Fans }),
-                        HeaderFans = Settings.HeaderFans.ToDictionary(f => f.Key, f => f.Value with { Mode = scene.Fans }),
-                        Lighting = scene.Lighting, Lamp = scene.Lamp with { Host = Settings.Lamp.Host },
-                        Lamps = Settings.Lamps?.Select(l => l with { On = scene.Lamp.On, Brightness = scene.Lamp.Brightness, Color = scene.Lamp.Color, Follow = scene.Lamp.Follow, Kelvin = scene.Lamp.Kelvin }).ToArray() }; break;
+                    next = WithScene(Settings, scene); break;
+                case Commands.SetAutomations:
+                    next = Settings with { Automations = UpdateAutomations(Settings.Automations, a) }; break;
                 default: throw new ArgumentException("Unknown command.");
             }
             if (next.Lamps is not null) next = next with { Lamp = next.Lamps.FirstOrDefault() ?? new() };
@@ -386,7 +391,7 @@ public sealed partial class CommandProcessor
             }
             if (request.Command == Commands.RemoveLamp)
                 next = next with { Devices = next.Devices.Select(d => d.Id == Text(a, "lamp") ? d with { Configured = false } : d).ToArray() };
-            next.Validate(); store.Save(next); Volatile.Write(ref settings, next);
+            next.Validate(); store.Save(next); NoteUserChange(Settings, next); Volatile.Write(ref settings, next);
             // Once persisted, a disconnect must not leave the running adapters on the old settings.
             await runtime.ApplyAsync(next, CancellationToken.None);
             if (removedToken is { } removed) removeDeviceToken(removed);

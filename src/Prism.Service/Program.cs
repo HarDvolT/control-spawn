@@ -44,13 +44,14 @@ public sealed class PrismWorker(ServiceRuntime runtime, CommandProcessor command
         await runtime.ApplyAsync(commands.Settings, linked.Token);
         var runtimeTask = runtime.RunAsync(linked.Token);
         var pipeTask = new PipeServer(commands).RunAsync(linked.Token);
+        var automationTask = commands.RunAutomationsAsync(linked.Token);
         try { await await Task.WhenAny(runtimeTask, pipeTask); }
         catch (Exception) when (!stoppingToken.IsCancellationRequested)
         { Environment.ExitCode = 1; throw; }
         finally
         {
             linked.Cancel(); runtime.RestoreDefaults();
-            try { await Task.WhenAll(runtimeTask, pipeTask); } catch (OperationCanceledException) when (linked.IsCancellationRequested) { }
+            try { await Task.WhenAll(runtimeTask, pipeTask, automationTask); } catch (OperationCanceledException) when (linked.IsCancellationRequested) { }
         }
     }
     public override async Task StopAsync(CancellationToken cancellationToken)

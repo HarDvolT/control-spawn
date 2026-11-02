@@ -16,7 +16,7 @@
           <ColumnDefinition Width="2.08*" />
           <ColumnDefinition Width="1*" />
         </Grid.ColumnDefinitions>
-        <ItemsControl ItemsSource="{Binding Scenes}" Margin="0,0,16,0">
+        <ItemsControl ItemsSource="{Binding Scenes}" Margin="0,0,16,0" VerticalAlignment="Top">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <c:SpacedGrid Columns="3" Gap="12"/>
@@ -44,13 +44,59 @@
         <c:GlassCard Grid.Column="1" VerticalAlignment="Top">
           <StackPanel>
             <TextBlock Text="Automations" Style="{StaticResource CardTitle}"/>
-            <TextBlock Text="Switching scenes on their own (when a game starts, at night, when the PC locks) needs a Prism service update that isn't built yet. Until then, apply scenes here, from the tray, or from the Dashboard." Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+            <DockPanel Margin="0,8,0,0">
+              <c:LiveIndicator DockPanel.Dock="Left" Width="8" Height="8" Margin="0,5,8,0" VerticalAlignment="Top" Color="#3DDC84" Visibility="{Binding AutomationActive, Converter={StaticResource BoolToVisibility}}"/>
+              <TextBlock Text="{Binding AutomationStatus}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap"/>
+            </DockPanel>
+            <Border Background="#17181D" CornerRadius="14" Padding="12" Margin="0,10,0,0">
+              <StackPanel>
+                <DockPanel>
+                  <c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding LockEnabled, Mode=TwoWay}" AutomationProperties.Name="When the PC locks"/>
+                  <StackPanel><TextBlock Text="When the PC locks" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="Highest priority" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,2,8,0"/></StackPanel>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0" IsEnabled="{Binding LockEnabled}">
+                  <TextBlock Text="Scene" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <ComboBox ItemsSource="{Binding SceneNames}" SelectedItem="{Binding LockScene, Mode=TwoWay}" AutomationProperties.Name="When the PC locks scene"/>
+                </DockPanel>
+              </StackPanel>
+            </Border>
+            <Border Background="#17181D" CornerRadius="14" Padding="12" Margin="0,10,0,0">
+              <StackPanel>
+                <DockPanel>
+                  <c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding GameEnabled, Mode=TwoWay}" AutomationProperties.Name="When a game is running"/>
+                  <StackPanel><TextBlock Text="When a game is running" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="Games from Steam, Epic, Riot, Xbox, GOG, EA, Ubisoft and Battle.net" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,2,8,0"/></StackPanel>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0" IsEnabled="{Binding GameEnabled}">
+                  <TextBlock Text="Scene" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <ComboBox ItemsSource="{Binding SceneNames}" SelectedItem="{Binding GameScene, Mode=TwoWay}" AutomationProperties.Name="When a game is running scene"/>
+                </DockPanel>
+                <StackPanel Margin="0,8,0,0" IsEnabled="{Binding GameEnabled}">
+                  <TextBlock Text="Other games, by program name (comma separated)" Style="{StaticResource SmallMuted}" Margin="0,0,0,4"/><Border Background="#0D0E12" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="8" Padding="8,4"><TextBox Text="{Binding ExtraGamesText, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="#F4F5F7" CaretBrush="#FF4D1A" AutomationProperties.Name="Other games"/></Border>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Background="#17181D" CornerRadius="14" Padding="12" Margin="0,10,0,0">
+              <StackPanel>
+                <DockPanel>
+                  <c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding NightEnabled, Mode=TwoWay}" AutomationProperties.Name="At night"/>
+                  <StackPanel><TextBlock Text="At night" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="Lowest priority" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,2,8,0"/></StackPanel>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0" IsEnabled="{Binding NightEnabled}">
+                  <TextBlock Text="Scene" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <ComboBox ItemsSource="{Binding SceneNames}" SelectedItem="{Binding NightScene, Mode=TwoWay}" AutomationProperties.Name="At night scene"/>
+                </DockPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NightEnabled}">
+                  <TextBlock Text="From" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/><Border Background="#0D0E12" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="8" Padding="8,4" Width="70"><TextBox Text="{Binding NightStart, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="#F4F5F7" CaretBrush="#FF4D1A" AutomationProperties.Name="Night starts"/></Border>
+                  <TextBlock Text="to" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="8,0"/><Border Background="#0D0E12" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="8" Padding="8,4" Width="70"><TextBox Text="{Binding NightEnd, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="#F4F5F7" CaretBrush="#FF4D1A" AutomationProperties.Name="Night ends"/></Border>
+                </StackPanel>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </c:GlassCard>
       </Grid>
       <c:GlassCard Margin="0,16,0,0"><c:GlassCard.ContextMenu><ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"><MenuItem Header="LED layout references"><MenuItem StaysOpenOnClick="True"><MenuItem.Header><StackPanel><ComboBox ItemsSource="{Binding PresetScenes}" SelectedItem="{Binding PresetScene}"/><TextBox Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/><Button Content="Save layout reference" Command="{Binding SavePresetReferenceCommand}" HorizontalAlignment="Left"/></StackPanel></MenuItem.Header></MenuItem></MenuItem></ContextMenu></c:GlassCard.ContextMenu><StackPanel>
         <DockPanel Margin="0,0,0,16">
-          <Button DockPanel.Dock="Right" Content="Save and apply" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryPillButton}" Padding="20,0" MinHeight="40"/>
+          <Button DockPanel.Dock="Right" Content="Save and apply" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryPillButton}" Padding="20,0" MinHeight="40" VerticalAlignment="Top"/>
           <StackPanel>
             <TextBlock Text="{Binding EditorTitle}" Style="{StaticResource CardTitle}"/>
             <DockPanel Margin="0,8,24,0" MaxWidth="420" HorizontalAlignment="Left">

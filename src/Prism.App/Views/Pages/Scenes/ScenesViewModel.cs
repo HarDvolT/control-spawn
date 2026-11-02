@@ -76,6 +76,46 @@ public sealed class ScenesViewModel : PageViewModel
     public bool IsNew { get => _isNew; private set { if (Set(ref _isNew, value)) OnPropertyChanged(nameof(EditorTitle)); } }
     public string EditorTitle => IsNew ? "New scene" : "Editing · " + EditName;
 
+    // Automations: each setter sends just that field to the service; refreshes from the service don't echo back.
+    private AutomationSettings _rules = new();
+    private bool _loadingRules;
+    private void SendRule(object change) { if (!_loadingRules) _ = RunAsync(() => Client.SendAsync(Commands.SetAutomations, change)); }
+    public IReadOnlyList<string> SceneNames => Scenes.Select(s => s.Name).ToArray();
+    public bool GameEnabled { get => _rules.GameEnabled; set { if (value == _rules.GameEnabled) return; _rules = _rules with { GameEnabled = value }; OnPropertyChanged(); SendRule(new { gameEnabled = value }); } }
+    public string GameScene { get => _rules.GameScene; set { if (value is null || value == _rules.GameScene) return; _rules = _rules with { GameScene = value }; OnPropertyChanged(); SendRule(new { gameScene = value }); } }
+    public bool NightEnabled { get => _rules.NightEnabled; set { if (value == _rules.NightEnabled) return; _rules = _rules with { NightEnabled = value }; OnPropertyChanged(); SendRule(new { nightEnabled = value }); } }
+    public string NightScene { get => _rules.NightScene; set { if (value is null || value == _rules.NightScene) return; _rules = _rules with { NightScene = value }; OnPropertyChanged(); SendRule(new { nightScene = value }); } }
+    public string NightStart { get => _rules.NightStart; set => SetTime(value, true); }
+    public string NightEnd { get => _rules.NightEnd; set => SetTime(value, false); }
+    public bool LockEnabled { get => _rules.LockEnabled; set { if (value == _rules.LockEnabled) return; _rules = _rules with { LockEnabled = value }; OnPropertyChanged(); SendRule(new { lockEnabled = value }); } }
+    public string LockScene { get => _rules.LockScene; set { if (value is null || value == _rules.LockScene) return; _rules = _rules with { LockScene = value }; OnPropertyChanged(); SendRule(new { lockScene = value }); } }
+    public string ExtraGamesText
+    {
+        get => string.Join(", ", _rules.ExtraGames ?? []);
+        set
+        {
+            var games = (value ?? "").Split([',', ';', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (games.SequenceEqual(_rules.ExtraGames ?? [])) return;
+            _rules = _rules with { ExtraGames = games }; SendRule(new { extraGames = games });
+        }
+    }
+    private void SetTime(string value, bool start)
+    {
+        var text = (value ?? "").Trim();
+        if (!TimeSpan.TryParseExact(text, [@"h\:mm", @"hh\:mm"], System.Globalization.CultureInfo.InvariantCulture, out var time) || time >= TimeSpan.FromDays(1))
+        { StatusText = "Night hours look like 23:00"; OnPropertyChanged(start ? nameof(NightStart) : nameof(NightEnd)); return; }
+        text = time.ToString(@"hh\:mm");
+        if (text == (start ? _rules.NightStart : _rules.NightEnd)) return;
+        _rules = start ? _rules with { NightStart = text } : _rules with { NightEnd = text };
+        OnPropertyChanged(start ? nameof(NightStart) : nameof(NightEnd));
+        SendRule(start ? new { nightStart = text } : (object)new { nightEnd = text });
+    }
+    public bool AutomationActive => State?.Automations?.Rule is not null;
+    public string AutomationStatus => State?.Automations is not { } a ? "Waiting for the Prism service"
+        : a.Rule is null ? "No rule is active right now. Your own scene stays until one is."
+        : $"{a.Scene} is on because {Lower(a.Detail)}. Your previous setup comes back when it ends.";
+    private static string Lower(string? text) => string.IsNullOrEmpty(text) ? "a rule matched" : char.ToLowerInvariant(text[0]) + text[1..];
+
     public string ActiveScene { get => _activeScene; private set => Set(ref _activeScene, value); }
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
     public string Summary => $"One click sets lighting, fans and the lamp together. Active: {ActiveScene}";
@@ -95,6 +135,12 @@ public sealed class ScenesViewModel : PageViewModel
             foreach (var s in summaries) Scenes.Add(new SceneCardItem(ToDefinition(s), false));
             OnPropertyChanged(nameof(PresetScenes));
         }
+        if (State?.Automations?.Settings is { } rules && rules != _rules)
+        {
+            _loadingRules = true;
+            try { _rules = rules; } finally { _loadingRules = false; }
+        }
+        OnPropertyChanged(nameof(SceneNames));
         if (State is { } state)
         {
             var match = summaries.FirstOrDefault(s => s.Effect == state.Lighting.Effect && s.Fans == state.FanMode && string.Equals(s.Color, state.Lighting.Color, StringComparison.OrdinalIgnoreCase))

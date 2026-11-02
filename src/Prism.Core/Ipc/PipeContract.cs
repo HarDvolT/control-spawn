@@ -44,6 +44,8 @@ public static class Commands
     public const string SetDeviceSync = "setDeviceSync"; // args: { "device": "<id>", "enabled": true }
     public const string SetLamp = "setLamp";             // args: { "lamp"?: id (default first), "on"?: true, "brightness"?: 1..100, "follow"?: "pc|average|own|map", "color"?: "#RRGGBB", "name"?: string }
     public const string ApplyScene = "applyScene";       // args: { "name": "Gaming" }
+    public const string SetAutomations = "setAutomations"; // args: any AutomationSettings fields to change
+    public const string SetSessionLocked = "setSessionLocked"; // args: { "locked": true } — sent by the app, which can see the desktop
     public const string SaveScene = "saveScene";         // args: { name, fans, effect, color, brightness (0-1), lamps: pc|warm|cool|off }
     public const string SetEffectParams = "setEffectParams"; // { parameters: EffectParameters }
     public const string SetLightingMap = "setLightingMap"; // { map: LightingMap }
@@ -83,7 +85,17 @@ public sealed record StateMessage(
     string Type = "state", IReadOnlyList<LampState>? Lamps = null,
     IReadOnlyList<DeviceState>? Devices = null, IReadOnlyList<DeviceState>? NewDevices = null,
     IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null,
-    IReadOnlyList<TelemetrySample>? History = null, IReadOnlyList<SceneSummary>? Scenes = null);
+    IReadOnlyList<TelemetrySample>? History = null, IReadOnlyList<SceneSummary>? Scenes = null, AutomationState? Automations = null);
+
+/// <summary>Rules that switch scenes on their own. Priority: locked PC, then a running game, then night hours.</summary>
+public sealed record AutomationSettings(
+    bool GameEnabled = true, string GameScene = "Gaming",
+    bool NightEnabled = true, string NightScene = "Night", string NightStart = "23:00", string NightEnd = "07:00",
+    bool LockEnabled = true, string LockScene = "Away",
+    IReadOnlyList<string>? ExtraGames = null);
+
+/// <summary>Which rule is driving the scene right now, if any. Rule is "lock", "game" or "night".</summary>
+public sealed record AutomationState(AutomationSettings Settings, string? Rule = null, string? Scene = null, string? Detail = null);
 
 /// <summary>A saved scene as the app shows and edits it. Lamps is "pc", "warm", "cool" or "off".</summary>
 public sealed record SceneSummary(string Name, FanMode Fans, LightingEffect Effect, string Color, double Brightness, string Lamps);

@@ -48,6 +48,7 @@ public sealed record ServiceSettings
     public bool LaunchOpenRgb { get; init; }
     public bool RouterEnabled { get; init; }
     public string RouterHost { get; init; } = "192.168.0.1";
+    public AutomationSettings Automations { get; init; } = new();
     public Dictionary<string, SceneConfiguration> Scenes { get; init; } = new()
     {
         ["Gaming"] = new(FanMode.Turbo, new(LightingEffect.Smart), new(Brightness: 60)),
@@ -68,7 +69,8 @@ public sealed record ServiceSettings
                 h.Value.Points?.Any(p => p.Temperature < 0 || p.Temperature > 120 || p.Percent < 0 || p.Percent > 100) == true) throw new ArgumentException("Invalid fan header.");
             _ = h.Value.ToSettings();
         }
-        if (Fans is null || Lighting is null || Lamp is null || Scenes is null || SyncedDevices is null) throw new ArgumentException("Settings cannot be null.");
+        if (Fans is null || Lighting is null || Lamp is null || Scenes is null || SyncedDevices is null || Automations is null) throw new ArgumentException("Settings cannot be null.");
+        if (!AutomationEngine.TryTime(Automations.NightStart, out _) || !AutomationEngine.TryTime(Automations.NightEnd, out _)) throw new ArgumentException("Night hours must look like 23:00.");
         if (Fans.Count != 2 || !Fans.ContainsKey("Radiator") || !Fans.ContainsKey("Case fans")) throw new ArgumentException("Only Radiator and Case fans are configurable.");
         foreach (var fan in Fans.Values)
         {
