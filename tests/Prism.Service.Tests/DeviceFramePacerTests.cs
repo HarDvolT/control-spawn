@@ -21,13 +21,14 @@ public sealed class DeviceFramePacerTests
     }
 
     [Fact]
-    public void BoardAndStripKeepThirtyFramesPerSecondAndRamTwenty()
+    public void BoardAndStripGetSixtyFramesPerSecondAndRamThirty()
     {
         var pacer = new DeviceFramePacer();
         pacer.Sent("board", Orange, Ms(0)); pacer.Sent("ram", Orange, Ms(0));
-        Assert.True(pacer.ShouldSend("board", "Motherboard", Blue, Ms(34)));
-        Assert.False(pacer.ShouldSend("ram", "RAM", Blue, Ms(34)));
-        Assert.True(pacer.ShouldSend("ram", "RAM", Blue, Ms(50)));
+        Assert.False(pacer.ShouldSend("board", "Motherboard", Blue, Ms(8)));
+        Assert.True(pacer.ShouldSend("board", "Motherboard", Blue, Ms(16)));   // a 60 fps tick landing a little early
+        Assert.False(pacer.ShouldSend("ram", "RAM", Blue, Ms(17)));
+        Assert.True(pacer.ShouldSend("ram", "RAM", Blue, Ms(33)));
     }
 
     [Fact]
@@ -63,6 +64,15 @@ public sealed class DeviceFramePacerTests
             Assert.False(pacer.ShouldSend("gpu", "GPU", dimmer, Ms(t)));
         }
         Assert.True(pacer.ShouldSend("gpu", "GPU", Blue, Ms(2000)) || pacer.ShouldSend("gpu", "GPU", Blue, Ms(2400)));
+    }
+
+    [Fact]
+    public void BoardSendsEverySmallStepButRamSkipsThem()
+    {
+        var pacer = new DeviceFramePacer(); pacer.Sent("board", Orange, Ms(0)); pacer.Sent("ram", Orange, Ms(0));
+        var step = Orange.Select(c => new RgbColor((byte)(c.R - 1), c.G, c.B)).ToArray();
+        Assert.True(pacer.ShouldSend("board", "Motherboard", step, Ms(34)));   // a slow rainbow's one-step move
+        Assert.False(pacer.ShouldSend("ram", "RAM", step, Ms(60)));
     }
 
     [Fact]

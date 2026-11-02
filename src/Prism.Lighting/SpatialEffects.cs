@@ -180,6 +180,17 @@ public static class Palettes
         LightingEffect.Rain => "Aurora", LightingEffect.RainbowWave or LightingEffect.ColorCycle or LightingEffect.GradientFlow or LightingEffect.Plasma => "Spectrum", _ => "Aurora" };
     private static PaletteStop[] Stops(params string[] colors) => colors.Select((c, i) => new PaletteStop((double)i / (colors.Length - 1), c)).ToArray();
     public static RgbColor Parse(string hex) => new(Convert.ToByte(hex.Substring(1, 2), 16), Convert.ToByte(hex.Substring(3, 2), 16), Convert.ToByte(hex.Substring(5, 2), 16));
+    /// <summary>
+    /// Samples a palette as a loop: after the last stop it blends back to the first over one stop's width, so effects
+    /// that cycle through a palette (rainbow, colour cycle, gradient flow) never jump from purple straight to red.
+    /// </summary>
+    public static RgbColor SampleLoop(IReadOnlyList<PaletteStop> stops, double t)
+    {
+        t = double.IsFinite(t) ? t - Math.Floor(t) : 0;
+        if (stops.Count < 2 || stops[0].Color.Equals(stops[^1].Color, StringComparison.OrdinalIgnoreCase)) return Sample(stops, t);
+        double gap = 1d / (stops.Count - 1), u = t * (1 + gap);
+        return u <= 1 ? Sample(stops, u) : RgbColor.Lerp(Parse(stops[^1].Color), Parse(stops[0].Color), (u - 1) / gap);
+    }
     public static RgbColor Sample(IReadOnlyList<PaletteStop> stops, double t)
     {
         t = Math.Clamp(double.IsFinite(t) ? t : 0, 0, 1);
@@ -188,6 +199,30 @@ public static class Palettes
             return RgbColor.Lerp(Parse(stops[i - 1].Color), Parse(stops[i].Color), Math.Round((t - stops[i - 1].Position) / (stops[i].Position - stops[i - 1].Position), 12));
         return Parse(stops[^1].Color);
     }
+}
+
+/// <summary>
+/// Keeps each look's animation continuous when its speed changes. Effects move by time × speed, so changing the speed
+/// used to jump every LED to a different point of the loop; here the position carries on from where it was and only
+/// its rate changes. Render with the scene's Speed set to 1 and <see cref="Time"/> as the time.
+/// </summary>
+public sealed class PhaseClock
+{
+    private readonly Dictionary<string, (double At, double Phase, double Speed)> looks = new();
+    private readonly object gate = new();
+
+    public double Time(string key, double seconds, double speed)
+    {
+        lock (gate)
+        {
+            if (!looks.TryGetValue(key, out var look)) looks[key] = look = (seconds, seconds * speed, speed);
+            else if (look.Speed != speed) looks[key] = look = (seconds, look.Phase + (seconds - look.At) * look.Speed, speed);
+            return look.Phase + (seconds - look.At) * speed;
+        }
+    }
+
+    /// <summary>The scene to render with <see cref="Time"/>: same look, speed folded into the time.</summary>
+    public static Scene Steady(Scene scene) => scene with { Speed = 1 };
 }
 
 public sealed record ReactiveFrame(double CpuLoad = 0, double GpuLoad = 0, double RamUse = 0,
@@ -208,6 +243,7 @@ public static class SpatialEffects
         double t = time * scene.Speed, angle = p.Angle * Math.PI / 180;
         var stops = p.Stops ?? Palettes.BuiltIn[p.Palette];
         RgbColor Palette(double v) => Palettes.Sample(stops, v);
+        RgbColor Loop(double v) => Palettes.SampleLoop(stops, v);
         var result = new RgbColor[positions.Count];
         for (int i = 0; i < result.Length; i++)
         {
@@ -223,14 +259,14 @@ public static class SpatialEffects
                 // and a faint floor keeps the case from blinking fully off between breaths.
                 case LightingEffect.Breathing: c = Scale(scene.Color, 0.04 + 0.96 * Math.Pow((1 - Math.Cos(t * Math.PI)) / 2, 2)); break;
                 case LightingEffect.Strobing: c = Frac(t * 2) < 0.5 ? scene.Color : RgbColor.Black; break;
-                case LightingEffect.ColorCycle: c = Palette(Frac(t / 8)); break;
-                case LightingEffect.RainbowWave: case LightingEffect.GradientFlow: c = Palette(Frac(path - t / 5)); break;
+                case LightingEffect.ColorCycle: c = Loop(t / 8); break;
+                case LightingEffect.RainbowWave: case LightingEffect.GradientFlow: c = Loop(path - t / 5); break;
                 case LightingEffect.Aurora:
                     c = Scale(Palette(n), 0.25 + 0.75 * Math.Pow((Math.Sin(y * 9 + Noise(x * 2, t * 0.12) * 5 + t * 0.3) + 1) / 2, 2)); break;
                 case LightingEffect.Comet:
                     // A white-hot head, a palette tail that fades out, and a dim trail of the palette so the case never goes black.
                     double distance = Frac(t * 0.3 - path * p.CometCount), tail = Math.Pow(Math.Max(0, 1 - distance / p.TailLength), 2);
-                    c = RgbColor.Lerp(Scale(Palette(Frac(path)), 0.08 + 0.92 * tail), new(255, 255, 255), Math.Exp(-distance * 60) * 0.6); break;
+                    c = RgbColor.Lerp(Scale(Loop(path), 0.08 + 0.92 * tail), new(255, 255, 255), Math.Exp(-distance * 60) * 0.6); break;
                 case LightingEffect.Fire: c = Scale(Palette(Math.Clamp((1 - pos.Y) * 0.35 + n * 0.75, 0, 1)), 0.5 + n * 0.5); break;
                 case LightingEffect.OceanRipple:
                     double radius = Math.Sqrt(Math.Pow(pos.X - 0.5, 2) + Math.Pow(pos.Y - 0.5, 2));

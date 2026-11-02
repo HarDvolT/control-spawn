@@ -103,7 +103,9 @@ public sealed class CaseMapPreview : FrameworkElement
         {
             var placement = CaseMap.Placement(map, device, devices);
             var positions = CaseMap.Positions(device, placement, map);
-            var colors = SpatialEffects.Render(scene, p, time, positions, device.Id, device.Kind, input);
+            // The gallery's mini previews keep plain time; the live map shares the app's phase clock.
+            var colors = mini || PreviewTime is not null ? SpatialEffects.Render(scene, p, time, positions, device.Id, device.Kind, input)
+                : SpatialEffects.Render(PhaseClock.Steady(scene), p, CaseIllustration.Phases.Time("case", time, scene.Speed), positions, device.Id, device.Kind, input);
             if (!mini)
             {
                 var editor = model?.Editor;

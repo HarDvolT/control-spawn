@@ -64,6 +64,8 @@ public sealed class CaseIllustration : FrameworkElement
     /// What a device's LEDs show right now, as the service renders them: the effect, painted layers, sensor bindings,
     /// and parts switched off under "Applies to" left dark. <paramref name="overlay"/> stands in for an unsaved paint draft.
     /// </summary>
+    /// <summary>One clock for every live preview in the app, so speed changes carry on smoothly there too.</summary>
+    public static readonly PhaseClock Phases = new();
     public static RgbColor[] LiveColors(LightingViewModel model, StateMessage state, RgbDeviceState device, IReadOnlyList<RgbDeviceState> devices,
         double time, SensorLighting sensorLighting, IReadOnlyList<string>? overlay = null)
     {
@@ -76,14 +78,15 @@ public sealed class CaseIllustration : FrameworkElement
                 input is null ? RgbColor.Black : Palettes.Parse(input.ScreenLeft), input is null ? RgbColor.Black : Palettes.Parse(input.ScreenCentre), input is null ? RgbColor.Black : Palettes.Parse(input.ScreenRight));
         // Parts with their own look render as the service renders them (see ServiceRuntime.RenderDevice).
         var looks = state.Lighting.PartLooks;
-        RgbColor[] Look(PartLook look) => SpatialEffects.Render(new("Part", look.Effect, Palettes.Parse(look.Color), look.Speed, look.Brightness),
+        RgbColor[] Look(string key, PartLook look) => SpatialEffects.Render(new("Part", look.Effect, Palettes.Parse(look.Color), 1, look.Brightness),
             (state.Lighting.Effect == look.Effect ? model.Parameters : new EffectParameters { Palette = Palettes.ForEffect(look.Effect) }) with { Devices = null },
-            time, positions, device.Id, device.Kind, frame);
-        var colors = looks?.GetValueOrDefault(device.Id) is { } own ? Look(own) : SpatialEffects.Render(scene, model.Parameters, time, positions, device.Id, device.Kind, frame);
+            Phases.Time(key, time, look.Speed), positions, device.Id, device.Kind, frame);
+        var colors = looks?.GetValueOrDefault(device.Id) is { } own ? Look(device.Id, own)
+            : SpatialEffects.Render(PhaseClock.Steady(scene), model.Parameters, Phases.Time("case", time, scene.Speed), positions, device.Id, device.Kind, frame);
         for (int z = 0; z < (device.Zones?.Count ?? 0) && looks is not null; z++)
             if (looks.GetValueOrDefault(SensorSources.ZoneTarget(device.Id, z)) is { } zoneLook)
             {
-                var part = Look(zoneLook); var zone = device.Zones![z];
+                var part = Look(SensorSources.ZoneTarget(device.Id, z), zoneLook); var zone = device.Zones![z];
                 for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount && i < colors.Length; i++) colors[i] = part[i];
             }
         colors = LedLayers.Composite(colors, device.CustomColors, overlay ?? device.OverlayColors, device.CustomEnabled).ToArray();

@@ -19,7 +19,13 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     private readonly object gate = new();
     private Computer? computer;
     private readonly Dictionary<int, IControl> controls = new();
+    private readonly Dictionary<IHardware, DateTime> dimmReads = new();
     private bool disposed;
+    /// <summary>
+    /// Each DIMM temperature read holds the SMBus and the RAM lighting waits ~200 ms for it, which showed as a step in
+    /// fast RAM effects (live, 2026-11-02). DIMM temperatures change slowly, so they are read this often at most.
+    /// </summary>
+    public static readonly TimeSpan DimmReadEvery = TimeSpan.FromSeconds(10);
     public IReadOnlyList<int> Headers { get { lock (gate) return controls.Keys.Order().ToArray(); } }
     public IReadOnlyList<SensorReading> Read()
     {
@@ -46,7 +52,7 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     {
         var type = hardware.HardwareType.ToString();
         if (type is "GpuAmd" or "GpuNvidia" or "GpuIntel") BusTurns.Gpu.Read(hardware.Update);
-        else if (type == "Memory") BusTurns.Smbus.Read(hardware.Update);   // DIMM SPD temperatures share the SMBus with the RAM lighting
+        else if (type == "Memory") ReadMemory(hardware);
         else hardware.Update();
         var category = hardware.HardwareType.ToString() switch
         {
@@ -70,6 +76,16 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
                 sensor.Value is float value && float.IsFinite(value) ? value : null));
         }
         foreach (var child in hardware.SubHardware) Visit(child, readings);
+    }
+    // Generic memory (load, used GiB) comes from Windows and updates every snapshot; DIMMs with SPD temperature sensors
+    // share the SMBus with the RAM lighting, so they take a bus turn and only every DimmReadEvery.
+    private void ReadMemory(IHardware hardware)
+    {
+        if (!hardware.Identifier.ToString().Contains("/dimm/", StringComparison.OrdinalIgnoreCase)) { hardware.Update(); return; }
+        var now = DateTime.UtcNow;
+        if (dimmReads.TryGetValue(hardware, out var last) && now - last < DimmReadEvery) return;
+        dimmReads[hardware] = now;
+        BusTurns.Smbus.Read(hardware.Update);
     }
     private static string Unit(string kind) => kind switch
     {
