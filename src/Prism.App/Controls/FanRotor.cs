@@ -18,8 +18,7 @@ public sealed class FanRotor : FrameworkElement
         Width = Height = 34;
         RenderTransformOrigin = new Point(0.5, 0.5);
         RenderTransform = _rotation;
-        Loaded += (_, _) => Animate();
-        Unloaded += (_, _) => _rotation.BeginAnimation(RotateTransform.AngleProperty, null);
+        Motion.WhileVisible(this, Animate, () => _rotation.BeginAnimation(RotateTransform.AngleProperty, null));
     }
     public double SpinSeconds { get => (double)GetValue(SpinSecondsProperty); set => SetValue(SpinSecondsProperty, value); }
     public Color Color { get => (Color)GetValue(ColorProperty); set => SetValue(ColorProperty, value); }
@@ -27,9 +26,9 @@ public sealed class FanRotor : FrameworkElement
     private void Animate()
     {
         _rotation.BeginAnimation(RotateTransform.AngleProperty, null);
-        if (!IsLoaded || Motion.ReduceAnimations || !double.IsFinite(SpinSeconds) || SpinSeconds <= 0) return;
+        if (!IsLoaded || !IsVisible || Motion.ReduceAnimations || !double.IsFinite(SpinSeconds) || SpinSeconds <= 0) return;
         _rotation.BeginAnimation(RotateTransform.AngleProperty, Motion.Decorative(new DoubleAnimation(0, 360,
-            TimeSpan.FromSeconds(SpinSeconds)) { RepeatBehavior = RepeatBehavior.Forever }, 30));
+            TimeSpan.FromSeconds(SpinSeconds)) { RepeatBehavior = RepeatBehavior.Forever }, 20));
     }
     protected override void OnRender(DrawingContext dc)
     {

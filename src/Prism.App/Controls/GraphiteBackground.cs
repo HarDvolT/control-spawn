@@ -11,8 +11,7 @@ public sealed class GraphiteBackground : FrameworkElement
     private readonly TranslateTransform drift = new();
     public GraphiteBackground()
     {
-        Loaded += (_, _) => UpdateMotion();
-        Unloaded += (_, _) => drift.BeginAnimation(TranslateTransform.XProperty, null);
+        Motion.WhileVisible(this, UpdateMotion, () => drift.BeginAnimation(TranslateTransform.XProperty, null));
         SystemParameters.StaticPropertyChanged += PreferenceChanged;
     }
     private void PreferenceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -58,12 +57,11 @@ public sealed class LiveIndicator : FrameworkElement
     public LiveIndicator()
     {
         VerticalAlignment = VerticalAlignment.Center;
-        Loaded += (_, _) =>
+        Motion.WhileVisible(this, () =>
         {
             if (!Motion.ReduceAnimations) BeginAnimation(OpacityProperty, Motion.Decorative(new DoubleAnimation(1, .35, TimeSpan.FromSeconds(.8))
             { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 20));
-        };
-        Unloaded += (_, _) => BeginAnimation(OpacityProperty, null);
+        }, () => BeginAnimation(OpacityProperty, null));
     }
     protected override void OnRender(DrawingContext dc)
     {

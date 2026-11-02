@@ -9,6 +9,8 @@ public partial class MainWindow : Window
     public MainWindow(MainViewModel vm)
     {
         InitializeComponent(); DataContext = _vm = vm;
+        // A minimized window draws nothing, so hide its content: every animation and timer pauses until it comes back.
+        StateChanged += (_, _) => { if (Content is UIElement root) root.Visibility = WindowState == WindowState.Minimized ? Visibility.Hidden : Visibility.Visible; };
         SourceInitialized += (_, _) => Services.WindowEffects.Apply(this);
         vm.PropertyChanged += SearchChanged;
         Closed += (_, _) => vm.PropertyChanged -= SearchChanged;

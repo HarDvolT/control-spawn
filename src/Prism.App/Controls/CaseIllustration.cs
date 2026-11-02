@@ -18,14 +18,15 @@ public sealed class CaseIllustration : FrameworkElement
     private LightingViewModel? model;
     private static readonly Stopwatch clock = Stopwatch.StartNew();
     private readonly SensorLighting sensorLighting = new();
-    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1d / 30) };
+    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1d / 20) };
     public CaseIllustration()
     {
         Height = 400;
         timer.Tick += (_, _) => { if (!Motion.ReduceAnimations) InvalidateVisual(); };
         DataContextChanged += (_, _) => { if (model is not null) model.PropertyChanged -= Changed; model = DataContext as LightingViewModel; if (model is not null) model.PropertyChanged += Changed; InvalidateVisual(); };
-        Unloaded += (_, _) => { timer.Stop(); if (model is not null) model.PropertyChanged -= Changed; };
-        Loaded += (_, _) => { timer.Start(); if (model is not null) { model.PropertyChanged -= Changed; model.PropertyChanged += Changed; } };
+        Motion.WhileVisible(this, timer.Start, timer.Stop);
+        Unloaded += (_, _) => { if (model is not null) model.PropertyChanged -= Changed; };
+        Loaded += (_, _) => { if (model is not null) { model.PropertyChanged -= Changed; model.PropertyChanged += Changed; } };
     }
     private void Changed(object? sender, PropertyChangedEventArgs e) => InvalidateVisual();
     private static Brush B(string value) => new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));

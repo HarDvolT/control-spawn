@@ -18,7 +18,7 @@ public sealed class CaseMapPreview : FrameworkElement
 {
     private readonly SensorLighting sensorLighting = new();
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
-    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1d / 30) };
+    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1d / 20) };
     private LightingViewModel? model;
     private readonly LightingEffect? effect;
     private LightingMap? draft;
@@ -41,8 +41,9 @@ public sealed class CaseMapPreview : FrameworkElement
         this.effect = effect;
         ClipToBounds = true; Focusable = true;
         timer.Tick += (_, _) => { if (!Motion.ReduceAnimations) InvalidateVisual(); };
-        Loaded += (_, _) => { Subscribe(); timer.Start(); };
-        Unloaded += (_, _) => { timer.Stop(); if (model is not null) { model.PropertyChanged -= Changed; model.Editor.PropertyChanged -= Changed; } };
+        Loaded += (_, _) => Subscribe();
+        Motion.WhileVisible(this, timer.Start, timer.Stop);
+        Unloaded += (_, _) => { if (model is not null) { model.PropertyChanged -= Changed; model.Editor.PropertyChanged -= Changed; } };
         DataContextChanged += (_, _) => { Subscribe(); InvalidateVisual(); };
         ToolTip = effect is null ? "Map mode: drag devices or lamp. Edit LEDs: brush, gradient, fill or select directly on the case." : effect.ToString();
     }

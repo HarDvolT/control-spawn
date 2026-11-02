@@ -49,16 +49,15 @@ public class LedStrip : FrameworkElement
 
     private double _phase;
     private TimeSpan _lastFrame;
-    // A 30 fps timer instead of CompositionTarget.Rendering, which would keep the whole window redrawing at 60 fps.
-    private readonly System.Windows.Threading.DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1d / 30) };
+    // A 20 fps timer instead of CompositionTarget.Rendering, which would keep the whole window redrawing at 60 fps.
+    private readonly System.Windows.Threading.DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1d / 20) };
 
     public LedStrip()
     {
         SnapsToDevicePixels = true;
         UseLayoutRounding = true;
         _timer.Tick += OnFrame;
-        Loaded += (_, _) => _timer.Start();
-        Unloaded += (_, _) => _timer.Stop();
+        Motion.WhileVisible(this, _timer.Start, _timer.Stop);
     }
 
     public LightingEffect EffectKind { get => (LightingEffect)GetValue(EffectKindProperty); set => SetValue(EffectKindProperty, value); }
