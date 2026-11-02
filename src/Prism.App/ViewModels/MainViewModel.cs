@@ -148,7 +148,7 @@ public sealed class MainViewModel : ObservableObject
     public PageViewModel CurrentPage { get => _currentPage; private set => Set(ref _currentPage, value); }
     public PageKey CurrentKey { get => _currentKey; private set => Set(ref _currentKey, value); }
     public string CurrentTitle => CurrentPage.PageTitle;
-    public string BreadcrumbLeft => "Prism";
+    public string BreadcrumbLeft => "Control Spawn";
     public string BreadcrumbTitle => Navigation.Pages.Get(CurrentKey).Title;
     public StateMessage? LastState => _lastState;
 

@@ -16,7 +16,7 @@ public sealed class WidgetWindow : Window
     {
         _vm = vm; DataContext = vm;
         ShowActivated = false;
-        Title = "Prism \u00b7 " + vm.Name;
+        Title = "Control Spawn \u00b7 " + vm.Name;
         // No AllowsTransparency: that forces WPF to paint the whole window on the CPU on every change.
         // Windows draws the rounded corners and the blurred glass instead, on the graphics card.
         // See-through window: the card's own rounded, translucent background shows the wallpaper behind it.

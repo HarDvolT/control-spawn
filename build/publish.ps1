@@ -126,6 +126,6 @@ $manifest | ConvertTo-Json -Depth 6 | Set-Content "$out/package-manifest.json" -
 if (!$SkipInstaller -and $IsccPath) {
     & $IsccPath "/DPayloadDir=$out" "/DSetupOutputDir=$PSScriptRoot/out" "$root/installer/Prism.iss"
     if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)." }
-    Sign-File "$PSScriptRoot/out/PrismSetup.exe"
-    Write-Host "Installer: $PSScriptRoot/out/PrismSetup.exe (not executed)"
+    Sign-File "$PSScriptRoot/out/ControlSpawnSetup.exe"
+    Write-Host "Installer: $PSScriptRoot/out/ControlSpawnSetup.exe (not executed)"
 }

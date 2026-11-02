@@ -74,6 +74,10 @@ function Register-PrismService([string]$Name, [string]$Executable) {
     if (!(Get-Service $Name -ErrorAction SilentlyContinue)) {
         New-Service -Name $Name -BinaryPathName $binary -DisplayName $Name -StartupType Automatic | Out-Null
     }
+    if ($Name -eq 'Prism') {
+        Invoke-Sc @('config',$Name,'DisplayName=','Control Spawn')
+        Invoke-Sc @('description',$Name,'Control Spawn: fans, lighting, lamps and router in the background')
+    }
     Invoke-Sc @('config',$Name,'start=','delayed-auto','obj=','LocalSystem')
     Invoke-Sc @('failure',$Name,'reset=','86400','actions=','restart/5000/restart/15000/none/0')
     Invoke-Sc @('failureflag',$Name,'1')
@@ -148,6 +152,14 @@ try {
             Stop-PrismService $name
             Set-Service -Name $name -StartupType Disabled
         }
+        # The service gives commands only to the app whose hashes are recorded here (PipeClientVerifier). ProgramData/Prism
+        # is writable by administrators and SYSTEM only (set above), so a user can't swap in another app.
+        $identity = Join-Path $data 'install'
+        New-Item -ItemType Directory -Force -Path $identity | Out-Null
+        $hashes = @{}
+        foreach ($name in @('Prism.App.exe', 'Prism.App.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $InstallDir $name) -Algorithm SHA256).Hash }
+        $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $identity 'app-hashes.json') -Encoding UTF8
+        if (-not [Diagnostics.EventLog]::SourceExists('Prism')) { New-EventLog -LogName Application -Source Prism }
         Register-PrismService 'Prism' 'Prism.Service.exe'
         if (Test-Path "$InstallDir/Prism.FanGuard.exe") { Register-PrismService 'Prism.FanGuard' 'Prism.FanGuard.exe' }
         if (!$reboot) {

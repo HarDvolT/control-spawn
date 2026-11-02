@@ -111,7 +111,7 @@ public sealed class ScenesViewModel : PageViewModel
         SendRule(start ? new { nightStart = text } : (object)new { nightEnd = text });
     }
     public bool AutomationActive => State?.Automations?.Rule is not null;
-    public string AutomationStatus => State?.Automations is not { } a ? "Waiting for the Prism service"
+    public string AutomationStatus => State?.Automations is not { } a ? "Waiting for the Control Spawn service"
         : a.Rule is null ? "No rule is active right now. Your own scene stays until one is."
         : $"{a.Scene} is on because {Lower(a.Detail)}. Your previous setup comes back when it ends.";
     private static string Lower(string? text) => string.IsNullOrEmpty(text) ? "a rule matched" : char.ToLowerInvariant(text[0]) + text[1..];

@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" x:Class="Prism.App.MainWindow" FontFamily="{StaticResource BodyFont}" Title="Prism" Width="1440" Height="940" MinWidth="1000" MinHeight="650" WindowStyle="None" Background="{StaticResource PageBrush}" Foreground="{StaticResource TextPrimaryBrush}" KeyDown="WindowKeyDown">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" x:Class="Prism.App.MainWindow" FontFamily="{StaticResource BodyFont}" Title="Control Spawn" Icon="Assets/ControlSpawn.ico" Width="1440" Height="940" MinWidth="1000" MinHeight="650" WindowStyle="None" Background="{StaticResource PageBrush}" Foreground="{StaticResource TextPrimaryBrush}" KeyDown="WindowKeyDown">
   <WindowChrome.WindowChrome><WindowChrome CaptionHeight="0" ResizeBorderThickness="7" CornerRadius="0"/></WindowChrome.WindowChrome>
   <Grid ClipToBounds="True">
     <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -7,7 +7,7 @@
       <DockPanel>
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="10,4,0,20">
           <Border Width="30" Height="30" CornerRadius="9"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#FF4D1A" Offset="0"/><GradientStop Color="#FF8A3D" Offset="1"/></LinearGradientBrush></Border.Background><Border.Effect><DropShadowEffect Color="#FF4D1A" BlurRadius="22" ShadowDepth="0" Opacity="0.5"/></Border.Effect><Path Data="M12 3 4 7.5v9L12 21l8-4.5v-9z" Stroke="#07080A" StrokeThickness="2.4" Width="16" Height="18" Stretch="Uniform"/></Border>
-          <TextBlock Text="Prism" FontFamily="{StaticResource NumberFont}" FontSize="19" FontWeight="Bold" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          <TextBlock Text="Control Spawn" FontFamily="{StaticResource NumberFont}" FontSize="19" FontWeight="Bold" VerticalAlignment="Center" Margin="10,0,0,0"/>
         </StackPanel>
         <Border DockPanel.Dock="Bottom" Background="#111216" BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="12" Padding="10" Margin="8,12,8,0">
           <StackPanel Orientation="Horizontal"><c:LiveIndicator Width="8" Height="8" Color="{Binding ServiceDot, Converter={StaticResource HexToColor}}" Margin="0,0,8,0"/><TextBlock Text="{Binding ServiceStatusText}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" ToolTip="{Binding ModeBadge}"/></StackPanel>
@@ -26,7 +26,7 @@
       <Grid.RowDefinitions><RowDefinition Height="76"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
       <Grid Margin="26,20,26,16" MouseLeftButtonDown="TitleDrag" Background="Transparent">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="384"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="Prism" Foreground="#7C808A"/><TextBlock Text=" / " Foreground="#3A3C44" Margin="5,0"/><TextBlock Text="{Binding BreadcrumbTitle}" Foreground="#C9CBD1"/></StackPanel>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="Control Spawn" Foreground="#7C808A"/><TextBlock Text=" / " Foreground="#3A3C44" Margin="5,0"/><TextBlock Text="{Binding BreadcrumbTitle}" Foreground="#C9CBD1"/></StackPanel>
         <Button Grid.Column="1" Style="{StaticResource PillButton}" Command="{Binding OpenSearchCommand}" Padding="14,0,8,0" MinHeight="40" Height="40" HorizontalContentAlignment="Stretch">
           <DockPanel Width="354"><Border DockPanel.Dock="Right" Background="#1E2026" CornerRadius="6" Padding="8,3"><TextBlock Text="Ctrl Space" FontSize="11" Foreground="#A3A6AE"/></Border><Path DockPanel.Dock="Left" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M16 16 L21 21" Stroke="#7C808A" StrokeThickness="2" Width="15" Height="15" Stretch="Uniform" Margin="0,0,10,0"/><TextBlock Text="Search or type a command" FontWeight="Normal" Foreground="#7C808A" VerticalAlignment="Center"/></DockPanel>
         </Button>

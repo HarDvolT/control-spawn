@@ -55,7 +55,7 @@ public sealed class SettingsViewModel : PageViewModel
     public string SelectedSection { get => selectedSection; set { if (Sections.Contains(value) && Set(ref selectedSection, value)) NotifyAll(); } }
     public bool IsBackup => SelectedSection == "Backup";
     public IReadOnlyList<StatRow> HealthRows => [
-        new("Prism service", State is not null && (Client.IsConnected || IsMock) ? "running" : "offline", State is not null && (Client.IsConnected || IsMock) ? "#3DDC84" : "#F5A524"),
+        new("Control Spawn service", State is not null && (Client.IsConnected || IsMock) ? "running" : "offline", State is not null && (Client.IsConnected || IsMock) ? "#3DDC84" : "#F5A524"),
         new("OpenRGB", State is { } rgb ? $"{rgb.Lighting.Devices.Count(d => d.Connected)} devices" : Format.Dash, State?.Lighting.Devices.Any(d => d.Connected) == true ? "#3DDC84" : "#7C808A"),
         new("Fan chip", State?.System.FanChipName ?? "Unavailable", State?.System.FanChipName is null ? "#7C808A" : "#3DDC84"),
         new("Lamps", State?.Lamps is { } lamps ? $"{lamps.Count(l => l.Connected)} online" : Format.Dash, State?.Lamps?.Any(l => l.Connected) == true ? "#3DDC84" : "#7C808A"),

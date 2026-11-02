@@ -261,7 +261,7 @@ public sealed class WidgetCard : UserControl
     private ContextMenu BuildMenu()
     {
         var menu = new ContextMenu();
-        var open = new MenuItem { Header = "Open in Prism" }; open.Click += (_, _) => OpenPage?.Invoke(PageFor(vm.Kind)); menu.Items.Add(open);
+        var open = new MenuItem { Header = "Open in Control Spawn" }; open.Click += (_, _) => OpenPage?.Invoke(PageFor(vm.Kind)); menu.Items.Add(open);
         menu.Items.Add(new Separator());
         var size = new MenuItem { Header = "Size" };
         foreach (var option in Enum.GetValues<WidgetSize>()) { var item = new MenuItem { Header = option.ToString(), IsCheckable = true }; item.Click += (_, _) => vm.Size = option; size.Items.Add(item); }

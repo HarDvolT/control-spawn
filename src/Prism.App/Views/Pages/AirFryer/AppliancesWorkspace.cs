@@ -156,7 +156,7 @@ public sealed class AppliancesWorkspace : UserControl
             aside.Children.Add(new GlassCard { Content = presets, MinHeight = 358 });
             grid.Children.Add(aside);
             grid.Children.Add(SafetyCard(308));
-            var recent = Info("Recent cooks", "Observed by the Prism service");
+            var recent = Info("Recent cooks", "Observed by the Control Spawn service");
             foreach (var record in appliance.History?.Take(4) ?? [])
             {
                 var row = new StackPanel { Margin = new(16, 8, 16, 8) };
