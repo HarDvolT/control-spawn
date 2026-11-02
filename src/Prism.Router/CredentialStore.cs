@@ -1,3 +1,4 @@
+using Prism.Core;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -6,8 +7,7 @@ using System.Text.Json.Nodes;
 namespace Prism.Router;
 
 /// <summary>
-/// Protects the stored secrets. The default implementation is Windows DPAPI (CurrentUser), so
-/// only this Windows user on this PC can decrypt them; tests inject a fake.
+/// Adapter encryption contract. Production uses machine DPAPI with service-owned install entropy; tests inject a fake.
 /// </summary>
 public interface ISecretProtector
 {
@@ -16,18 +16,16 @@ public interface ISecretProtector
     byte[] Unprotect(byte[] data);
 }
 
-/// <summary>DPAPI, scoped to the current Windows user (CryptProtectData with no entropy).</summary>
+/// <summary>Machine DPAPI with the service install entropy.</summary>
 public sealed class DpapiSecretProtector : ISecretProtector
 {
-    public byte[] Protect(byte[] data) =>
-        ProtectedData.Protect(data, optionalEntropy: null, DataProtectionScope.CurrentUser);
-
-    public byte[] Unprotect(byte[] data) =>
-        ProtectedData.Unprotect(data, optionalEntropy: null, DataProtectionScope.CurrentUser);
+    private readonly SecretStore store = new();
+    public byte[] Protect(byte[] data) => store.ProtectPayload(data);
+    public byte[] Unprotect(byte[] data) => store.UnprotectPayload(data);
 }
 
 /// <summary>
-/// Remembers the router password and session between runs, DPAPI-encrypted in
+/// Remembers the router password and session between runs, machine DPAPI-encrypted in the service SecretStore; legacy records in
 /// <c>%APPDATA%\Prism\router</c> (credentials.json / session.json).
 /// </summary>
 public sealed class CredentialStore
@@ -38,9 +36,11 @@ public sealed class CredentialStore
     public const string SessionFile = "session.json";
 
     private readonly ISecretProtector _protector;
+    private readonly SecretStore? secrets;
 
-    public CredentialStore(string? directory = null, ISecretProtector? protector = null)
+    public CredentialStore(string? directory = null, ISecretProtector? protector = null, SecretStore? secrets = null)
     {
+        this.secrets = secrets ?? (protector is null ? new SecretStore() : null);
         Directory = directory ?? DefaultDirectory();
         _protector = protector ?? new DpapiSecretProtector();
     }
@@ -88,6 +88,12 @@ public sealed class CredentialStore
     {
         try
         {
+            if (secrets is not null)
+            {
+                var bytes = secrets.Load("router." + name, Path.Combine(Directory, name));
+                if (bytes is null) return null;
+                try { return Encoding.UTF8.GetString(bytes); } finally { CryptographicOperations.ZeroMemory(bytes); }
+            }
             var text = File.ReadAllText(Path.Combine(Directory, name), Encoding.UTF8);
             var record = JsonNode.Parse(text) as JsonObject;
             var encoded = record?["dpapi"]?.GetValue<string>();
@@ -97,8 +103,8 @@ public sealed class CredentialStore
             }
 
             var plain = _protector.Unprotect(Convert.FromBase64String(encoded));
-            var secret = Encoding.UTF8.GetString(plain);
-            return secret.Length > 0 ? secret : null;
+            try { var secret = Encoding.UTF8.GetString(plain); return secret.Length > 0 ? secret : null; }
+            finally { CryptographicOperations.ZeroMemory(plain); }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException
                                       or FormatException or CryptographicException or InvalidOperationException)
@@ -109,8 +115,11 @@ public sealed class CredentialStore
 
     private void Save(string name, string secret)
     {
+        var plain = Encoding.UTF8.GetBytes(secret);
+        if (secrets is not null) { try { secrets.Save("router." + name, plain); } finally { CryptographicOperations.ZeroMemory(plain); } return; }
         System.IO.Directory.CreateDirectory(Directory);
-        var encrypted = _protector.Protect(Encoding.UTF8.GetBytes(secret));
+        byte[] encrypted;
+        try { encrypted = _protector.Protect(plain); } finally { CryptographicOperations.ZeroMemory(plain); }
         var json = JsonSerializer.Serialize(new Dictionary<string, string>
         {
             ["dpapi"] = Convert.ToBase64String(encrypted),
@@ -122,7 +131,8 @@ public sealed class CredentialStore
     {
         try
         {
-            File.Delete(Path.Combine(Directory, name));
+            if (secrets is not null) secrets.Remove("router." + name);
+            else File.Delete(Path.Combine(Directory, name));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

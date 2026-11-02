@@ -12,6 +12,9 @@ namespace Prism.Service;
 public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 {
     private readonly bool mock;
+    private FanGuardProcess? fanGuard;
+    private TimeSpan sensorCycle = TimeSpan.FromSeconds(-1);
+    private readonly bool enableFanGuard;
     private readonly IClock clock = new SystemClock();
     private readonly ISensorSource sensors;
     private readonly IFanControlPort controls;
@@ -25,6 +28,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private readonly IAudioLevels? audioLevels;
     private readonly IScreenZones? screenZones;
     public void TriggerLightingEvent(LightingEventKind kind) => eventEffects.Trigger(kind, clock.Elapsed.TotalSeconds);
+    public void ReportSecretMigrationFailure() => warnings["secrets"] = "Legacy credentials could not be migrated; run an elevated console under the original user or provision credentials through the installed app.";
     private bool pingHigh, signalPoor;
     private ReactiveFrame reactive = new();
     private readonly ReactiveSmoother smoothing = new();
@@ -115,7 +119,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     public bool Observe { get; init; }
 
     public ServiceRuntime(bool mock, bool observe = false)
-        : this(mock, HardwareComposition.Create(mock ? ["--mock"] : []), observe) { Observe = observe; }
+        : this(mock, HardwareComposition.Create(mock ? ["--mock"] : []), observe) { Observe = observe; enableFanGuard = !mock && !observe; }
 
     private ServiceRuntime(bool mock, (ISensorSource Sensors, IFanControlPort Controls, IServiceQuery Services) hardware, bool observe)
         : this(mock, hardware.Sensors, observe ? new ObservingFanControlPort(hardware.Controls) : hardware.Controls,
@@ -150,6 +154,11 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (int Zone, int Size, TimeSpan Until)> identification = new();
     public void EndIdentification(string device) => identification.TryRemove(device, out _);
     public void IdentifyZone(string device, int zone, int size) => identification[device] = (zone, size, clock.Elapsed + TimeSpan.FromSeconds(30));
+    private void ModuleHealth(string name, bool healthy)
+    {
+        if (healthy) warnings.TryRemove("module:" + name, out _);
+        else warnings["module:" + name] = name + " module failed; retrying.";
+    }
 
     public Task ApplyAsync(ServiceSettings value, CancellationToken cancellationToken)
     { cancellationToken.ThrowIfCancellationRequested(); Volatile.Write(ref settings, value); return Task.CompletedTask; }
@@ -206,10 +215,11 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         AppDomain.CurrentDomain.ProcessExit += exit;
         AppDomain.CurrentDomain.UnhandledException += crash;
         Console.CancelKeyPress += cancel;
-        // The real sensor library loads its driver synchronously; on its own pool thread that can't hold up
-        // lighting, lamps or the rest (nor the service's start-up) while it does.
-        var sensorLoop = mock ? SensorsAsync(linked.Token) : Task.Run(() => SensorsAsync(linked.Token), CancellationToken.None);
-        var loops = new[] { sensorLoop, LightingAsync(linked.Token), LampAsync(linked.Token), RouterAsync(linked.Token), HealthAsync(linked.Token), CaptureAsync(true, linked.Token), CaptureAsync(false, linked.Token), DiscoveryAsync(linked.Token) };
+        IPrismModule[] modules = [new SensorModule(this), new FanModule(this), new RgbModule(this), new LampModule(this), new RouterModule(this),
+            new HealthModule(this), new CaptureModule(this, true), new CaptureModule(this, false), new DiscoveryModule(this), new ApplianceModule(this)];
+        // Sensor reads may block in native code. Start each module independently of the others.
+        foreach (var module in modules) module.Start(linked.Token, background: !mock);
+        var loops = modules.Select(module => module.Completion).ToArray();
         try
         {
             var first = await Task.WhenAny(loops);
@@ -219,73 +229,19 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         finally
         {
             linked.Cancel(); stop.Cancel(); RestoreDefaults();
+
             try
             {
-                try { await Task.WhenAll(loops); } catch (OperationCanceledException) when (linked.IsCancellationRequested) { }
+                try { await Task.WhenAll(modules.Select(module => module.StopAsync())); } catch (OperationCanceledException) when (linked.IsCancellationRequested) { }
             }
             finally
             {
+                RestoreDefaults(); fanGuard?.Dispose(); fanGuard = null;
                 AppDomain.CurrentDomain.ProcessExit -= exit;
                 AppDomain.CurrentDomain.UnhandledException -= crash;
                 Console.CancelKeyPress -= cancel;
             }
         }
-    }
-
-    private async Task SensorsAsync(CancellationToken token)
-    {
-        warnings["sensors"] = "Sensors are starting.";
-        await using var monitor = new LhmHardwareMonitor(sensors);
-        var previous = clock.Elapsed;
-        void OnSnapshot(object? sender, HardwareSnapshot next)
-        {
-            var nextProcesses = mock ? null : processTelemetry.Sample();
-            if (next.Success) warnings.TryRemove("sensors", out _); else warnings["sensors"] = "Sensor read failed.";
-            var value = Volatile.Read(ref settings);
-            foreach (var group in value.Fans)
-            {
-                int header = group.Key == "Radiator" ? 2 : 6;
-                if (controls.Headers.Contains(header)) fans.Configure(header, group.Value.ToSettings());
-            }
-            foreach (var group in value.HeaderFans)
-                if (controls.Headers.Contains(group.Key) && group.Key != 7) fans.Configure(group.Key, group.Value.ToSettings());
-            fans.Apply(next, clock.Elapsed - previous); previous = clock.Elapsed;
-            var required = next.Temperature(SensorCategory.Cpu).HasValue && value.Fans.Values.All(f => FanCurveEngine.SelectTemperature(next, f.Source).HasValue);
-            lock (stateGate)
-            {
-                snapshot = next;
-                processLoads = nextProcesses;
-                bool nextFailsafe = safety.Observe(next, required);
-                if (nextFailsafe) TriggerLightingEvent(LightingEventKind.FanFailsafe);
-                failsafe = nextFailsafe;
-                inputs.Temperature = next.Temperature(SensorCategory.Cpu) ?? double.NaN;
-                var system = StateAssembler.Assemble(next, value, controls.Headers, [], null, null, new(mock, false, [], failsafe)).System;
-                if (next.Success && system.ThermalThrottling is { } throttled)
-                {
-                    thermalObservedSince ??= next.Timestamp;
-                    if (throttled && lastThermalThrottle != true) thermalEpisodes++;
-                    lastThermalThrottle = throttled;
-                }
-                if (next.Success && (sampleHistory.Count == 0 || sampleHistory.Last().Timestamp < next.Timestamp))
-                {
-                    sampleHistory.Enqueue(new(next.Timestamp, system.CpuLoad, system.CpuTemp, system.GpuLoad,
-                        system.GpuTemp, routerState?.PingMs, system.NetDownMbps, system.NetUpMbps,
-                        FanMap.Discover(next.Sensors, controls.Headers).ToDictionary(f => f.Header,
-                            f => next.Sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{f.Header - 1}"))?.Value),
-                        system.Disks.FirstOrDefault()?.ReadMBps, routerState?.Rsrp5g, routerState?.Sinr5g));
-                    while (sampleHistory.Count > 3600) sampleHistory.Dequeue();
-                }
-                Volatile.Write(ref reactive, new(system.CpuLoad ?? 0, system.GpuLoad ?? 0,
-                    system.RamTotalGb > 0 ? (system.RamUsedGb ?? 0) / system.RamTotalGb.Value : 0,
-                    system.CpuTemp ?? double.NaN, system.GpuTemp ?? double.NaN));
-            }
-        }
-        monitor.Snapshot += OnSnapshot;
-        try
-        {
-            await monitor.RunAsync(token);
-        }
-        finally { monitor.Snapshot -= OnSnapshot; RestoreDefaults(); }
     }
 
     private async Task LightingAsync(CancellationToken token)
@@ -500,38 +456,6 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     }
     private int sensorStateBuilding;
 
-    private async Task LampAsync(CancellationToken token)
-    {
-        var workers = new Dictionary<string, (CancellationTokenSource Stop, Task Task)>();
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
-        try
-        {
-            do
-            {
-                var configs = Volatile.Read(ref settings).ConfiguredLamps;
-                foreach (var id in workers.Keys.Where(id => configs.All(c => c.Id != id)).ToArray())
-                {
-                    var worker = workers[id]; worker.Stop.Cancel();
-                    try { await worker.Task; } catch (OperationCanceledException) { }
-                    worker.Stop.Dispose(); workers.Remove(id);
-                    lock (stateGate) lampStates.Remove(id);
-                    warnings.TryRemove(id, out _);
-                }
-                foreach (var config in configs.Where(c => !workers.ContainsKey(c.Id)))
-                {
-                    var source = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    var initial = workers.Count == 0 ? lamp : null; lamp = null;
-                    workers[config.Id] = (source, LampWorkerAsync(config.Id, initial, source.Token));
-                }
-            } while (await timer.WaitForNextTickAsync(token));
-        }
-        finally
-        {
-            foreach (var worker in workers.Values) worker.Stop.Cancel();
-            foreach (var worker in workers.Values) { try { await worker.Task; } catch (OperationCanceledException) { } finally { worker.Stop.Dispose(); } }
-        }
-    }
-
     private async Task LampWorkerAsync(string lampId, ILampClient? initial, CancellationToken token)
     {
         if (Observe) await Task.Delay(Timeout.Infinite, token);
@@ -666,99 +590,10 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         finally { if (lamp is not null) await lamp.DisposeAsync(); }
     }
 
-    private async Task RouterAsync(CancellationToken token)
-    {
-        var nextDeviceList = TimeSpan.Zero;
-        string? host = null; int credentials = Volatile.Read(ref routerCredentials);
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
-        do
-        {
-            var config = Volatile.Read(ref settings);
-            if (!mock && (!config.RouterEnabled || host != config.RouterHost || credentials != Volatile.Read(ref routerCredentials)))
-            {
-                router?.Dispose(); router = null; host = config.RouterHost;
-                credentials = Volatile.Read(ref routerCredentials);
-                lock (stateGate) routerState = null;
-            }
-            if (!mock && !config.RouterEnabled) continue;
-            try
-            {
-                router ??= new RouterBackend(Volatile.Read(ref settings).RouterHost);
-                var state = await Task.Run(router.Poll, token);
-                lock (stateGate) routerState = state;
-                if (clock.Elapsed >= nextDeviceList)
-                {
-                    nextDeviceList = clock.Elapsed + TimeSpan.FromSeconds(60);
-                    var connected = await Task.Run(router.ConnectedDevices, token);
-                    if (connected is not null && observationsHandler is not null)
-                    {
-                        var now = DateTimeOffset.UtcNow;
-                        await observationsHandler(connected.Append(new DeviceState("router:" + config.RouterHost, DeviceKind.Router, "Router", "router", now, now, DeviceStatus.Ready, ["signal", "devices"], Ip: config.RouterHost, Configured: true)).ToArray(), ["router"]);
-                    }
-                }
-                bool high = state.PingMs > 100, poor = state.Score < 40 || state.Bars < 2;
-                if (high && !pingHigh) TriggerLightingEvent(LightingEventKind.PingSpike);
-                if (poor && !signalPoor) TriggerLightingEvent(LightingEventKind.PoorSignal);
-                pingHigh = high; signalPoor = poor;
-                warnings.TryRemove("router", out _);
-            }
-            catch (Exception e) when (e is RouterError or IOException or InvalidOperationException or UnauthorizedAccessException)
-            {
-                var message = e is AuthError { AlreadyLoggedIn: true } ? "Router login held elsewhere." : "Router unavailable or credentials not configured.";
-                warnings["router"] = message;
-                lock (stateGate) routerState = new(false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, message);
-            }
-        } while (await timer.WaitForNextTickAsync(token));
-    }
-
-    private async Task CaptureAsync(bool audio, CancellationToken token)
-    {
-        if (mock || Observe || !OperatingSystem.IsWindows()) { await Task.Delay(Timeout.Infinite, token); return; }
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
-        do
-        {
-            bool Needed() => Volatile.Read(ref settings).Lighting.Effect is var effect && (audio
-                ? effect is LightingEffect.Music or LightingEffect.AudioSpectrum
-                : effect is LightingEffect.Adaptive or LightingEffect.ScreenAmbient);
-            if (!Needed() || (audio ? audioLevels is not WasapiLoopback : screenZones is not DesktopDuplication)) continue;
-            using var captureStop = CancellationTokenSource.CreateLinkedTokenSource(token);
-            var task = Task.Factory.StartNew(() => {
-                if (audio) ((WasapiLoopback)audioLevels!).Run(captureStop.Token);
-                else ((DesktopDuplication)screenZones!).Run(captureStop.Token);
-            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            try
-            {
-                while (Needed() && !task.IsCompleted && !token.IsCancellationRequested) await Task.Delay(250, token);
-            }
-            finally
-            {
-                captureStop.Cancel();
-                try { await task; warnings.TryRemove(audio ? "audio" : "screen", out _); }
-                catch (Exception e) when (e is System.Runtime.InteropServices.COMException or NotSupportedException or InvalidOperationException)
-                { warnings[audio ? "audio" : "screen"] = "Capture unavailable in this session; using silent/black input. Retrying."; }
-            }
-        } while (await timer.WaitForNextTickAsync(token));
-    }
-
     private ReactiveFrame FrameInputs() => smoothing.Sample(Volatile.Read(ref reactive), clock.Elapsed.TotalSeconds) with {
         Audio = audioLevels?.Bands ?? new[] { inputs.Level }, Beat = audioLevels?.Beat ?? 0,
         ScreenLeft = screenZones?.Left ?? inputs.Average, ScreenCentre = screenZones?.Centre ?? inputs.Average,
         ScreenRight = screenZones?.Right ?? inputs.Average };
-
-    private async Task HealthAsync(CancellationToken token)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
-        do
-        {
-            try
-            {
-                var health = healthProbe.Read(); lock (stateGate) elevated = health.Elevated;
-                foreach (var key in warnings.Keys.Where(k => k.StartsWith("health:"))) warnings.TryRemove(key, out _);
-                foreach (var warning in health.Warnings) warnings["health:" + warning] = warning;
-            }
-            catch (Exception) { warnings["health:query"] = "Cannot query service health."; }
-        } while (await timer.WaitForNextTickAsync(token));
-    }
 
     public Task<SpeedTestResult?> StartSpeedTestAsync(CancellationToken cancellationToken)
     {
@@ -790,11 +625,11 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         if (running is not null)
         {
             try { await running; }
-            catch (Exception e) { System.Diagnostics.Trace.TraceError(e.ToString()); }
+            catch (Exception e) { PrismLog.Failure("runtime", e); }
         }
         if (speedTask is not null)
         {
-            try { await speedTask; } catch (Exception e) { System.Diagnostics.Trace.TraceError(e.ToString()); }
+            try { await speedTask; } catch (Exception e) { PrismLog.Failure("runtime", e); }
         }
         fans.Dispose(); sensors.Dispose();
         await appliances.DisposeAsync();

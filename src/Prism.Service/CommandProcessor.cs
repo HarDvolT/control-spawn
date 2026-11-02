@@ -39,6 +39,7 @@ public sealed partial class CommandProcessor
     private readonly LampTokenStore lampTokens;
     private readonly SemaphoreSlim gate = new(1, 1);
     private ServiceSettings settings;
+    public StateHub State { get; }
     public ServiceSettings Settings => Volatile.Read(ref settings);
     public CommandProcessor(ISettingsStore store, IServiceRuntime runtime, Action<byte[]>? saveLampToken = null, Action<string>? saveRouterPassword = null, Action<uint, byte[]>? saveDeviceToken = null, Action<uint>? removeDeviceToken = null, LampTokenStore? lampTokens = null)
     {
@@ -49,6 +50,7 @@ public sealed partial class CommandProcessor
         this.saveLampToken = saveLampToken ?? (token => this.lampTokens.Save(token));
         this.saveRouterPassword = saveRouterPassword ?? (password => { var credentials = new CredentialStore(); credentials.SavePassword(password); credentials.ForgetSession(); });
         settings = store.Load(); Settings.Validate();
+        State = new StateHub(AssembleState);
         runtime.SetLampResolutionHandler(CacheLampAsync);
         runtime.SetDeviceObservationHandler(ObserveDevicesAsync);
     }
@@ -85,12 +87,18 @@ public sealed partial class CommandProcessor
         }
         finally { gate.Release(); }
     }
-    public StateMessage GetState() => DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery) with { Automations = Automations };
-    public event Action? StateChanged;
+    private StateMessage AssembleState()
+    {
+        var state = DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery) with { Automations = Automations };
+        return store is JsonSettingsStore { HealthWarning: { } warning } ? state with { Health = state.Health with { Warnings = state.Health.Warnings.Append(warning).ToArray() } } : state;
+    }
+    public StateMessage GetState() => State.Read();
+    // Pushed after every accepted command and after an automation commits.
+    public event Action? StateChanged { add => State.Changed += value; remove => State.Changed -= value; }
     public async Task<Response> HandleAsync(Request request, CancellationToken cancellationToken = default)
     {
         var response = await HandleCoreAsync(request, cancellationToken);
-        if (response.Ok && request.Command != Commands.GetState) StateChanged?.Invoke();
+        if (response.Ok && request.Command != Commands.GetState) State.Publish();
         return response;
     }
     private async Task<Response> HandleCoreAsync(Request request, CancellationToken cancellationToken)

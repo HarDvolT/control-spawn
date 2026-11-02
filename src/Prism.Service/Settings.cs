@@ -29,6 +29,8 @@ public sealed record SceneConfiguration(FanMode Fans, LightingConfiguration Ligh
 public sealed record LedConfiguration(string[]? Custom = null, string[]? Overlay = null, bool CustomEnabled = false);
 public sealed record ServiceSettings
 {
+    public const int CurrentSchemaVersion = 1;
+    public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public IReadOnlyList<DeviceState> Devices { get; init; } = [];
     public DiscoveryOptions Discovery { get; init; } = new();
     public Dictionary<int, FanConfiguration> HeaderFans { get; init; } = new();
@@ -63,6 +65,7 @@ public sealed record ServiceSettings
 
     public void Validate()
     {
+        if (SchemaVersion != CurrentSchemaVersion) throw new ArgumentException("Unsupported settings schema.");
         if (Devices is null || Discovery is null || HeaderFans is null || Devices.Select(d => d.Id).Distinct().Count() != Devices.Count) throw new ArgumentException("Invalid device registry.");
         foreach (var d in Devices) if (d.UserName is not null) _ = DeviceRegistry.Rename(d, d.UserName);
         foreach (var h in HeaderFans)
@@ -146,16 +149,34 @@ public interface ISettingsStore
 public sealed class JsonSettingsStore(string? path = null) : ISettingsStore
 {
     private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "settings.json");
+    public string? HealthWarning { get; private set; }
     public ServiceSettings Load()
     {
+        HealthWarning = null;
         if (!File.Exists(path)) return new();
-        var settings = JsonSerializer.Deserialize<ServiceSettings>(File.ReadAllText(path), Prism.Core.Ipc.PipeContract.Json)
-            ?? throw new InvalidDataException("Empty settings.");
-        // Scenes added in later versions appear for existing users without touching ones they already have.
-        var defaults = new ServiceSettings().Scenes;
-        if (settings.Scenes is not null && defaults.Keys.Any(k => !settings.Scenes.ContainsKey(k)))
-            settings = settings with { Scenes = settings.Scenes.Concat(defaults.Where(d => !settings.Scenes.ContainsKey(d.Key))).ToDictionary(s => s.Key, s => s.Value) };
-        settings.Validate(); return settings;
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            int version = document.RootElement.TryGetProperty("schemaVersion", out var schema) ? schema.GetInt32() : 0;
+            if (version is < 0 or > ServiceSettings.CurrentSchemaVersion) throw new InvalidDataException("Unsupported settings schema.");
+            // v0 -> v1: existing defaults supply the schema field; retain every other setting.
+            var settings = JsonSerializer.Deserialize<ServiceSettings>(document.RootElement, PipeContract.Json)
+                ?? throw new InvalidDataException("Empty settings.");
+            settings = settings with { SchemaVersion = ServiceSettings.CurrentSchemaVersion };
+            // Scenes added in later versions appear for existing users without touching ones they already have.
+            var defaults = new ServiceSettings().Scenes;
+            if (settings.Scenes is not null && defaults.Keys.Any(k => !settings.Scenes.ContainsKey(k)))
+                settings = settings with { Scenes = settings.Scenes.Concat(defaults.Where(d => !settings.Scenes.ContainsKey(d.Key))).ToDictionary(s => s.Key, s => s.Value) };
+            settings.Validate();
+            if (version == 0) Save(settings);
+            return settings;
+        }
+        catch (Exception e) when (e is JsonException or ArgumentException or InvalidDataException or InvalidOperationException or NullReferenceException or FormatException or OverflowException)
+        {
+            File.Copy(path, path + ".corrupt-" + Guid.NewGuid().ToString("N") + ".bak");
+            HealthWarning = "Settings were invalid; a backup was preserved and defaults were loaded.";
+            return new();
+        }
     }
     public void Save(ServiceSettings settings)
     {
