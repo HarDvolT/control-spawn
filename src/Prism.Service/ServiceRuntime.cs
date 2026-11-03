@@ -340,6 +340,11 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     continue;
                 }
                 RgbDeviceState[] current; lock (stateGate) current = devices;
+                // One 2 s write deadline per tick, made when the first write needs it: a linked source with a timer per
+                // device per frame was ~300 allocations a second for writes that take a few ms.
+                CancellationTokenSource? tickTimeout = null;
+                CancellationToken WriteDeadline() { if (tickTimeout is null) { tickTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); tickTimeout.CancelAfter(TimeSpan.FromSeconds(2)); } return tickTimeout.Token; }
+                try {
                 var tickAt = clock.Elapsed; if (lastTick != TimeSpan.Zero) tickGap = Math.Max(tickGap, (tickAt - lastTick).TotalMilliseconds); lastTick = tickAt;
                 if (tickAt >= statsDue)
                 {
@@ -355,14 +360,14 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     // A device switched off under "Applies to" still gets frames: Render sends it black. Skipping it left the
                     // LEDs frozen on whatever they showed last.
                     if (!mock && !directModes.Contains(device.Id))
-                    { using var directTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); directTimeout.CancelAfter(TimeSpan.FromSeconds(2)); await ((OpenRgbClient)rgb).SetDirectModeAsync(index, directTimeout.Token); directModes.Add(device.Id); }
+                    { await ((OpenRgbClient)rgb).SetDirectModeAsync(index, WriteDeadline()); directModes.Add(device.Id); }
                     var now = clock.Elapsed;
                     if (!frames.TryRun(device.Id, () => RenderDevice(value, device, current, DeviceFramePacer.FrameTime(device.Kind, now.TotalSeconds)), now, out var colors)) continue;
                     renderMax = Math.Max(renderMax, (clock.Elapsed - now).TotalMilliseconds);
                     if (!pacer.ShouldSend(device.Id, device.Kind, colors, now)) continue;
                     // GPU and RAM lighting share a bus with sensor reads: wait for our turn. Retried next tick.
                     if (!mock && BusTurns.ForDeviceKind(device.Kind) is { } bus && !bus.TryBeginWrite()) continue;
-                    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
+                    var deadline = WriteDeadline();
                     // The GPU's chip writes every zone on a full update, and each write can flash; send only the zones that changed.
                     if (!mock && device.Kind == "GPU" && rgb is OpenRgbClient zoned && pacer.Last(device.Id) is { Length: > 0 } last && last.Length == colors.Count && device.Zones is { Count: > 1 } gpuZones
                         && Enumerable.Range(0, gpuZones.Count).Where(z => gpuZones[z].LedCount > 0 && DeviceFramePacer.ZoneChanged(last, colors, gpuZones[z].FirstLed, gpuZones[z].LedCount)).ToArray() is { Length: > 0 } changed)
@@ -372,20 +377,21 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         foreach (var z in changed)
                         {
                             var zone = gpuZones[z];
-                            await zoned.SetZoneColorsAsync(index, z, colors.Skip(zone.FirstLed).Take(zone.LedCount).ToArray(), timeout.Token);
+                            await zoned.SetZoneColorsAsync(index, z, colors.Skip(zone.FirstLed).Take(zone.LedCount).ToArray(), deadline);
                             for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount; i++) merged[i] = colors[i];
                         }
                         pacer.Sent(device.Id, merged, now);
                         continue;
                     }
                     var writeStart = clock.Elapsed;
-                    await rgb.SetColorsAsync(index, colors, timeout.Token);
+                    await rgb.SetColorsAsync(index, colors, deadline);
                     pacer.Sent(device.Id, colors, now);
                     var seen = stats.GetValueOrDefault(device.Id);
                     stats[device.Id] = (seen.Frames + 1, seen.Last == TimeSpan.Zero ? 0 : Math.Max(seen.MaxGapMs, (now - seen.Last).TotalMilliseconds),
                         Math.Max(seen.MaxWriteMs, (clock.Elapsed - writeStart).TotalMilliseconds), now);
                 }
                 warnings.TryRemove("rgb", out _);
+                } finally { tickTimeout?.Dispose(); }
             }
             catch (InvalidOperationException) when (!token.IsCancellationRequested && rgb is OpenRgbClient { DeviceListInvalidated: true })
             {
@@ -408,6 +414,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         } while (await timer.WaitForNextTickAsync(token));
     }
 
+    private readonly PositionCache positionCache = new();
+    private static readonly Dictionary<string, bool> NoDeviceSwitches = new();
     private IReadOnlyList<RgbColor> RenderDevice(ServiceSettings value, RgbDeviceState device, IReadOnlyList<RgbDeviceState> current, double time)
     {
         if (identification.TryGetValue(device.Id, out var identify) && clock.Elapsed < identify.Until && device.Zones is { } zones && identify.Zone < zones.Count)
@@ -419,7 +427,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             return preview;
         }
         var layer = value.LedLayers.GetValueOrDefault(device.Id);
-        var positions = CaseMap.Positions(device, CaseMap.Placement(value.Map, device, current), value.Map);
+        var positions = positionCache.Get(value.Map, device, current);
         var inputs = FrameInputs();
         var rendered = value.PartLooks.TryGetValue(device.Id, out var own)
             ? SpatialEffects.Render(PhaseClock.Steady(PartScene(own)), PartParameters(own, value), phases.Time(device.Id, time, own.Speed), positions, device.Id, device.Kind, inputs)
@@ -455,7 +463,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             for (int z = 0; z < parts.Count; z++)
                 if (chosen.GetValueOrDefault(SensorSources.ZoneTarget(device.Id, z), true) == false)
                     for (int i = parts[z].FirstLed; i < parts[z].FirstLed + parts[z].LedCount && i < result.Length; i++) result[i] = RgbColor.Black;
-        foreach (var (key, on) in value.Lighting.Parameters?.Devices ?? new Dictionary<string, bool>())
+        foreach (var (key, on) in value.Lighting.Parameters?.Devices ?? NoDeviceSwitches)
             if (!on && SensorSources.TryRange(key, device.Id, out var first, out var count))
                 for (int i = first; i < first + count && i < result.Length; i++) result[i] = RgbColor.Black;
         return result;
