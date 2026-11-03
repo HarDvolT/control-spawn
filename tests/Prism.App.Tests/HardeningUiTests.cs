@@ -80,6 +80,37 @@ public sealed class HardeningUiTests : IDisposable
         finally { Motion.ReduceAnimations = reduced; }
     });
 
+    // #11: rows refreshed every second only change when their values do.
+    [Fact]
+    public void ReplaceWithLeavesEqualRowsAloneAndOnlyTouchesChangedOnes()
+    {
+        var rows = new System.Collections.ObjectModel.ObservableCollection<StatRow> { new("Load", "10%", "#FFF"), new("Temp", "50 °C", "#FFF") };
+        var first = rows[0]; var events = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        rows.CollectionChanged += (_, e) => events.Add(e.Action);
+        rows.ReplaceWith([new("Load", "10%", "#FFF"), new("Temp", "50 °C", "#FFF")]);
+        Assert.Empty(events); Assert.Same(first, rows[0]);
+        rows.ReplaceWith([new("Load", "10%", "#FFF"), new("Temp", "51 °C", "#FFF"), new("Power", "80 W", "#FFF")]);
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Replace, System.Collections.Specialized.NotifyCollectionChangedAction.Add], events);
+        Assert.Same(first, rows[0]);
+        rows.ReplaceWith([new("Load", "10%", "#FFF")]);
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public async Task WidgetAndMonitorRowsAreNotRebuiltWhenTheSameStateArrivesAgain()
+    {
+        await using var client = new MockPrismClient();
+        var state = client.CurrentState with { History = null };
+        var widget = new WidgetViewModel(new WidgetLayout { Kind = WidgetKind.Fans }, client); widget.Apply(state);
+        var vm = Shell(client); vm.Monitor.Apply(state);
+        int changes = 0;
+        foreach (var list in new System.Collections.Specialized.INotifyCollectionChanged[] { widget.FanRows, vm.Monitor.CpuStats, vm.Monitor.GpuStats, vm.Monitor.Temps, vm.Monitor.Fans, vm.Monitor.Threads })
+            list.CollectionChanged += (_, _) => changes++;
+        Assert.NotEmpty(widget.FanRows); Assert.NotEmpty(vm.Monitor.Temps);
+        widget.Apply(state); vm.Monitor.Apply(state);
+        Assert.Equal(0, changes);
+    }
+
     private static void Pump()
     {
         var frame = new System.Windows.Threading.DispatcherFrame();
