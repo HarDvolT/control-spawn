@@ -511,7 +511,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             do
             {
                 var value = Volatile.Read(ref settings); var config = value.ConfiguredLamps.FirstOrDefault(c => c.Id == lampId);
-                if (config is null) return;
+                // Removed, or renamed to its resolved id: the lamp module stops this worker and starts one under the new
+                // id within half a second. Returning here instead counted as "module ended unexpectedly" and backed off.
+                if (config is null) { await Task.Delay(Timeout.Infinite, token); return; }
                 try
                 {
                     if (credentials != Volatile.Read(ref lampCredentials) || revision != lampRevisions.GetValueOrDefault(lampId) || (applied is not null && config.DeviceId != applied.DeviceId))
@@ -538,7 +540,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                             if (lampResolutionHandler is not null && (config.DeviceId is null || config.LastHost != resolved.Ip))
                             {
                                 await lampResolutionHandler(config.Id, resolved);
-                                if (config.DeviceId is null) return;
+                                // A first resolution gives the lamp its real id (handled above on the next tick); one the
+                                // handler declined is retried like an offline lamp rather than ending the worker.
+                                if (config.DeviceId is null) { retry = clock.Elapsed + TimeSpan.FromSeconds(30); continue; }
                             }
                             var store = new LampTokenStore();
                             var secret = config.DeviceId is { } key ? store.Load(key) : store.Load();
@@ -611,8 +615,11 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     warnings.TryRemove(lampId, out _);
                     lock (stateGate) lampStates[lampId] = new("yeelink.light.color5", true, config.On, config.Brightness, config.Follow != "own" && sync?.LastColor is { } live ? $"#{live.R:X2}{live.G:X2}{live.B:X2}" : config.Color, config.Follow, transport, config.Id, config.Name, config.DeviceId, connectedHost);
                 }
-                catch (Exception e) when (!token.IsCancellationRequested && e is IOException or SocketException or OperationCanceledException or InvalidOperationException or System.Security.Cryptography.CryptographicException or System.Text.Json.JsonException or KeyNotFoundException or UnauthorizedAccessException)
+                // Any failure of one lamp (a garbled reply throws Format or Argument errors too) means "offline, retry in
+                // 30 s". Errors outside the old list ended the worker into the module's back-off instead.
+                catch (Exception e) when (!token.IsCancellationRequested)
                 {
+                    if (e is not (IOException or SocketException or OperationCanceledException)) PrismLog.Failure("lamps", e);
                     // A lamp switched off at the wall is normal and only shows as offline; a token problem needs the user, so it stays a warning.
                     bool tokenProblem = e is System.Security.Cryptography.CryptographicException or UnauthorizedAccessException or KeyNotFoundException;
                     if (tokenProblem) warnings[lampId] = $"{config.Name}: the lamp rejected its token. Import it again on the Devices page.";

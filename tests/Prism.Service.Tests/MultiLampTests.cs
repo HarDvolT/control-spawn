@@ -160,4 +160,29 @@ public sealed class MultiLampTests
         Assert.False(state.Lamps![0].Connected); Assert.True(state.Lamps[1].Connected); Assert.Equal(state.Lamps[0], state.Lamp);
         stop.Cancel(); await run;
     }
+
+    private sealed class GarbledLamp : Prism.Core.ILampClient
+    {
+        public bool IsMusicMode => false;
+        public Task SetPowerAsync(bool on, CancellationToken cancellationToken = default) => throw new FormatException("Garbled reply");
+        public Task SetColorAsync(Prism.Core.RgbColor color, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+    // #14: a lamp that answers nonsense is offline, not a crashed worker; a removed lamp's worker just stops.
+    [Fact]
+    public async Task GarbledLampRepliesShowOfflineWithoutFailingTheLampModule()
+    {
+        await using var runtime = new ServiceRuntime(true, new FakeSensorSource(), new FakeFanControlPort(), new FakeHealthProbe(), new FakeRgbBackend(), new GarbledLamp(), new FakeRouterBackend());
+        var settings = new ServiceSettings { Lamps = [new(Id: "one", Name: "One"), new(Id: "two", Name: "Two")] };
+        await runtime.ApplyAsync(settings, default); using var stop = new CancellationTokenSource(); var run = runtime.RunAsync(stop.Token);
+        var state = runtime.GetState(settings);
+        Assert.False(state.Lamps![0].Connected); Assert.Equal("Switched off or out of Wi-Fi range", state.Lamps[0].Error);
+        Assert.True(state.Lamps[1].Connected);
+        Assert.DoesNotContain(state.Health.Warnings, w => w.Contains("module failed", StringComparison.Ordinal));
+        var fewer = settings with { Lamps = [settings.Lamps![1]] };
+        await runtime.ApplyAsync(fewer, default);
+        await Task.Delay(700);   // the lamp module checks for removed lamps every 500 ms
+        Assert.DoesNotContain(runtime.GetState(fewer).Health.Warnings, w => w.Contains("module failed", StringComparison.Ordinal));
+        stop.Cancel(); await run;
+    }
 }
