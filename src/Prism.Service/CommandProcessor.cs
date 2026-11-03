@@ -25,6 +25,7 @@ public interface IServiceRuntime
     void LampCredentialsChanged(string id) => CredentialsChanged(true);
     void TriggerLightingEvent(LightingEventKind kind) { }
     Task<SpeedTestResult?> StartSpeedTestAsync(CancellationToken cancellationToken);
+    void MeasureFan(int header) => throw new InvalidOperationException("Fan measuring is unavailable.");
 }
 
 /// <summary>Serialized settings commands; connection-local hello/subscribe live in PipeSession.</summary>
@@ -296,25 +297,74 @@ public sealed partial class CommandProcessor
                 case Commands.SetFanMode:
                 {
                     var group = Group(a); var mode = EnumValue<FanMode>(a, "mode");
+                    TemperatureSource? source = a.TryGetProperty("source", out _) ? EnumValue<TemperatureSource>(a, "source") : null;
                     if (group.StartsWith("fan:", StringComparison.Ordinal))
                     {
                         int header = int.Parse(group.AsSpan(4)); var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans);
                         var current = headers.GetValueOrDefault(header) ?? new();
                         if (mode == FanMode.Custom && current.Points is null) throw new ArgumentException("Set a custom curve first.");
-                        headers[header] = current with { Mode = mode }; next = Settings with { HeaderFans = headers }; break;
+                        headers[header] = current with { Mode = mode, Source = source ?? current.Source }; next = Settings with { HeaderFans = headers }; break;
                     }
                     var fans = new Dictionary<string, FanConfiguration>(Settings.Fans);
                     if (mode == FanMode.Custom && fans[group].Points is null) throw new ArgumentException("Set a custom curve first.");
-                    fans[group] = fans[group] with { Mode = mode }; next = Settings with { Fans = fans }; break;
+                    fans[group] = fans[group] with { Mode = mode, Source = source ?? fans[group].Source }; next = Settings with { Fans = fans }; break;
+                }
+                case Commands.SetFanTuning:
+                {
+                    var group = Group(a); var response = EnumValue<FanResponse>(a, "response");
+                    var hold = a.GetProperty("hold").GetDouble();
+                    if (!double.IsFinite(hold) || hold is < 0 or > 10) throw new ArgumentException("Hold must be 0-10 degrees.");
+                    if (group.StartsWith("fan:", StringComparison.Ordinal))
+                    {
+                        int header = int.Parse(group.AsSpan(4)); var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans);
+                        headers[header] = (headers.GetValueOrDefault(header) ?? new()) with { Response = response, Hold = hold }; next = Settings with { HeaderFans = headers }; break;
+                    }
+                    var fans = new Dictionary<string, FanConfiguration>(Settings.Fans);
+                    fans[group] = fans[group] with { Response = response, Hold = hold }; next = Settings with { Fans = fans }; break;
+                }
+                case Commands.MeasureFan:
+                    runtime.MeasureFan(a.GetProperty("header").GetInt32()); next = Settings; break;
+                case Commands.SetSceneFans:
+                {
+                    var name = Text(a, "name");
+                    if (!Settings.Scenes.TryGetValue(name, out var chosen)) throw new ArgumentException("Unknown scene.");
+                    var fans = EnumValue<FanMode>(a, "fans");
+                    if (fans == FanMode.Custom) throw new ArgumentException("A scene uses a profile, not one fan's curve.");
+                    next = Settings with { Scenes = new(Settings.Scenes) { [name] = chosen with { Fans = fans } } }; break;
+                }
+                case Commands.SetFanProfile:
+                {
+                    var mode = EnumValue<FanMode>(a, "mode");
+                    if (!FanConfiguration.Editable(mode)) throw new ArgumentException("Only Silent, Standard and Turbo can be edited.");
+                    bool resetting = a.TryGetProperty("reset", out var reset) && reset.ValueKind == JsonValueKind.True;
+                    FanPoint[]? edited = resetting ? null : new FanCurve(Points(a)).Points.ToArray();
+                    if (!a.TryGetProperty("group", out _))
+                    {
+                        var profiles = new Dictionary<FanMode, FanPoint[]>(Settings.FanProfiles);
+                        if (edited is null) profiles.Remove(mode); else profiles[mode] = edited;
+                        next = Settings with { FanProfiles = profiles }; break;
+                    }
+                    // Per fan: a profile once edited for every fan moves onto each fan first, so this edit leaves the other fans as they were.
+                    var target = Group(a); var shared = Settings.FanProfiles.GetValueOrDefault(mode);
+                    FanConfiguration Edit(FanConfiguration fan, bool chosen)
+                    {
+                        var own = new Dictionary<FanMode, FanPoint[]>(fan.Profiles ?? new());
+                        if (shared is not null && !own.ContainsKey(mode)) own[mode] = shared;
+                        if (chosen) { if (edited is null) own.Remove(mode); else own[mode] = edited; }
+                        return fan with { Profiles = own.Count > 0 ? own : null };
+                    }
+                    var fans = Settings.Fans.ToDictionary(f => f.Key, f => Edit(f.Value, f.Key == target));
+                    var headers = Settings.HeaderFans.ToDictionary(h => h.Key, h => Edit(h.Value, target == $"fan:{h.Key}"));
+                    if (target.StartsWith("fan:", StringComparison.Ordinal) && int.Parse(target.AsSpan(4)) is var header && !headers.ContainsKey(header))
+                        headers[header] = Edit(new(), true);
+                    else if (!target.StartsWith("fan:", StringComparison.Ordinal) && !fans.ContainsKey(target)) throw new ArgumentException("Unknown fan.");
+                    var left = new Dictionary<FanMode, FanPoint[]>(Settings.FanProfiles); left.Remove(mode);
+                    next = Settings with { Fans = fans, HeaderFans = headers, FanProfiles = left }; break;
                 }
                 case Commands.SetFanCurve:
                 {
                     var group = Group(a); var source = EnumValue<TemperatureSource>(a, "source");
-                    var points = a.GetProperty("points").EnumerateArray().Select(p =>
-                    {
-                        if (p.ValueKind != JsonValueKind.Array || p.GetArrayLength() != 2) throw new ArgumentException("Points must be [temperature,percent].");
-                        return new FanPoint(p[0].GetDouble(), p[1].GetDouble());
-                    }).ToArray();
+                    var points = Points(a);
                     if (group.StartsWith("fan:", StringComparison.Ordinal))
                     { var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans) { [int.Parse(group.AsSpan(4))] = new(FanMode.Custom, source, points) }; next = Settings with { HeaderFans = headers }; break; }
                     var fans = new Dictionary<string, FanConfiguration>(Settings.Fans) { [group] = new(FanMode.Custom, source, points) };
@@ -462,6 +512,11 @@ public sealed partial class CommandProcessor
     private static T EnumValue<T>(JsonElement a, string key) where T : struct, Enum =>
         Enum.TryParse<T>(Text(a, key), false, out var value) && Enum.IsDefined(value) && !int.TryParse(Text(a, key), out _)
             ? value : throw new ArgumentException($"Invalid {key}.");
+    private static FanPoint[] Points(JsonElement a) => a.GetProperty("points").EnumerateArray().Select(p =>
+    {
+        if (p.ValueKind != JsonValueKind.Array || p.GetArrayLength() != 2) throw new ArgumentException("Points must be [temperature,percent].");
+        return new FanPoint(p[0].GetDouble(), p[1].GetDouble());
+    }).ToArray();
     private string Group(JsonElement a)
     {
         string group = Text(a, "group");

@@ -40,6 +40,20 @@ public sealed class SensorBindingTests
         Assert.Equal(normal, engine.Composite(device with { Id = "other" }, bindings, state, 1, normal, 1));
     }
     [Fact]
+    public async Task ThePumpTakesItsOwnSensorColoursApartFromTheRadiator()
+    {
+        await using var client = new MockPrismClient(); var state = client.CurrentState;
+        var board = new RgbDeviceState("board", "Board", "Motherboard", true, true, 50, [new("Logo", "Single", 0, 2, 2, 2), new("Header 1", "Linear", 2, 48, 0, 120)]);
+        var pump = CaseMap.Pieces(board, 1)[0].Key;
+        Assert.True(SensorSources.ValidTarget(pump, [board], []));
+        Assert.False(SensorSources.ValidTarget(SensorSources.RangeTarget("board", 40, 20), [board], []));   // past the last LED
+        var bindings = new Dictionary<string, SensorBinding> { [pump] = new("cpu.load", 0, 100, Palette: [new(0, "#0000FF"), new(1, "#0000FF")], Smoothing: 0) };
+        var normal = Enumerable.Repeat(new Prism.Core.RgbColor(0, 255, 0), 50).ToArray();
+        var colors = new SensorLighting().Composite(board, bindings, state, 0, normal, 1);
+        Assert.All(colors.Skip(2).Take(12), c => Assert.Equal(new Prism.Core.RgbColor(0, 0, 255), c));   // the pump ring
+        Assert.Equal(normal.Take(2).Concat(normal.Skip(14)), colors.Take(2).Concat(colors.Skip(14)));   // logo and radiator untouched
+    }
+    [Fact]
     public async Task SourcesHandleOptionalReadingsAndUnitsWithoutInventingValues()
     {
         await using var client = new MockPrismClient(); var state = client.CurrentState;

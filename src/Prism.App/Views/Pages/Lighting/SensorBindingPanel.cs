@@ -380,7 +380,9 @@ public sealed class SensorBindingPanel : Grid
             var parts = Enumerable.Range(0, zones.Count).Where(z => zones[z].LedCount > 0).ToList();   // a 0-LED header is dark, nothing to drive
             list.Add(new(d.Id, parts.Count > 1 ? name + " · everything" : name, d.Name, icon, false));
             if (parts.Count > 1)
-                foreach (var z in parts) list.Add(new(SensorSources.ZoneTarget(d.Id, z), PartName(d, z), $"{zones[z].Name} · {zones[z].LedCount} LEDs", PartIcon(d, z), true));
+                foreach (var z in parts)
+                    foreach (var piece in CaseMap.Pieces(d, z))   // the AIO header offers its pump and radiator apart
+                        list.Add(new(piece.Key, piece.Name, $"{zones[z].Name} · {piece.Count} LEDs", piece.Name == "Radiator" ? DeviceIconKind.Fan : PartIcon(d, z), true));
         }
         foreach (var lamp in state.Lamps ?? []) if (lamp.Id is { } id) list.Add(new(id, lamp.Name ?? "Lamp", "Mi Home lamp", DeviceIconKind.Lamp, false));
         return list;
@@ -413,6 +415,9 @@ public sealed class SensorBindingPanel : Grid
             targetList.Children.Add(button); targetTiles.Add(new(t.Id, button, state, dot));
         }
     }
+
+    /// <summary>Selects one part as the target, as clicking it in the list does (used by "open in Sensor" elsewhere).</summary>
+    public void ShowTarget(string id) { Select(id); if (model?.State is { } s) Update(s); }
 
     private void Select(string? id)
     {

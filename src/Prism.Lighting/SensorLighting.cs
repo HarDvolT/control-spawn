@@ -65,8 +65,18 @@ public static class SensorSources
             palette.Zip(palette.Skip(1)).Any(p => p.First.Position >= p.Second.Position)) throw new ArgumentException("Invalid sensor palette (2–6 ordered stops from 0 to 1).");
     }
     public static string ZoneTarget(string device, int zone) => $"{device}/zone/{zone}";
+    /// <summary>A run of a device's LEDs as its own part, such as the pump ring at the start of the AIO header.</summary>
+    public static string RangeTarget(string device, int first, int count) => $"{device}/leds/{first}+{count}";
+    public static bool TryRange(string key, string device, out int first, out int count)
+    {
+        first = count = 0; var prefix = device + "/leds/";
+        if (!key.StartsWith(prefix, StringComparison.Ordinal) || key[prefix.Length..].Split('+') is not [var a, var b]) return false;
+        return int.TryParse(a, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out first)
+            && int.TryParse(b, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out count) && count > 0;
+    }
     public static bool ValidTarget(string target, IReadOnlyList<RgbDeviceState> devices, IEnumerable<string> lamps) =>
-        devices.Any(d => d.Id == target || d.Zones is not null && Enumerable.Range(0, d.Zones.Count).Any(z => ZoneTarget(d.Id, z) == target)) || lamps.Contains(target);
+        devices.Any(d => d.Id == target || d.Zones is not null && Enumerable.Range(0, d.Zones.Count).Any(z => ZoneTarget(d.Id, z) == target)
+            || TryRange(target, d.Id, out var first, out var count) && first + count <= d.LedCount) || lamps.Contains(target);
 }
 
 /// <summary>Session-only state. No sensor acquisition or output I/O.</summary>
@@ -133,6 +143,9 @@ public sealed class SensorLighting
                 var zone = device.Zones![z]; var target = SensorSources.ZoneTarget(device.Id, z);
                 if (i >= zone.FirstLed && i < zone.FirstLed + zone.LedCount && bindings?.ContainsKey(target) == true) active = Active(target);
             }
+            // A run of LEDs (the pump apart from the radiator) is the narrowest part, so its own binding decides last.
+            foreach (var key in bindings?.Keys ?? [])
+                if (SensorSources.TryRange(key, device.Id, out var first, out var count) && i >= first && i < first + count) active = Active(key);
             if (active) result.Add(i);
         }
         return result;
@@ -153,6 +166,12 @@ public sealed class SensorLighting
                 var normal = fallback.Skip(zone.FirstLed).Take(zone.LedCount).ToArray();
                 var rendered = Render(target, binding, SensorSources.Read(state, binding.Source), time, normal, brightness);
                 for (int i = 0; i < rendered.Count && zone.FirstLed + i < result.Length; i++) result[zone.FirstLed + i] = rendered[i];
+            }
+            foreach (var (key, range) in bindings)
+            {
+                if (!SensorSources.TryRange(key, device.Id, out var first, out var count) || first >= result.Length) continue;
+                var rendered = Render(key, range, SensorSources.Read(state, range.Source), time, fallback.Skip(first).Take(count).ToArray(), brightness);
+                for (int i = 0; i < rendered.Count && first + i < result.Length; i++) result[first + i] = rendered[i];
             }
             return result;
         }

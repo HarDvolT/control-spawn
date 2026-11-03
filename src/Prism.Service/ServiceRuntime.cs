@@ -141,7 +141,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         if (clock is not null) this.clock = clock;
         this.audioLevels = audioLevels ?? (!mock && OperatingSystem.IsWindows() ? new WasapiLoopback() : null);
         this.screenZones = screenZones ?? (!mock && OperatingSystem.IsWindows() ? new DesktopDuplication() : null);
-        this.sensors = sensors; this.controls = controls; fans = new(controls);
+        this.sensors = sensors; this.controls = controls; fans = new(controls); LoadFanRpm();
         this.healthProbe = healthProbe; this.rgb = rgb; this.lamp = lamp; this.router = router;
         if (mock)
         {
@@ -188,9 +188,10 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null,
             CustomEnabled = value.LedLayers.GetValueOrDefault(d.Id)?.CustomEnabled == true }).ToArray();
         var health = new ServiceHealth(mock, isElevated, warnings.Values.Order().ToArray(), isFailsafe,
-            typeof(ServiceRuntime).Assembly.GetName().Version?.ToString());
+            typeof(ServiceRuntime).Assembly.GetName().Version?.ToString(), lastFailsafe, lastFailsafeReason);
         var lamps = value.ConfiguredLamps.Select(c => (liveLamps.TryGetValue(c.Id, out var liveLamp) ? liveLamp with { On = c.On, Brightness = c.Brightness, Follow = c.Follow, Color = c.Color, Name = c.Name } : null) ?? new LampState("yeelink.light.color5", false, c.On, c.Brightness, c.Color, c.Follow, "not configured", c.Id, c.Name, c.DeviceId, c.LastHost ?? c.Host)).ToArray();
         var state = StateAssembler.Assemble(sensors, value, controls.Headers, synced, lamps.FirstOrDefault(), router, health) with { Lamps = lamps, History = samples };
+        state = state with { Fans = WithInsight(state.Fans), FanRpm = new Dictionary<int, FanRpmMap>(fanRpm) };
         state = state with { System = state.System with { TopProcesses = processes, UptimeSeconds = mock ? null : Environment.TickCount64 / 1000d,
             ThrottlingEvents = episodes, ThrottlingObservedSince = observedSince } };
         var frame = FrameInputs();
@@ -331,7 +332,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         { var s = stats[d.Id]; return $"{d.Kind} {d.LedCount} LEDs: {s.Frames / 10.0:0.#} fps, gap max {s.MaxGapMs:0} ms, write max {s.MaxWriteMs:0.0} ms"; })));
                     tickGap = 0; renderMax = 0; gcs = GC.CollectionCount(2); foreach (var key in stats.Keys.ToArray()) stats[key] = (0, 0, 0, stats[key].Last);
                 }
-                foreach (var device in current.Where(d => identification.TryGetValue(d.Id, out var identifying) && clock.Elapsed < identifying.Until || (failsafe && value.Events.FanFailsafe) || value.Bindings.Keys.Any(k => k == d.Id || k.StartsWith(d.Id + "/zone/", StringComparison.Ordinal)) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb)))
+                foreach (var device in current.Where(d => identification.TryGetValue(d.Id, out var identifying) && clock.Elapsed < identifying.Until || (failsafe && value.Events.FanFailsafe) || value.Bindings.Keys.Any(k => k == d.Id || k.StartsWith(d.Id + "/", StringComparison.Ordinal)) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb)))
                 {
                     // A device switched off under "Applies to" still gets frames: Render sends it black. Skipping it left the
                     // LEDs frozen on whatever they showed last.
@@ -413,11 +414,18 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 var part = SpatialEffects.Render(PhaseClock.Steady(PartScene(zoneLook)), PartParameters(zoneLook, value), phases.Time(SensorSources.ZoneTarget(device.Id, z), time, zoneLook.Speed), positions, device.Id, device.Kind, inputs);
                 for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount && i < rendered.Length; i++) rendered[i] = part[i];
             }
+        // A run of LEDs with its own look (the pump ring apart from the radiator fans on the same header) renders last.
+        foreach (var (key, rangeLook) in value.PartLooks)
+            if (SensorSources.TryRange(key, device.Id, out var first, out var count))
+            {
+                var part = SpatialEffects.Render(PhaseClock.Steady(PartScene(rangeLook)), PartParameters(rangeLook, value), phases.Time(key, time, rangeLook.Speed), positions, device.Id, device.Kind, inputs);
+                for (int i = first; i < first + count && i < rendered.Length; i++) rendered[i] = part[i];
+            }
         var colors = LedLayers.Composite(rendered, layer?.Custom, layer?.Overlay, layer?.CustomEnabled == true || value.Lighting.Effect == LightingEffect.Custom);
         IReadOnlySet<int>? alerts = null;
         // Sensor lighting needs the readings; assembling the full state for every device on every frame cost most of
         // the service's CPU and made frames late, so it is only done for sensor-driven devices, once per tick.
-        if (value.Bindings.Keys.Any(k => k == device.Id || k.StartsWith(device.Id + "/zone/", StringComparison.Ordinal)))
+        if (value.Bindings.Keys.Any(k => k == device.Id || k.StartsWith(device.Id + "/", StringComparison.Ordinal)))
         {
             var sensorState = SensorState(value);
             colors = sensorLighting.Composite(device, value.Bindings, sensorState, time, colors, value.Lighting.Brightness);
@@ -429,6 +437,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             for (int z = 0; z < parts.Count; z++)
                 if (chosen.GetValueOrDefault(SensorSources.ZoneTarget(device.Id, z), true) == false)
                     for (int i = parts[z].FirstLed; i < parts[z].FirstLed + parts[z].LedCount && i < result.Length; i++) result[i] = RgbColor.Black;
+        foreach (var (key, on) in value.Lighting.Parameters?.Devices ?? new Dictionary<string, bool>())
+            if (!on && SensorSources.TryRange(key, device.Id, out var first, out var count))
+                for (int i = first; i < first + count && i < result.Length; i++) result[i] = RgbColor.Black;
         return result;
     }
     private static Scene PartScene(PartLook look) => new("Part", look.Effect, LightingConfiguration.ParseColor(look.Color), look.Speed, look.Brightness);

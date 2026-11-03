@@ -39,6 +39,21 @@ public sealed class CreativeLightingTests
         Assert.False((await client.SendAsync(Commands.SetLightingMap, new { map = new { devices = new[] { new { device = "ram", x = 2, y = 0 } } } })).Ok);
     }
     [Fact]
+    public async Task PickingAColourForAFollowingPartOnlyLoadsTheBrush()
+    {
+        await using var client = new MockPrismClient(); var vm = new LightingViewModel(client); vm.Apply(client.CurrentState);
+        vm.PartTarget = "ram";
+        vm.SelectColorCommand.Execute("#36D6FF");
+        await Task.Delay(50);
+        Assert.Empty(client.CurrentState.Lighting.PartLooks ?? new Dictionary<string, PartLook>());   // the part still follows the case
+        vm.Apply(client.CurrentState);
+        Assert.Equal("#36D6FF", vm.ColorHex);   // and the brush survives the next state push
+        await vm.SetPartLookAsync("ram"); vm.Apply(client.CurrentState);   // once it has its own look, colours change that look
+        vm.SelectColorCommand.Execute("#53E08E");
+        await Task.Delay(50);
+        Assert.Equal("#53E08E", client.CurrentState.Lighting.PartLooks!["ram"].Color);
+    }
+    [Fact]
     public async Task MockProjectsExactLayerActivationSeparatelyFromSavedColors()
     {
         await using var client = new MockPrismClient();

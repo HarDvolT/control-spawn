@@ -31,7 +31,8 @@ public sealed class CaseIllustration : FrameworkElement
     /// <summary>Which lamp orb, if any, is at this point (orbs sit at x 584 in the 640 × 400 drawing).</summary>
     private LampState? LampAt(Point at)
     {
-        double x = at.X * 640 / Math.Max(1, ActualWidth), y = at.Y * 400 / Math.Max(1, ActualHeight);
+        var (scale, dx, dy) = Fit();
+        double x = (at.X - dx) / scale, y = (at.Y - dy) / scale;
         var lamps = model?.State?.Lamps ?? [];
         for (int i = 0; i < lamps.Count && i < 2; i++)
             if (Math.Abs(x - 584) < 40 && Math.Abs(y - (118 + i * 140)) < 44) return lamps[i];
@@ -89,17 +90,35 @@ public sealed class CaseIllustration : FrameworkElement
                 var part = Look(SensorSources.ZoneTarget(device.Id, z), zoneLook); var zone = device.Zones![z];
                 for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount && i < colors.Length; i++) colors[i] = part[i];
             }
+        foreach (var (key, rangeLook) in looks ?? new Dictionary<string, PartLook>())
+            if (SensorSources.TryRange(key, device.Id, out var first, out var count))
+            {
+                var part = Look(key, rangeLook);
+                for (int i = first; i < first + count && i < colors.Length; i++) colors[i] = part[i];
+            }
         colors = LedLayers.Composite(colors, device.CustomColors, overlay ?? device.OverlayColors, device.CustomEnabled).ToArray();
         colors = sensorLighting.Composite(device, state.Lighting.Bindings, state, time, colors, scene.Brightness).ToArray();
         for (int z = 0; z < (device.Zones?.Count ?? 0); z++)
             if (model.Parameters.Devices?.GetValueOrDefault(SensorSources.ZoneTarget(device.Id, z), true) == false)
                 for (int i = device.Zones![z].FirstLed; i < device.Zones[z].FirstLed + device.Zones[z].LedCount && i < colors.Length; i++) colors[i] = RgbColor.Black;
+        foreach (var (key, on) in model.Parameters.Devices ?? new Dictionary<string, bool>())
+            if (!on && SensorSources.TryRange(key, device.Id, out var first, out var count))
+                for (int i = first; i < first + count && i < colors.Length; i++) colors[i] = RgbColor.Black;
         return colors;
+    }
+
+    // One scale for both axes, centred: stretching each axis on its own widened the case and its text at full screen.
+    private (double Scale, double X, double Y) Fit()
+    {
+        double scale = Math.Max(0.01, Math.Min(ActualWidth / 640, ActualHeight / 400));
+        return (scale, (ActualWidth - 640 * scale) / 2, (ActualHeight - 400 * scale) / 2);
     }
 
     protected override void OnRender(DrawingContext dc)
     {
-        dc.PushTransform(new ScaleTransform(ActualWidth / 640, ActualHeight / 400));
+        var (scale, dx, dy) = Fit();
+        dc.PushTransform(new TranslateTransform(dx, dy));
+        dc.PushTransform(new ScaleTransform(scale, scale));
         var devices = model?.State?.Lighting.Devices ?? [];
         var rendered = new Dictionary<string, RgbColor[]>();
         double time = Motion.ReduceAnimations ? 1.25 : clock.Elapsed.TotalSeconds;
@@ -179,7 +198,7 @@ public sealed class CaseIllustration : FrameworkElement
             CenteredLabel(!lamp.Connected ? "Offline" : !lamp.On ? "Off" : lamp.Follow switch { "pc" or "map" => "Follows PC", "average" => "PC average", _ => "Own colour" }, 584, y + 54, 9, "#7C808A");
             lampIndex++;
         }
-        dc.Pop();
+        dc.Pop(); dc.Pop();
 
         static string Short(string name) => name.Length > 34 ? name[..34].TrimEnd() + "…" : name;
         static RgbZoneState Slice(RgbZoneState zone, int part, int parts) =>

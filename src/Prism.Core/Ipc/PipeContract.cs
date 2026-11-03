@@ -38,6 +38,10 @@ public static class Commands
     public const string Subscribe = "subscribe";         // start receiving state pushes
     public const string GetState = "getState";           // one StateMessage in Response.Data
     public const string SetFanMode = "setFanMode";       // args: { "group": "Radiator|Case fans", "mode": "Silent|Standard|Turbo|Full|Custom" }
+    public const string SetFanTuning = "setFanTuning";   // args: { "group": "...", "response": "Fast|Normal|Calm|Slow", "hold": 0-10 }
+    public const string MeasureFan = "measureFan";       // args: { "header": 2 } steps one fan through its speeds and records the rpm
+    public const string SetSceneFans = "setSceneFans";   // args: { "name": "Gaming", "fans": "Silent|Standard|Turbo|Full" }
+    public const string SetFanProfile = "setFanProfile"; // args: { "mode": "Silent|Standard|Turbo", "points": [[t,%] x8] } or { "mode", "reset": true }
     public const string SetFanCurve = "setFanCurve";     // args: { "group": "...", "points": [[t,%] x8], "source": "Cpu|Motherboard|Gpu|Maximum" }
     public const string SetSensorBinding = "setSensorBinding";
     public const string SetLighting = "setLighting";     // args: { "effect": "Static|...", "color": "#RRGGBB", "brightness": 0..1, "speed": 0..2 }
@@ -88,7 +92,15 @@ public sealed record StateMessage(
     IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null,
     IReadOnlyList<TelemetrySample>? History = null, IReadOnlyList<SceneSummary>? Scenes = null, AutomationState? Automations = null,
     // True when History holds only samples newer than the previous push; the client appends them to what it has.
-    bool HistoryIsDelta = false);
+    bool HistoryIsDelta = false,
+    // Silent, Standard or Turbo curves the user edited; a mode missing here runs its built-in curve.
+    IReadOnlyDictionary<FanMode, IReadOnlyList<FanPoint>>? FanProfiles = null,
+    // What each measured fan spins at for a given duty, keyed by header.
+    IReadOnlyDictionary<int, FanRpmMap>? FanRpm = null);
+
+/// <summary>A fan's measured speeds: rpm at each duty step, and the duty below which it stops.</summary>
+public sealed record FanRpmMap(IReadOnlyList<FanRpmPoint> Points, double? StopsBelow, DateTimeOffset Measured);
+public readonly record struct FanRpmPoint(double Percent, double Rpm);
 
 /// <summary>Rules that switch scenes on their own. Priority: locked PC, then a running game, then night hours.</summary>
 public sealed record AutomationSettings(
@@ -124,10 +136,14 @@ public sealed record SystemState(
 public sealed record ProcessLoad(int Id, string Name, double CpuPercent);
 
 public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent, double? ActivityPercent = null);
+/// <param name="Target">The speed the curve asks for now; Percent catches up at the fan's response rate.</param>
+/// <param name="Following">The averaged temperature the curve is reading.</param>
+/// <param name="Measuring">Set while the fan is being measured, e.g. "60%".</param>
+/// <param name="Stalled">Asked to spin but reporting 0 rpm: unplugged or stuck.</param>
 public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve,
-    FanControlState? Configuration = null);
+    FanControlState? Configuration = null, double? Target = null, double? Following = null, string? Measuring = null, bool Stalled = false);
 public sealed record FanControlState(IReadOnlyList<FanPoint> Points, TemperatureSource Source, double Minimum,
-    double Hysteresis, double SpinUpPerSecond, double SpinDownPerSecond);
+    double Hysteresis, double SpinUpPerSecond, double SpinDownPerSecond, FanResponse Response = FanResponse.Normal, double Averaging = 0, bool Edited = false);
 public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices,
     EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null, IReadOnlyList<ZoneIdentification>? IdentifyingZones = null,
     IReadOnlyDictionary<string, PartLook>? PartLooks = null);
@@ -160,7 +176,7 @@ public sealed record RouterDetails(RadioCell? Nr = null, RadioCell? Lte = null,
 
 /// <summary>Conflicts and warnings the UI should surface (e.g. "AsusFanControlService is running").</summary>
 public sealed record ServiceHealth(bool Mock, bool Elevated, IReadOnlyList<string> Warnings, bool FanFailsafeActive,
-    string? Version = null);
+    string? Version = null, DateTimeOffset? LastFailsafe = null, string? LastFailsafeReason = null);
 
 // Additive protocol-1 spatial lighting types. Coordinates use top-left origin.
 public sealed record MapPoint(double X, double Y);

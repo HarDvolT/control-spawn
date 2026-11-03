@@ -7,10 +7,24 @@ using Prism.Lighting;
 
 namespace Prism.Service;
 
+/// <param name="Response">How fast the fan follows the temperature (averaging and ramp, see <see cref="ToSettings"/>).</param>
+/// <param name="Hold">Degrees the temperature must move before the fan changes speed.</param>
+/// <param name="Profiles">This fan's own Silent, Standard and Turbo: the radiator cools the CPU and the case fans the GPU, so one shared curve fitted neither.</param>
 public sealed record FanConfiguration(FanMode Mode = FanMode.Standard, TemperatureSource Source = TemperatureSource.Cpu,
-    FanPoint[]? Points = null)
+    FanPoint[]? Points = null, FanResponse Response = FanResponse.Normal, double Hold = 2, Dictionary<FanMode, FanPoint[]>? Profiles = null)
 {
-    public FanSettings ToSettings() => new(Mode == FanMode.Custom ? new FanCurve(Points ?? []) : FanCurveEngine.Preset(Mode), Source);
+    /// <summary>The curve this fan runs: its own for Custom, otherwise its profile as edited for this fan, as edited for every fan (older settings), or built in.</summary>
+    public FanSettings ToSettings(IReadOnlyDictionary<FanMode, FanPoint[]>? profiles = null) =>
+        new(Mode == FanMode.Custom ? new FanCurve(Points ?? []) : EditedProfile(profiles) is { } edited ? new FanCurve(edited) : FanCurveEngine.Preset(Mode), Source,
+            Hysteresis: Hold, SpinUpPerSecond: Ramp.Up, SpinDownPerSecond: Ramp.Down, Averaging: Ramp.Averaging);
+    public FanPoint[]? EditedProfile(IReadOnlyDictionary<FanMode, FanPoint[]>? shared) => Profiles?.GetValueOrDefault(Mode) ?? shared?.GetValueOrDefault(Mode);
+    // Seconds of averaging and %/s up and down. Normal keeps the old ramp and adds a 4 s average against CPU spikes.
+    private (double Averaging, double Up, double Down) Ramp => Response switch
+    {
+        FanResponse.Fast => (1, 60, 25), FanResponse.Calm => (8, 15, 6), FanResponse.Slow => (15, 8, 3), _ => (4, 30, 10)
+    };
+    /// <summary>The profiles a user can reshape. Full speed is flat by definition and Custom belongs to one fan.</summary>
+    public static bool Editable(FanMode mode) => mode is FanMode.Silent or FanMode.Standard or FanMode.Turbo;
 }
 public sealed record LightingConfiguration(LightingEffect Effect = LightingEffect.Static, string Color = "#FF4D1A", double Brightness = 1, double Speed = 1, EffectParameters? Parameters = null)
 {
@@ -34,7 +48,9 @@ public sealed record ServiceSettings
     public IReadOnlyList<DeviceState> Devices { get; init; } = [];
     public DiscoveryOptions Discovery { get; init; } = new();
     public Dictionary<int, FanConfiguration> HeaderFans { get; init; } = new();
-    public Dictionary<string, FanConfiguration> Fans { get; init; } = new() { ["Radiator"] = new(), ["Case fans"] = new() };
+    public Dictionary<string, FanConfiguration> Fans { get; init; } = new() { ["Radiator"] = new(), ["Case fans"] = new(Source: TemperatureSource.Maximum) };
+    /// <summary>Edited Silent, Standard and Turbo curves; every fan (and scene) on that profile runs them.</summary>
+    public Dictionary<FanMode, FanPoint[]> FanProfiles { get; init; } = new();
     public LightingConfiguration Lighting { get; init; } = new();
     public Dictionary<string, SensorBinding> Bindings { get; init; } = new();
     public LightingMap Map { get; init; } = new([]);
@@ -63,6 +79,13 @@ public sealed record ServiceSettings
         ["Away"] = new(FanMode.Silent, new(LightingEffect.Off), new(On: false))
     };
 
+    private static void ValidProfiles(Dictionary<FanMode, FanPoint[]>? profiles)
+    {
+        if (profiles is null) return;
+        if (profiles.Any(p => !FanConfiguration.Editable(p.Key) || p.Value is null
+            || p.Value.Any(x => x.Temperature < 0 || x.Temperature > 120 || x.Percent < 0 || x.Percent > 100))) throw new ArgumentException("Invalid fan profile.");
+        foreach (var profile in profiles.Values) _ = new FanCurve(profile);
+    }
     public void Validate()
     {
         if (SchemaVersion != CurrentSchemaVersion) throw new ArgumentException("Unsupported settings schema.");
@@ -70,17 +93,19 @@ public sealed record ServiceSettings
         foreach (var d in Devices) if (d.UserName is not null) _ = DeviceRegistry.Rename(d, d.UserName);
         foreach (var h in HeaderFans)
         {
-            if (h.Key is < 1 or > 7 or 7 || !Enum.IsDefined(h.Value.Mode) || !Enum.IsDefined(h.Value.Source) ||
+            if (h.Key is < 1 or > 7 or 7 || !Enum.IsDefined(h.Value.Mode) || !Enum.IsDefined(h.Value.Source) || !Enum.IsDefined(h.Value.Response) || h.Value.Hold is < 0 or > 10 ||
                 h.Value.Points?.Any(p => p.Temperature < 0 || p.Temperature > 120 || p.Percent < 0 || p.Percent > 100) == true) throw new ArgumentException("Invalid fan header.");
-            _ = h.Value.ToSettings();
+            _ = h.Value.ToSettings(FanProfiles); ValidProfiles(h.Value.Profiles);
         }
         if (Fans is null || Lighting is null || Lamp is null || Scenes is null || SyncedDevices is null || Automations is null) throw new ArgumentException("Settings cannot be null.");
         if (!AutomationEngine.TryTime(Automations.NightStart, out _) || !AutomationEngine.TryTime(Automations.NightEnd, out _)) throw new ArgumentException("Night hours must look like 23:00.");
+        if (FanProfiles is null) throw new ArgumentException("Invalid fan profile.");
+        ValidProfiles(FanProfiles);
         if (Fans.Count != 2 || !Fans.ContainsKey("Radiator") || !Fans.ContainsKey("Case fans")) throw new ArgumentException("Only Radiator and Case fans are configurable.");
         foreach (var fan in Fans.Values)
         {
-            if (fan is null || !Enum.IsDefined(fan.Mode) || !Enum.IsDefined(fan.Source)) throw new ArgumentException("Invalid fan mode/source.");
-            _ = fan.ToSettings();
+            if (fan is null || !Enum.IsDefined(fan.Mode) || !Enum.IsDefined(fan.Source) || !Enum.IsDefined(fan.Response) || fan.Hold is < 0 or > 10) throw new ArgumentException("Invalid fan mode/source.");
+            _ = fan.ToSettings(FanProfiles); ValidProfiles(fan.Profiles);
             if (fan.Points?.Any(p => p.Temperature < 0 || p.Temperature > 120 || p.Percent < 0 || p.Percent > 100) == true)
                 throw new ArgumentException("Fan points must be 0..120 C and 0..100%.");
         }

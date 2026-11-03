@@ -170,6 +170,45 @@ public sealed class ServiceTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
     [Fact]
+    public async Task EditedProfilesDriveEveryFanOnThemSurviveARestartAndReset()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "settings-" + Guid.NewGuid() + ".json");
+        try
+        {
+            var store = new JsonSettingsStore(path); var processor = new CommandProcessor(store, new Runtime());
+            var quiet = Enumerable.Range(0, 8).Select(i => new[] { 20d + i * 10, 20d + i * 5 }).ToArray();
+            Assert.True((await processor.HandleAsync(Request(1, Commands.SetFanMode, new { group = "Radiator", mode = "Silent", source = "Gpu" }))).Ok);
+            Assert.True((await processor.HandleAsync(Request(2, Commands.SetFanProfile, new { mode = "Silent", points = quiet }))).Ok);
+            // The fan stays on Silent (not Custom) and runs the edited curve, from the GPU as asked.
+            var radiator = processor.Settings.Fans["Radiator"];
+            Assert.Equal((FanMode.Silent, TemperatureSource.Gpu), (radiator.Mode, radiator.Source));
+            Assert.Equal(55, radiator.ToSettings(processor.Settings.FanProfiles).Curve.Points[^1].Percent);
+            Assert.Equal(55, new JsonSettingsStore(path).Load().FanProfiles[FanMode.Silent][^1].Percent);
+
+            Assert.False((await processor.HandleAsync(Request(3, Commands.SetFanProfile, new { mode = "Full", points = quiet }))).Ok);
+            Assert.False((await processor.HandleAsync(Request(4, Commands.SetFanProfile, new { mode = "Custom", points = quiet }))).Ok);
+            Assert.False((await processor.HandleAsync(Request(5, Commands.SetFanProfile, new { mode = "Turbo", points = quiet.Select(p => new[] { p[0], 120d }).ToArray() }))).Ok);
+            Assert.True((await processor.HandleAsync(Request(6, Commands.SetFanProfile, new { mode = "Silent", reset = true }))).Ok);
+            Assert.Empty(processor.Settings.FanProfiles);
+            Assert.Equal(FanCurveEngine.Preset(FanMode.Silent).Points, processor.Settings.Fans["Radiator"].ToSettings(processor.Settings.FanProfiles).Curve.Points);
+
+            // With a group the edit is that fan's alone; a shared edit from older settings moves onto every fan first.
+            Assert.True((await processor.HandleAsync(Request(7, Commands.SetFanProfile, new { mode = "Silent", points = quiet }))).Ok);
+            var loud = quiet.Select(p => new[] { p[0], Math.Min(100, p[1] + 20) }).ToArray();
+            Assert.True((await processor.HandleAsync(Request(8, Commands.SetFanProfile, new { mode = "Silent", group = "Case fans", points = loud }))).Ok);
+            Assert.Empty(processor.Settings.FanProfiles);
+            var settings = processor.Settings;
+            Assert.Equal(55, (settings.Fans["Radiator"] with { Mode = FanMode.Silent }).ToSettings(settings.FanProfiles).Curve.Points[^1].Percent);
+            Assert.Equal(75, (settings.Fans["Case fans"] with { Mode = FanMode.Silent }).ToSettings(settings.FanProfiles).Curve.Points[^1].Percent);
+            Assert.Equal(75, new JsonSettingsStore(path).Load().Fans["Case fans"].Profiles![FanMode.Silent][^1].Percent);
+            Assert.True((await processor.HandleAsync(Request(9, Commands.SetFanProfile, new { mode = "Silent", group = "Case fans", reset = true }))).Ok);
+            Assert.Equal(FanCurveEngine.Preset(FanMode.Silent).Points, (processor.Settings.Fans["Case fans"] with { Mode = FanMode.Silent }).ToSettings(processor.Settings.FanProfiles).Curve.Points);
+            Assert.Equal(55, processor.Settings.Fans["Radiator"].ToSettings(processor.Settings.FanProfiles).Curve.Points[^1].Percent);
+            Assert.False((await processor.HandleAsync(Request(10, Commands.SetFanProfile, new { mode = "Silent", group = "Nope", points = quiet }))).Ok);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+    [Fact]
     public async Task MockRuntimeRunsAndStopsUsingOnlyFakes()
     {
         await using var runtime = new ServiceRuntime(true);

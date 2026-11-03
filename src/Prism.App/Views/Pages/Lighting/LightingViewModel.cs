@@ -7,6 +7,9 @@ using Prism.Core.Ipc;
 
 namespace Prism.App.ViewModels;
 
+/// <summary>What decides a part's colours. See <see cref="LightingViewModel.DriverOf"/>.</summary>
+public enum PartDriver { Case, Own, Sensor, Off }
+
 public sealed class LightingViewModel : PageViewModel
 {
     private LightingEffect _effect = LightingEffect.Smart;
@@ -69,6 +72,62 @@ public sealed class LightingViewModel : PageViewModel
     }
     private string? _partTarget;
     public PartLook? PartLookOf(string key) => State?.Lighting.PartLooks?.GetValueOrDefault(key);
+
+    /// <summary>
+    /// What one part shows, as every lighting view tells it. Exactly one driver wins, in the service's order: Off, then a
+    /// sensor, then the part's own look, then the whole-case look. Parts used to look "in the case" while a sensor drove
+    /// them, which is why the case look seemed not to apply (live, 2026-11-03).
+    /// </summary>
+    public (PartDriver Driver, string Note) DriverOf(RgbDeviceState device, int zone, string key)
+    {
+        var lighting = State?.Lighting; var chosen = Parameters.Devices;
+        string? zoneKey = zone >= 0 ? SensorSources.ZoneTarget(device.Id, zone) : null;
+        if (!device.Synced && !device.CustomEnabled || chosen?.GetValueOrDefault(key, true) == false || chosen?.GetValueOrDefault(device.Id, true) == false
+            || zoneKey is not null && chosen?.GetValueOrDefault(zoneKey, true) == false) return (PartDriver.Off, "off");
+        // The narrowest binding covering the part decides, as SensorLighting composites them.
+        var bindings = lighting?.Bindings;
+        var binding = bindings?.GetValueOrDefault(key) ?? (zoneKey is null ? null : bindings?.GetValueOrDefault(zoneKey)) ?? bindings?.GetValueOrDefault(device.Id);
+        if (binding is not null)
+        {
+            var name = State is { } s ? SensorSources.Available(s).FirstOrDefault(x => x.Id == binding.Source)?.Name : null;
+            return (PartDriver.Sensor, name ?? "sensor");
+        }
+        var looks = lighting?.PartLooks;
+        if (looks?.ContainsKey(key) == true || zoneKey is not null && looks?.ContainsKey(zoneKey) == true || zone >= 0 && looks?.ContainsKey(device.Id) == true || device.CustomEnabled)
+            return (PartDriver.Own, "own look");
+        return (PartDriver.Case, "follows the case");
+    }
+
+    /// <summary>Hands a part back to the whole-case look: on, synced, no own look and no sensor.</summary>
+    public async Task FollowCaseAsync(RgbDeviceState device, int zone, string key)
+    {
+        if (!device.Synced) SetDeviceCommand.Execute(new DeviceOption(device.Id, device.Name, "", true));
+        var choices = new Dictionary<string, bool>(Parameters.Devices ?? new Dictionary<string, bool>()) { [key] = true, [device.Id] = true };
+        if (zone >= 0) choices[SensorSources.ZoneTarget(device.Id, zone)] = true;
+        await SetParametersAsync(Parameters with { Devices = choices });
+        foreach (var look in new[] { key, zone >= 0 ? SensorSources.ZoneTarget(device.Id, zone) : key }.Distinct())
+            if (PartLookOf(look) is not null) await SetPartLookAsync(look, clear: true);
+        await ReleaseSensorAsync(device, zone, key);
+    }
+
+    /// <summary>
+    /// Stops whatever sensor drives one part. A sensor set on something wider (the whole AIO header, the whole board) would
+    /// keep winning, so it moves onto the part's siblings instead: only this part lets go, the rest keep their sensor.
+    /// </summary>
+    public async Task ReleaseSensorAsync(RgbDeviceState device, int zone, string key)
+    {
+        if (State?.Lighting.Bindings is not { } bindings) return;
+        string? zoneKey = zone >= 0 ? SensorSources.ZoneTarget(device.Id, zone) : null;
+        foreach (var target in new[] { key, zoneKey, device.Id }.OfType<string>().Distinct())
+        {
+            if (bindings.GetValueOrDefault(target) is not { } b) continue;
+            if (target != key)
+                foreach (var z in (target == device.Id ? Enumerable.Range(0, device.Zones?.Count ?? 0) : [zone]).Where(z => device.Zones![z].LedCount > 0))
+                    foreach (var sibling in CaseMap.Pieces(device, z).Select(p => p.Key).Where(k => k != key && !bindings.ContainsKey(k)))
+                        await RunAsync(() => Client.SendAsync(Commands.SetSensorBinding, new { target = sibling, b.Source, b.Min, b.Max, b.Style, b.Palette, b.Smoothing, b.Alert, b.AutoLearn, b.Hysteresis }));
+            await RunAsync(() => Client.SendAsync(Commands.SetSensorBinding, new { target, source = (string?)null }));
+        }
+    }
     public Task SetPartLookAsync(string part, bool clear = false) => clear
         ? RunAsync(() => Client.SendAsync(Commands.SetPartLook, new { part, clear = true }))
         : RunAsync(() => Client.SendAsync(Commands.SetPartLook, new { part, effect = Effect.ToString(), color = ColorHex, brightness = Brightness, speed = Speed }));
@@ -182,7 +241,8 @@ public sealed class LightingViewModel : PageViewModel
         // A selected part with its own look shows that look; otherwise the case's, which its first change copies.
         var own = PartTarget is { } target ? lighting.PartLooks?.GetValueOrDefault(target) : null;
         Effect = own?.Effect ?? lighting.Effect;
-        ColorHex = own?.Color ?? lighting.Color;
+        // A part that follows the case keeps the brush colour picked for painting until it gets its own look.
+        ColorHex = own?.Color ?? (PartTarget is not null ? _brushHex : null) ?? lighting.Color;
         Brightness = own?.Brightness ?? lighting.Brightness;
         Speed = own?.Speed ?? lighting.Speed;
         BrightnessPercent = Math.Clamp(Brightness * 100, 0, 100);
@@ -248,8 +308,12 @@ public sealed class LightingViewModel : PageViewModel
     {
         ColorHex = hex;
         OnPropertyChanged(nameof(ColorEntry));
+        // On a part that follows the case, a colour only loads the paint brush: taking it as the part's own look
+        // turned the whole part that colour the moment you picked one to paint with (live, 2026-11-02).
+        if (PartTarget is { } part && PartLookOf(part) is null) { _brushHex = hex; NotifyAll(); return; }
         await PushLightingAsync();
     }
+    private string? _brushHex;
 
     private async Task PushLightingAsync()
     {

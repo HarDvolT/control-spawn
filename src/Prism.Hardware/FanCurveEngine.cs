@@ -2,21 +2,29 @@ using Prism.Core;
 
 namespace Prism.Hardware;
 
+/// <param name="Averaging">Seconds of temperature averaging: the 9800X3D jumps 10+ °C for a second whenever something loads,
+/// and without it the fans revved up and down with every spike (live, 2026-11-03). Safety full speed never waits for it.</param>
 public sealed record FanSettings(FanCurve Curve, TemperatureSource Source = TemperatureSource.Cpu,
-    double Minimum = 20, double Hysteresis = 2, double SpinUpPerSecond = 30, double SpinDownPerSecond = 10);
+    double Minimum = 20, double Hysteresis = 2, double SpinUpPerSecond = 30, double SpinDownPerSecond = 10, double Averaging = 0);
 
 public sealed class FanCurveEngine
 {
     private double? acceptedTemperature;
     private double? previous;
-    public static FanCurve Preset(FanMode mode) => new(new[] { 20d, 30, 40, 50, 60, 67, 70, 100 }
+    private double? averaged;
+    /// <summary>What the curve asked for on the last evaluation, and the averaged temperature it read.</summary>
+    public double? Target { get; private set; }
+    public double? Following => averaged;
+    // The Fans page draws 30-100 °C (this CPU never idles below ~40 °C), so the points start at 30: the old 20 °C point
+    // became a point at 55 °C on the existing line, which leaves every curve unchanged from 30 °C up.
+    public static FanCurve Preset(FanMode mode) => new(new[] { 30d, 40, 50, 55, 60, 67, 70, 100 }
         .Zip(mode switch {
-            FanMode.Standard => new[] { 20d, 26, 34, 45, 60, 80, 100, 100 },
+            FanMode.Standard => new[] { 26d, 34, 45, 52.5, 60, 80, 100, 100 },
             // Tuned on the real radiator fans (2026-10-29): the BIOS idles them at ~1,365 rpm, which is about 36% duty
             // on this header (Fan Xpert table: 30% = 1,255 rpm, 40% = 1,464 rpm). Silent sits clearly below that
             // at the 9800X3D idle range (45-55 °C) and only ramps hard from 67 °C; the 90 °C failsafe still applies.
-            FanMode.Silent => new[] { 20d, 20, 22, 25, 30, 42, 55, 100 },
-            FanMode.Turbo => new[] { 35d, 45, 55, 65, 80, 95, 100, 100 },
+            FanMode.Silent => new[] { 20d, 22, 25, 27.5, 30, 42, 55, 100 },
+            FanMode.Turbo => new[] { 45d, 55, 65, 72.5, 80, 95, 100, 100 },
             FanMode.Full => Enumerable.Repeat(100d, 8).ToArray(),
             _ => throw new ArgumentException("Custom mode requires an explicit curve.", nameof(mode))
         }, (t, p) => new FanPoint(t, p)));
@@ -47,19 +55,22 @@ public sealed class FanCurveEngine
     {
         Validate(settings);
         if (!double.IsFinite(temperature)) return ForceFull();
-        if (acceptedTemperature is null || Math.Abs(temperature - acceptedTemperature.Value) >= settings.Hysteresis)
-            acceptedTemperature = temperature;
+        // Exponential average: a one-second spike moves it a little, heat that stays moves it all the way.
+        averaged = averaged is { } a && settings.Averaging > 0 ? a + (temperature - a) * (1 - Math.Exp(-Math.Max(0, elapsed.TotalSeconds) / settings.Averaging)) : temperature;
+        if (acceptedTemperature is null || Math.Abs(averaged.Value - acceptedTemperature.Value) >= settings.Hysteresis)
+            acceptedTemperature = averaged.Value;
         double target = Math.Clamp(Interpolate(settings.Curve, acceptedTemperature.Value), settings.Minimum, 100);
+        Target = target;
         double start = previous ?? 100; // Begin conservatively until a curve has settled.
         double step = (target > start ? settings.SpinUpPerSecond : settings.SpinDownPerSecond) * Math.Max(0, elapsed.TotalSeconds);
         previous = Math.Clamp(start + Math.Clamp(target - start, -step, step), settings.Minimum, 100);
         return previous.Value;
     }
-    public double ForceFull() { previous = 100; acceptedTemperature = null; return 100; }
+    public double ForceFull() { previous = 100; acceptedTemperature = null; averaged = null; Target = 100; return 100; }
     private static void Validate(FanSettings s)
     {
         if (!double.IsFinite(s.Minimum) || s.Minimum < 0 || s.Minimum > 100 ||
-            !double.IsFinite(s.Hysteresis) || s.Hysteresis < 0 ||
+            !double.IsFinite(s.Hysteresis) || s.Hysteresis < 0 || !double.IsFinite(s.Averaging) || s.Averaging < 0 ||
             !double.IsFinite(s.SpinUpPerSecond) || s.SpinUpPerSecond <= 0 ||
             !double.IsFinite(s.SpinDownPerSecond) || s.SpinDownPerSecond <= 0)
             throw new ArgumentOutOfRangeException(nameof(s));

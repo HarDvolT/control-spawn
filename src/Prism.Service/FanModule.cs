@@ -23,19 +23,20 @@ public sealed partial class ServiceRuntime
                     foreach (var group in value.Fans)
                     {
                         int header = group.Key == "Radiator" ? 2 : 6;
-                        if (runtime.controls.Headers.Contains(header)) runtime.fans.Configure(header, group.Value.ToSettings());
+                        if (runtime.controls.Headers.Contains(header)) runtime.fans.Configure(header, group.Value.ToSettings(value.FanProfiles));
                     }
                     foreach (var group in value.HeaderFans)
-                        if (runtime.controls.Headers.Contains(group.Key) && group.Key != 7) runtime.fans.Configure(group.Key, group.Value.ToSettings());
+                        if (runtime.controls.Headers.Contains(group.Key) && group.Key != 7) runtime.fans.Configure(group.Key, group.Value.ToSettings(value.FanProfiles));
                     bool fresh = runtime.clock.Elapsed - cycle < TimeSpan.FromSeconds(2);
                     if (!fresh) next = next with { Success = false };
                     runtime.fans.Apply(next, runtime.clock.Elapsed - previous); previous = runtime.clock.Elapsed;
                     if (fresh) runtime.fanGuard?.Beat();
+                    if (fresh) runtime.WatchForStalls(next);
                     var required = next.Temperature(SensorCategory.Cpu).HasValue && value.Fans.Values.All(f => FanCurveEngine.SelectTemperature(next, f.Source).HasValue);
                     lock (runtime.stateGate)
                     {
                         bool failsafe = runtime.safety.Observe(next, required);
-                        if (failsafe && !runtime.failsafe) runtime.TriggerLightingEvent(LightingEventKind.FanFailsafe);
+                        if (failsafe && !runtime.failsafe) { runtime.TriggerLightingEvent(LightingEventKind.FanFailsafe); runtime.RecordFailsafe(true); }
                         runtime.failsafe = failsafe;
                     }
                 } while (await timer.WaitForNextTickAsync(token));

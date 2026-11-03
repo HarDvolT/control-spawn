@@ -99,10 +99,11 @@ internal static class Program
                 var designName = page switch { PageKey.Lamp => "Lamps", PageKey.Appliances => "Fryer", _ => page.ToString() };
                 var reference = BitmapFrame.Create(new Uri(Path.GetFullPath($"docs/design-v2/V2{designName}.png")));
                 var height = args.FirstOrDefault(a => a.StartsWith("--height=")) is { } h && int.TryParse(h[9..], out var forced) ? forced : reference.PixelHeight;
-                previewShell.Measure(new Size(1440, height)); previewShell.Arrange(new Rect(0, 0, 1440, height)); previewShell.UpdateLayout();
+                var width = args.FirstOrDefault(a => a.StartsWith("--width=")) is { } w && int.TryParse(w[8..], out var wide) ? wide : 1440;
+                previewShell.Measure(new Size(width, height)); previewShell.Arrange(new Rect(0, 0, width, height)); previewShell.UpdateLayout();
                 Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Render);
                 previewShell.InvalidateMeasure(); previewShell.UpdateLayout();
-                var bitmap = new RenderTargetBitmap(1440, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(previewShell);
+                var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(previewShell);
                 var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
                 using var stream = File.Create(Path.Combine(output, "V2-" + page + ".png")); encoder.Save(stream);
                 Console.WriteLine(page);

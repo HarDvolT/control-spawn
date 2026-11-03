@@ -18,7 +18,8 @@ public sealed partial class ServiceRuntime
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
             do
             {
-                bool Needed() => Volatile.Read(ref runtime.settings).Lighting.Effect is var effect && (audio
+                // The case or any part with its own look (Music on the pump alone, say) needs the capture running.
+                bool Needed() => Volatile.Read(ref runtime.settings) is var value && value.PartLooks.Values.Select(p => p.Effect).Append(value.Lighting.Effect).Any(effect => audio
                     ? effect is LightingEffect.Music or LightingEffect.AudioSpectrum
                     : effect is LightingEffect.Adaptive or LightingEffect.ScreenAmbient);
                 if (!Needed() || (audio ? runtime.audioLevels is not WasapiLoopback : runtime.screenZones is not DesktopDuplication)) continue;
