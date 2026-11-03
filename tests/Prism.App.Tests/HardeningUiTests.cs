@@ -111,6 +111,71 @@ public sealed class HardeningUiTests : IDisposable
         Assert.Equal(0, changes);
     }
 
+    // #13: "connected" waits for the service to accept the hello, and a read-only session says so.
+    private static async Task<(System.IO.Pipes.NamedPipeServerStream Pipe, StreamReader Reader, StreamWriter Writer)> Serve(string name)
+    {
+        var pipe = new System.IO.Pipes.NamedPipeServerStream(name, System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+        await pipe.WaitForConnectionAsync();
+        return (pipe, new StreamReader(pipe), new StreamWriter(pipe) { AutoFlush = true, NewLine = "\n" });
+    }
+    private static async Task Until(Func<bool> condition)
+    {
+        for (int i = 0; i < 200 && !condition(); i++) await Task.Delay(25);
+        Assert.True(condition());
+    }
+
+    [Fact]
+    public async Task ConnectedOnlyAfterTheServiceAcceptsTheHelloAndReadOnlyRepliesRaiseTheBanner()
+    {
+        var name = "prism-test-" + Guid.NewGuid().ToString("N");
+        var seen = new List<ServiceConnection>();
+        await using var client = new PipePrismClient(TimeSpan.FromSeconds(2), name);
+        client.ConnectionChanged += (_, c) => { lock (seen) seen.Add(c); };
+        var serving = Serve(name);
+        await client.StartAsync();
+        var (pipe, reader, writer) = await serving;
+        using (pipe)
+        {
+            await reader.ReadLineAsync();   // the hello
+            await Task.Delay(200);
+            Assert.False(client.IsConnected);   // asked, not yet answered
+            await writer.WriteLineAsync("{\"id\":1,\"ok\":true}");
+            await Until(() => client.IsConnected);
+            Assert.Equal(Commands.Subscribe, System.Text.Json.JsonDocument.Parse((await reader.ReadLineAsync())!).RootElement.GetProperty("command").GetString());
+
+            var vm = Shell(client);
+            var sent = client.SendAsync(Commands.ApplyScene, new { name = "Night" });
+            var id = System.Text.Json.JsonDocument.Parse((await reader.ReadLineAsync())!).RootElement.GetProperty("id").GetInt32();
+            await writer.WriteLineAsync($"{{\"id\":{id},\"ok\":false,\"error\":\"{PipeErrors.ReadOnly}\"}}");
+            Assert.False((await sent).Ok);
+            Assert.True(client.IsReadOnly);
+            vm.SetReadOnly(client.IsReadOnly);
+            Assert.True(vm.ShowBanner); Assert.Equal(MainViewModel.ReadOnlyBanner, vm.BannerText);
+        }
+        await Until(() => !client.IsConnected);
+        Assert.False(client.IsReadOnly);   // the next session is checked afresh
+        lock (seen) Assert.Equal([ServiceConnection.Connecting, ServiceConnection.Connected, ServiceConnection.Disconnected], seen.Take(3));
+    }
+
+    [Fact]
+    public async Task RefusedHelloNeverShowsConnected()
+    {
+        var name = "prism-test-" + Guid.NewGuid().ToString("N");
+        var seen = new List<ServiceConnection>();
+        await using var client = new PipePrismClient(TimeSpan.FromSeconds(2), name);
+        client.ConnectionChanged += (_, c) => { lock (seen) seen.Add(c); };
+        var serving = Serve(name);
+        await client.StartAsync();
+        var (pipe, reader, writer) = await serving;
+        using (pipe)
+        {
+            await reader.ReadLineAsync();
+            await writer.WriteLineAsync("{\"id\":1,\"ok\":false,\"error\":\"Protocol version or client mismatch.\"}");
+            await Until(() => { lock (seen) return seen.Contains(ServiceConnection.Disconnected); });
+        }
+        lock (seen) Assert.DoesNotContain(ServiceConnection.Connected, seen);
+    }
+
     private static void Pump()
     {
         var frame = new System.Windows.Threading.DispatcherFrame();

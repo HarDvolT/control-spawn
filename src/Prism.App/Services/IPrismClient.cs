@@ -16,6 +16,9 @@ public interface IPrismClient : IAsyncDisposable
 
     ServiceConnection Connection { get; }
     bool IsConnected { get; }
+    /// <summary>The service answered a command with "read-only": it doesn't trust this copy of the app.</summary>
+    bool IsReadOnly { get; }
+    event EventHandler<bool>? ReadOnlyChanged;
 
     Task StartAsync(CancellationToken cancellationToken = default);
     Task<Response> SendAsync(string command, object? args = null, CancellationToken cancellationToken = default);
@@ -45,12 +48,28 @@ public abstract class PrismClientBase : IPrismClient
 
     public ServiceConnection Connection => _connection;
     public bool IsConnected => _connection == ServiceConnection.Connected;
+    public bool IsReadOnly { get; private set; }
+    public event EventHandler<bool>? ReadOnlyChanged;
 
     protected void SetConnection(ServiceConnection connection)
     {
         if (_connection == connection) return;
         _connection = connection;
+        // A new session is verified afresh, so the read-only flag belongs to the old one.
+        if (connection != ServiceConnection.Connected) SetReadOnly(false);
         ConnectionChanged?.Invoke(this, connection);
+    }
+
+    /// <summary>Every command reply passes here. Buttons in a read-only app used to fail one by one with no explanation.</summary>
+    protected Response Observe(Response response)
+    {
+        if (!response.Ok && response.Error == PipeErrors.ReadOnly) SetReadOnly(true);
+        return response;
+    }
+    private void SetReadOnly(bool value)
+    {
+        if (IsReadOnly == value) return;
+        IsReadOnly = value; ReadOnlyChanged?.Invoke(this, value);
     }
 
     protected void Publish(StateMessage state) => StateReceived?.Invoke(this, state);

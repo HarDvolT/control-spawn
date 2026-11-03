@@ -103,7 +103,7 @@ public sealed class PipeSession(CommandProcessor commands, bool verifiedApp = fa
                 }
                 else if (!hello) await WriteAsync(new Response(request.Id, false, "Send hello first."));
                 else if (!verifiedApp && request.Command is not (Commands.GetState or Commands.Subscribe))
-                    await WriteAsync(new Response(request.Id, false, "Unverified client has read-only access."));
+                    await WriteAsync(new Response(request.Id, false, PipeErrors.ReadOnly));
                 else if (!interactiveApp && request.Command is Commands.PrepareApplianceStart or Commands.ConfirmApplianceStart)
                     await WriteAsync(new Response(request.Id, false, "Cooking start is only available in the app."));
                 else if (request.Command == Commands.Subscribe)
