@@ -292,7 +292,10 @@ public sealed partial class CommandProcessor
                 case Commands.SetServiceOptions:
                 {
                     next = Settings with { OpenRgbPath = Text(a, "openRgbPath"), LaunchOpenRgb = a.GetProperty("launchOpenRgb").GetBoolean(),
-                        RouterEnabled = a.GetProperty("routerEnabled").GetBoolean(), RouterHost = Text(a, "routerHost") }; break;
+                        RouterEnabled = a.GetProperty("routerEnabled").GetBoolean(), RouterHost = Text(a, "routerHost") };
+                    // Only a path the service will start matters; the app sends its saved path even with launching off.
+                    if (next.LaunchOpenRgb && !OpenRgbLocation.IsAllowed(next.OpenRgbPath)) throw new ArgumentException(OpenRgbLocation.Rule);
+                    break;
                 }
                 case Commands.SetFanMode:
                 {

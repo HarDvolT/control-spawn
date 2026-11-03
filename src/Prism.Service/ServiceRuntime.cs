@@ -161,7 +161,21 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     }
 
     public Task ApplyAsync(ServiceSettings value, CancellationToken cancellationToken)
-    { cancellationToken.ThrowIfCancellationRequested(); Volatile.Write(ref settings, value); return Task.CompletedTask; }
+    { cancellationToken.ThrowIfCancellationRequested(); Volatile.Write(ref settings, value); CheckOpenRgbPath(value); return Task.CompletedTask; }
+
+    private string? warnedOpenRgbPath;
+    /// <summary>
+    /// A path saved before the folder rule stays in the settings untouched; it just isn't started, and the owner is told
+    /// (top bar and log) so they can move OpenRGB. Logged once per path.
+    /// </summary>
+    private bool CheckOpenRgbPath(ServiceSettings value)
+    {
+        if (!value.LaunchOpenRgb || value.OpenRgbPath is not { } path || OpenRgbLocation.IsAllowed(path))
+        { warnings.TryRemove("openrgb-path", out _); warnedOpenRgbPath = null; return value.LaunchOpenRgb && value.OpenRgbPath is not null; }
+        warnings["openrgb-path"] = OpenRgbLocation.Warning(path);
+        if (warnedOpenRgbPath != path) { warnedOpenRgbPath = path; PrismLog.Warning("rgb", OpenRgbLocation.Warning(path)); }
+        return false;
+    }
 
     public StateMessage GetState(ServiceSettings value) => BuildState(value, history: true);
 
@@ -282,7 +296,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             {
                 if (!mock && !rgbConnected && clock.Elapsed >= reconnect)
                 {
-                    if (value.LaunchOpenRgb && value.OpenRgbPath is not null) rgbProcess.Start(value.OpenRgbPath);
+                    if (CheckOpenRgbPath(value)) rgbProcess.Start(value.OpenRgbPath!);
                     var client = (OpenRgbClient)rgb;
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
                     await client.ConnectAsync(cancellationToken: timeout.Token);

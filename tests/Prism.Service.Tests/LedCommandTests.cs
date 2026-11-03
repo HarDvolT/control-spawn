@@ -140,9 +140,11 @@ public sealed class LedCommandTests
     [Fact]
     public async Task ServiceOptionsValidatePersistAndReload()
     {
+        // The service's own folder is admin-only once installed, so it is an allowed place for OpenRGB (#6).
+        var allowed = Path.Combine(AppContext.BaseDirectory, "OpenRGB", "OpenRGB.exe");
         var store = new MemorySettingsStore(); var runtime = new Runtime(); var processor = new CommandProcessor(store, runtime);
-        Assert.True((await processor.HandleAsync(Command(Commands.SetServiceOptions, new { openRgbPath = @"C:\Tools\OpenRGB.exe", launchOpenRgb = true, routerEnabled = true, routerHost = "192.168.0.1" }))).Ok);
+        Assert.True((await processor.HandleAsync(Command(Commands.SetServiceOptions, new { openRgbPath = allowed, launchOpenRgb = true, routerEnabled = true, routerHost = "192.168.0.1" }))).Ok);
         var loaded = new CommandProcessor(store, runtime).Settings;
-        Assert.True(loaded.LaunchOpenRgb); Assert.True(loaded.RouterEnabled); Assert.Equal(@"C:\Tools\OpenRGB.exe", loaded.OpenRgbPath);
+        Assert.True(loaded.LaunchOpenRgb); Assert.True(loaded.RouterEnabled); Assert.Equal(allowed, loaded.OpenRgbPath);
     }
 }
