@@ -187,7 +187,14 @@ public sealed class JsonSettingsStore(string? path = null) : ISettingsStore
         }
         catch (Exception e) when (Unreadable(e))
         {
+            var text = File.ReadAllText(path);
             File.Copy(path, path + ".corrupt-" + Guid.NewGuid().ToString("N") + ".bak");
+            // One bad value used to throw the whole file away; keep every part that is still valid and reset only the rest.
+            if (Repair(text) is { } repaired)
+            {
+                HealthWarning = $"Some settings were invalid and were reset to defaults: {string.Join(", ", repaired.Dropped)}. Everything else was kept, and the original file was saved as a backup.";
+                return repaired.Settings;
+            }
             // A crash can leave the file empty or zeroed; the copy kept by the last good save is the next best thing.
             var backup = AtomicFile.Backup(path);
             try
@@ -203,6 +210,29 @@ public sealed class JsonSettingsStore(string? path = null) : ISettingsStore
             HealthWarning = "Settings were invalid; a backup was preserved and defaults were loaded.";
             return new();
         }
+    }
+    /// <summary>
+    /// Rebuilds the file one top-level part at a time (lamps, ledLayers, scenes...), keeping each part only if the settings
+    /// still validate with it. Null when the file isn't a JSON object at all (then the last good copy is better) or comes
+    /// from a newer version (repairing it would quietly drop what this version doesn't know).
+    /// </summary>
+    public static (ServiceSettings Settings, IReadOnlyList<string> Dropped)? Repair(string json)
+    {
+        System.Text.Json.Nodes.JsonObject? root;
+        try { root = System.Text.Json.Nodes.JsonNode.Parse(json) as System.Text.Json.Nodes.JsonObject; } catch (JsonException) { return null; }
+        if (root is null) return null;
+        try { if (root["schemaVersion"] is { } v && v.GetValue<int>() is < 0 or > ServiceSettings.CurrentSchemaVersion) return null; }
+        catch (Exception e) when (e is InvalidOperationException or FormatException) { }
+        var kept = new System.Text.Json.Nodes.JsonObject(); var dropped = new List<string>();
+        foreach (var (name, value) in root.ToList())
+        {
+            kept[name] = value?.DeepClone();
+            try { _ = Parse(kept.ToJsonString()); }
+            catch (Exception e) when (Unreadable(e)) { kept.Remove(name); dropped.Add(name); }
+        }
+        if (dropped.Count == 0) return null;
+        try { return (Parse(kept.ToJsonString()).Settings, dropped); }
+        catch (Exception e) when (Unreadable(e)) { return null; }
     }
     private static bool Unreadable(Exception e) => e is JsonException or ArgumentException or InvalidDataException or InvalidOperationException or NullReferenceException or FormatException or OverflowException;
     private static (ServiceSettings Settings, int Version) Parse(string json)
