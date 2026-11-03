@@ -42,3 +42,10 @@ Risk = how likely the fix is to change something you'd notice, or to break somet
 - Router 68/68, Lighting 156/156, Hardware 35/35: pass.
 - Service: 159/167. The 8 failures need Windows: secret and pipe ACLs, `C:\`/`D:\` game paths, and an absolute `.exe` path check. They are not regressions.
 - App: can't run natively, because the testhost needs the Windows Desktop runtime. I'll run the App and Service tests as a win-x64 build under Wine, as on the sensor-panel branch, and report the results in the PR.
+
+## Status (2026-11-03)
+
+Fixed on `hardening/v2`, one commit each: 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15. **Skipped for now: 9** (slower ticks for static lighting).
+
+- 6: the OpenRGB path the service launches must be under Program Files, Program Files (x86) or the service's own folder. A saved path outside them is kept in the file, but it isn't started, gets logged once, and shows as a warning in the app.
+- 7 and 12: the file format is unchanged, and old (unversioned) files still load. A file that won't parse falls back to `settings.json.bak`. A file that parses but has one bad part keeps everything else.
