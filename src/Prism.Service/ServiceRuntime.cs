@@ -187,7 +187,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             CustomColors = value.LedLayers.TryGetValue(d.Id, out var layer) && layer.Custom is not null ? LedLayers.Resize(layer.Custom, d.LedCount, false) : null,
             OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null,
             CustomEnabled = value.LedLayers.GetValueOrDefault(d.Id)?.CustomEnabled == true }).ToArray();
-        var health = new ServiceHealth(mock, isElevated, warnings.Values.Order().ToArray(), isFailsafe,
+        // The app's top bar shows the first warning, and a stopped pump outranks everything else.
+        var health = new ServiceHealth(mock, isElevated, warnings.Values.OrderBy(w => w == PumpWarning ? 0 : 1).ThenBy(w => w, StringComparer.Ordinal).ToArray(), isFailsafe,
             typeof(ServiceRuntime).Assembly.GetName().Version?.ToString(), lastFailsafe, lastFailsafeReason);
         var lamps = value.ConfiguredLamps.Select(c => (liveLamps.TryGetValue(c.Id, out var liveLamp) ? liveLamp with { On = c.On, Brightness = c.Brightness, Follow = c.Follow, Color = c.Color, Name = c.Name } : null) ?? new LampState("yeelink.light.color5", false, c.On, c.Brightness, c.Color, c.Follow, "not configured", c.Id, c.Name, c.DeviceId, c.LastHost ?? c.Host)).ToArray();
         var state = StateAssembler.Assemble(sensors, value, controls.Headers, synced, lamps.FirstOrDefault(), router, health) with { Lamps = lamps, History = samples };
