@@ -253,15 +253,17 @@ public sealed class WidgetLayoutStore
 
     public string FilePath { get; }
 
-    public WidgetLayoutFile Load()
+    /// <summary>The file, else its last good copy (a crash can leave the main file empty), else no widgets.</summary>
+    public WidgetLayoutFile Load() => !File.Exists(FilePath) ? new WidgetLayoutFile() : Read(FilePath) ?? Read(Prism.Core.AtomicFile.Backup(FilePath)) ?? new WidgetLayoutFile();
+    private static WidgetLayoutFile? Read(string path)
     {
         try
         {
-            if (!File.Exists(FilePath)) return new WidgetLayoutFile();
-            var json = File.ReadAllText(FilePath);
-            if (string.IsNullOrWhiteSpace(json)) return new WidgetLayoutFile();
+            if (!File.Exists(path)) return null;
+            var json = File.ReadAllText(path);
+            if (string.IsNullOrWhiteSpace(json)) return null;
             var file = JsonSerializer.Deserialize<WidgetLayoutFile>(json, Options);
-            if (file is null) return new WidgetLayoutFile();
+            if (file is null) return null;
             file.Widgets ??= new List<WidgetLayout>();
             file.Widgets = file.Widgets.Where(w => w is not null).ToList();
             var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -282,16 +284,12 @@ public sealed class WidgetLayoutStore
         catch
         {
             // A broken layout file must never stop Prism from starting.
-            return new WidgetLayoutFile();
+            return null;
         }
     }
 
     public void Save(WidgetLayoutFile file)
     {
-        var folder = System.IO.Path.GetDirectoryName(FilePath);
-        if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
-        var temporary = FilePath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(file, Options));
-        File.Move(temporary, FilePath, overwrite: true);
+        Prism.Core.AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(file, Options));
     }
 }

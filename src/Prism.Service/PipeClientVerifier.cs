@@ -65,6 +65,30 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
     }
 }
 
+/// <summary>
+/// Open connections per client process. The app needs one and a script one more; without a cap any local program could
+/// open hundreds of read-only connections, each pushed a state every second.
+/// </summary>
+public sealed class ConnectionLimiter(int perClient = ConnectionLimiter.DefaultPerClient)
+{
+    public const int DefaultPerClient = 4;
+    private readonly Dictionary<string, int> open = new();
+    public bool TryOpen(string client)
+    {
+        lock (open)
+        {
+            int count = open.GetValueOrDefault(client);
+            if (count >= perClient) return false;
+            open[client] = count + 1; return true;
+        }
+    }
+    public void Close(string client)
+    {
+        lock (open) { if (open.TryGetValue(client, out var count)) { if (count <= 1) open.Remove(client); else open[client] = count - 1; } }
+    }
+    public int Open(string client) { lock (open) return open.GetValueOrDefault(client); }
+}
+
 /// <summary>Shared across connections for one process. A reconnect cannot reset the budget.</summary>
 public sealed class ClientCommandLimiter(Func<TimeSpan>? now = null)
 {

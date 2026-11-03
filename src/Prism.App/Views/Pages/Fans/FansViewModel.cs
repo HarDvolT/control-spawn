@@ -396,8 +396,10 @@ public sealed class FansViewModel : PageViewModel
         [
             new("CPU guard", "All fans 100% at 90°", Reading(s?.CpuTemp, 90), Level(s?.CpuTemp, 90)),
             new("GPU guard", "Edge 90°, hotspot 105°", s?.GpuHotspot is { } hot ? $"{Format.TempUnit(s.GpuTemp ?? double.NaN, 0)} · {Format.TempUnit(hot, 0)}" : Reading(s?.GpuTemp, 90), Level(Math.Max(s?.GpuTemp ?? 0, (s?.GpuHotspot ?? 0) - 15), 90)),
-            new("Pump", "Always 100%", pump?.Rpm is > 0 ? Format.Rpm(pump.Rpm) : Format.Dash, pump?.Rpm is > 0 ? StatusLevel.Ok : StatusLevel.Unavailable),
-            new("BIOS hand-back", "If Control Spawn stops", State?.Health.FanFailsafeActive == true ? "Active now" : "Armed", State?.Health.FanFailsafeActive == true ? StatusLevel.Hot : StatusLevel.Ok)
+            new("Pump", "Always 100%", pump?.Stalled == true ? "Not spinning" : pump?.Rpm is > 0 ? Format.Rpm(pump.Rpm) : Format.Dash,
+                pump?.Stalled == true ? StatusLevel.Critical : pump?.Rpm is > 0 ? StatusLevel.Ok : StatusLevel.Unavailable),
+            // The overheat guard runs the fans at 100% itself; the BIOS hand-back only happens when Control Spawn stops.
+            new("BIOS hand-back", "If Control Spawn stops", "Armed", StatusLevel.Ok)
         ];
         // Only rows whose text changed are replaced, so the rest of the card isn't rebuilt every second.
         for (int i = 0; i < lines.Length; i++)

@@ -17,9 +17,39 @@ public sealed class FanHeartbeat(Action restore, TimeSpan started)
     }
 }
 
-/// <summary>Separate service executable process; no shared locks or thread pool with the controller.</summary>
-public sealed class FanGuardProcess : IDisposable
+public interface IFanGuard : IDisposable
 {
+    bool HasExited { get; }
+    void Beat();
+}
+
+/// <summary>
+/// Keeps one live guard. A dead guard used to stay in place, so every tick failed and the curves stopped applying until the
+/// service restarted. Now it is disposed and a new one started; no fan write happens until the new one says it is ready.
+/// </summary>
+public sealed class FanGuardKeeper(Func<IFanGuard> start) : IDisposable
+{
+    public const string Warning = "The fan guard stopped, so the fans are on BIOS control until it restarts.";
+    private readonly object gate = new();
+    private IFanGuard? guard;
+    public int Restarts { get; private set; }
+    /// <summary>Throws (leaving no guard) when one can't be started; the caller must not write fans then.</summary>
+    public void Ensure()
+    {
+        lock (gate)
+        {
+            if (guard is { HasExited: true } dead) { dead.Dispose(); guard = null; Restarts++; }
+            guard ??= start();
+        }
+    }
+    public void Beat() { lock (gate) guard?.Beat(); }
+    public void Dispose() { lock (gate) { guard?.Dispose(); guard = null; } }
+}
+
+/// <summary>Separate service executable process; no shared locks or thread pool with the controller.</summary>
+public sealed class FanGuardProcess : IFanGuard
+{
+    public bool HasExited => process.HasExited;
     private readonly Process process;
     private readonly object gate = new();
     public FanGuardProcess()
@@ -40,10 +70,6 @@ public sealed class FanGuardProcess : IDisposable
             if (process.HasExited) throw new IOException("Fan guard exited.");
             process.StandardInput.WriteLine("beat"); process.StandardInput.Flush();
         }
-    }
-    public void EnsureAlive()
-    {
-        if (process.HasExited) throw new IOException("Fan guard exited; software fan control is disabled.");
     }
     public void Dispose()
     {

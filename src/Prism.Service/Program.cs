@@ -75,12 +75,21 @@ public static class Program
         await host.RunAsync();
     }
 
-    private static void ConnectLibraryLogging(ILoggerFactory factory) => PrismLog.ErrorSink = (module, errorType) =>
+    private static void ConnectLibraryLogging(ILoggerFactory factory)
     {
-        var logger = factory.CreateLogger(module);
-        using var scope = logger.BeginScope("{Module}", module);
-        logger.LogError("Operation failed ({ErrorType})", errorType);
-    };
+        PrismLog.ErrorSink = (module, errorType) =>
+        {
+            var logger = factory.CreateLogger(module);
+            using var scope = logger.BeginScope("{Module}", module);
+            logger.LogError("Operation failed ({ErrorType})", errorType);
+        };
+        PrismLog.WarningSink = (module, text) =>
+        {
+            var logger = factory.CreateLogger(module);
+            using var scope = logger.BeginScope("{Module}", module);
+            logger.LogWarning("{Warning}", text);
+        };
+    }
 }
 
 public sealed class PrismWorker(ServiceRuntime runtime, CommandProcessor commands, IPipeClientVerifier verifier) : BackgroundService

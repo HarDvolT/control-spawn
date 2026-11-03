@@ -228,12 +228,7 @@ public sealed class ModemViewModel : PageViewModel
 
     private void BuildBars()
     {
-        Bars.Clear();
-        for (var i = 0; i < 5; i++)
-        {
-            var on = i < BarCount;
-            Bars.Add(new BarItem(8 + i * 5, ColorUtil.ToHex(on ? RatingColorFromVerdict() : Color.FromRgb(0x3A, 0x3A, 0x40))));
-        }
+        Bars.ReplaceWith(Enumerable.Range(0, 5).Select(i => new BarItem(8 + i * 5, ColorUtil.ToHex(i < BarCount ? RatingColorFromVerdict() : Color.FromRgb(0x3A, 0x3A, 0x40)))));
     }
 
     private System.Windows.Media.Color RatingColorFromVerdict() =>
@@ -241,9 +236,9 @@ public sealed class ModemViewModel : PageViewModel
 
     private void BuildSimpleRows()
     {
-        SimpleRows.Clear();
-        SimpleRows.Add(new SimpleNetworkRow("5G", MiniBars(BarCount), $"{Format.Dbm(_rsrp5)} · SINR {Format.Db(_sinr5)}"));
-        SimpleRows.Add(new SimpleNetworkRow("4G", MiniBars(Math.Max(1, BarCount - 1)), $"{Format.Dbm(_rsrp4)} · SINR {Format.Db(_sinr4)}"));
+        SimpleRows.ReplaceWith([
+            new SimpleNetworkRow("5G", MiniBars(BarCount), $"{Format.Dbm(_rsrp5)} · SINR {Format.Db(_sinr5)}"),
+            new SimpleNetworkRow("4G", MiniBars(Math.Max(1, BarCount - 1)), $"{Format.Dbm(_rsrp4)} · SINR {Format.Db(_sinr4)}")]);
     }
 
     private IReadOnlyList<BarItem> MiniBars(int filled)
@@ -257,10 +252,10 @@ public sealed class ModemViewModel : PageViewModel
 
     private void BuildMetrics()
     {
-        MetricGroups.Clear();
-        MetricGroups.Add(new MetricGroup("Signal strength", "RSRP", BuildMetricRows("rsrp", _rsrp5, _rsrp4, "dBm")));
-        MetricGroups.Add(new MetricGroup("Signal quality", "SINR", BuildMetricRows("sinr", _sinr5, _sinr4, "dB")));
-        MetricGroups.Add(new MetricGroup("Signal quality", "RSRQ", BuildMetricRows("rsrq", _rsrq5, _rsrq4, "dB")));
+        MetricGroups.ReplaceWith([
+            new MetricGroup("Signal strength", "RSRP", BuildMetricRows("rsrp", _rsrp5, _rsrp4, "dBm")),
+            new MetricGroup("Signal quality", "SINR", BuildMetricRows("sinr", _sinr5, _sinr4, "dB")),
+            new MetricGroup("Signal quality", "RSRQ", BuildMetricRows("rsrq", _rsrq5, _rsrq4, "dB"))]);
     }
 
     private static IReadOnlyList<MetricRow> BuildMetricRows(string kind, double fiveG, double fourG, string unit)
@@ -283,26 +278,22 @@ public sealed class ModemViewModel : PageViewModel
 
     private void BuildLanes()
     {
-        Lanes.Clear();
-        Lanes.Add(new LaneData("RSRP · 5G", Format.Dbm(_rsrp5), ColorUtil.ToHex(ColorUtil.TextPrimary),
-            _rsrpHistory.ToList(), 100));
-        Lanes.Add(new LaneData("SINR · 5G", Format.Db(_sinr5), ColorUtil.ToHex(ColorUtil.Accent),
-            _sinrHistory.ToList(), 100));
+        Lanes.ReplaceWith([
+            new LaneData("RSRP · 5G", Format.Dbm(_rsrp5), ColorUtil.ToHex(ColorUtil.TextPrimary), _rsrpHistory.ToList(), 100),
+            new LaneData("SINR · 5G", Format.Db(_sinr5), ColorUtil.ToHex(ColorUtil.Accent), _sinrHistory.ToList(), 100)]);
     }
 
     private void BuildNeighbors()
     {
-        Neighbors.Clear();
-        foreach (var neighbor in State?.Router?.Details?.Neighbors ?? [])
-            Neighbors.Add(new NeighborRow(neighbor.Radio + " " + neighbor.Arfcn, Format.Text(neighbor.Pci), Format.Dbm(neighbor.Rsrp), Format.Db(neighbor.Sinr)));
+        Neighbors.ReplaceWith((State?.Router?.Details?.Neighbors ?? []).Select(neighbor =>
+            new NeighborRow(neighbor.Radio + " " + neighbor.Arfcn, Format.Text(neighbor.Pci), Format.Dbm(neighbor.Rsrp), Format.Db(neighbor.Sinr))));
 
     }
 
     private void BuildDevices(RouterState router)
     {
-        Devices.Clear();
-        foreach (var device in State?.Devices?.Where(d => d.Kind == DeviceKind.NetworkDevice && d.Status == DeviceStatus.Ready) ?? [])
-            Devices.Add(new DeviceRow(device.Name, device.Ip ?? Format.Dash, "#3DDC84", false));
+        Devices.ReplaceWith((State?.Devices?.Where(d => d.Kind == DeviceKind.NetworkDevice && d.Status == DeviceStatus.Ready) ?? [])
+            .Select(device => new DeviceRow(device.Name, device.Ip ?? Format.Dash, "#3DDC84", false)));
     }
 
     private void BuildPlaceholderRows()
@@ -317,29 +308,23 @@ public sealed class ModemViewModel : PageViewModel
 
     private void RefreshPing()
     {
-        Pings.Clear();
-        foreach (var value in _pingHistory)
-        {
-            var color = value < 35 ? ColorUtil.Good : value < 80 ? ColorUtil.Fair : ColorUtil.Poor;
-            var height = Math.Clamp(8 + value / 90.0 * 36, 8, 44);
-            Pings.Add(new PingBar(Math.Round(height), ColorUtil.ToHex(color)));
-        }
+        Pings.ReplaceWith(_pingHistory.Select(value => new PingBar(Math.Round(Math.Clamp(8 + value / 90.0 * 36, 8, 44)),
+            ColorUtil.ToHex(value < 35 ? ColorUtil.Good : value < 80 ? ColorUtil.Fair : ColorUtil.Poor))));
 
         PingNowText = Format.MsValue(_ping);
         PingColor = ColorUtil.ToHex(_ping < 35 ? ColorUtil.Good : _ping < 80 ? ColorUtil.Fair : ColorUtil.Poor);
         var spikes = _pingHistory.Count(p => p > 40);
         SpikeCountText = spikes + (spikes == 1 ? " spike" : " spikes");
 
-        Spikes.Clear();
-        Spikes.Add(new SpikeItem(spikes == 0 ? "No observed spikes" : Format.Ms(_pingHistory.Where(p => p > 40).Max()),
+        Spikes.ReplaceWith([new SpikeItem(spikes == 0 ? "No observed spikes" : Format.Ms(_pingHistory.Where(p => p > 40).Max()),
             spikes == 0 ? "Recent samples" : "Elevated latency",
-            "Ping samples cannot establish a cause. Check signal changes and traffic around the same time.", "#26F5A524", "#F5A524"));
+            "Ping samples cannot establish a cause. Check signal changes and traffic around the same time.", "#26F5A524", "#F5A524")]);
 
-        SpeedStats.Clear();
-        SpeedStats.Add(new SpeedStat("Ping", "ms", Format.MsValue(_ping)));
-        SpeedStats.Add(new SpeedStat("Download", "Mbit/s", Format.Number(download)));
-        SpeedStats.Add(new SpeedStat("Upload", "Mbit/s", Format.Number(upload)));
-        SpeedStats.Add(new SpeedStat("Jitter", "ms", JitterText));
+        SpeedStats.ReplaceWith([
+            new SpeedStat("Ping", "ms", Format.MsValue(_ping)),
+            new SpeedStat("Download", "Mbit/s", Format.Number(download)),
+            new SpeedStat("Upload", "Mbit/s", Format.Number(upload)),
+            new SpeedStat("Jitter", "ms", JitterText)]);
     }
 
     private void RefreshTrend()

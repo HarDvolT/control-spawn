@@ -136,29 +136,27 @@ public sealed class MonitorViewModel : PageViewModel
         _upSamples.Add(state.Timestamp,system.NetUpMbps);
         RefreshCharts();
 
-        CpuStats.Clear();
-        CpuStats.Add(new StatRow("Load", Format.Percent(system.CpuLoad), ColorUtil.ToHex(ColorUtil.TextPrimary)));
-        CpuStats.Add(new StatRow("Clock", Format.Ghz(system.CpuClockMhz), ColorUtil.ToHex(ColorUtil.TextPrimary)));
-        CpuStats.Add(new StatRow("Temp", Format.Temp(system.CpuTemp), ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp))));
-        CpuStats.Add(new StatRow("Power", Format.Watts(system.CpuPowerW), ColorUtil.ToHex(ColorUtil.TextPrimary)));
-
-        CpuStats.Add(new StatRow("CCD", Format.Temp(system.CpuCcdTemp, 0), ColorUtil.ToHex(ColorUtil.Heat(system.CpuCcdTemp))));
-        Threads.Clear();
+        CpuStats.ReplaceWith([
+            new StatRow("Load", Format.Percent(system.CpuLoad), ColorUtil.ToHex(ColorUtil.TextPrimary)),
+            new StatRow("Clock", Format.Ghz(system.CpuClockMhz), ColorUtil.ToHex(ColorUtil.TextPrimary)),
+            new StatRow("Temp", Format.Temp(system.CpuTemp), ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp))),
+            new StatRow("Power", Format.Watts(system.CpuPowerW), ColorUtil.ToHex(ColorUtil.TextPrimary)),
+            new StatRow("CCD", Format.Temp(system.CpuCcdTemp, 0), ColorUtil.ToHex(ColorUtil.Heat(system.CpuCcdTemp)))]);
         var cores = system.CpuCoreLoads ?? Array.Empty<double?>();
-        for (var i = 0; i < cores.Count; i++)
+        Threads.ReplaceWith(cores.Select(core =>
         {
-            var load = Math.Clamp(cores[i] ?? double.NaN, 0, 100);
-            Threads.Add(new ThreadItem(load,
-                ColorUtil.ToHex(load > 75 ? ColorUtil.Accent : load > 45 ? ColorUtil.Mix(ColorUtil.Accent, ColorUtil.TextPrimary, 0.5) : ColorUtil.TextTertiary)));
-        }
+            var load = Math.Clamp(core ?? double.NaN, 0, 100);
+            return new ThreadItem(load,
+                ColorUtil.ToHex(load > 75 ? ColorUtil.Accent : load > 45 ? ColorUtil.Mix(ColorUtil.Accent, ColorUtil.TextPrimary, 0.5) : ColorUtil.TextTertiary));
+        }));
 
-        GpuStats.Clear();
-        GpuStats.Add(new StatRow("Load", Format.Percent(system.GpuLoad), ColorUtil.ToHex(ColorUtil.TextPrimary)));
-        GpuStats.Add(new StatRow("Temp", Format.Temp(system.GpuTemp), ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp))));
-        GpuStats.Add(new StatRow("Hotspot", Format.Temp(system.GpuHotspot), ColorUtil.ToHex(ColorUtil.Heat(system.GpuHotspot))));
-        GpuStats.Add(new StatRow("Clock", Format.Mhz(system.GpuClockMhz), ColorUtil.ToHex(ColorUtil.TextPrimary)));
-        GpuStats.Add(new StatRow("Power", Format.Watts(system.GpuPowerW), ColorUtil.ToHex(ColorUtil.TextPrimary)));
-        GpuStats.Add(new StatRow("Fan", Format.Rpm(system.GpuFanRpm), ColorUtil.ToHex(ColorUtil.TextSecondary)));
+        GpuStats.ReplaceWith([
+            new StatRow("Load", Format.Percent(system.GpuLoad), ColorUtil.ToHex(ColorUtil.TextPrimary)),
+            new StatRow("Temp", Format.Temp(system.GpuTemp), ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp))),
+            new StatRow("Hotspot", Format.Temp(system.GpuHotspot), ColorUtil.ToHex(ColorUtil.Heat(system.GpuHotspot))),
+            new StatRow("Clock", Format.Mhz(system.GpuClockMhz), ColorUtil.ToHex(ColorUtil.TextPrimary)),
+            new StatRow("Power", Format.Watts(system.GpuPowerW), ColorUtil.ToHex(ColorUtil.TextPrimary)),
+            new StatRow("Fan", Format.Rpm(system.GpuFanRpm), ColorUtil.ToHex(ColorUtil.TextSecondary))]);
 
         RamText = Format.GbPair(system.RamUsedGb, system.RamTotalGb);
         RamPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : double.NaN;
@@ -170,21 +168,20 @@ public sealed class MonitorViewModel : PageViewModel
         Dimm1Color = ColorUtil.ToHex(ColorUtil.Heat(system.DimmTemps.Count > 0 ? system.DimmTemps[0] : null));
         Dimm2Color = ColorUtil.ToHex(ColorUtil.Heat(system.DimmTemps.Count > 1 ? system.DimmTemps[1] : null));
 
-        Temps.Clear();
-        Temps.Add(new TempRow("CPU", Format.Temp(system.CpuTemp), Math.Clamp(system.CpuTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp))));
-        Temps.Add(new TempRow("GPU", Format.Temp(system.GpuTemp), Math.Clamp(system.GpuTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp))));
-        Temps.Add(new TempRow("GPU hotspot", Format.Temp(system.GpuHotspot), Math.Clamp(system.GpuHotspot ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.GpuHotspot))));
-        Temps.Add(new TempRow("DIMM 1", Dimm1Text, Math.Clamp(system.DimmTemps.Count > 0 ? system.DimmTemps[0] ?? double.NaN : double.NaN, 0, 100), Dimm1Color));
-        Temps.Add(new TempRow("DIMM 2", Dimm2Text, Math.Clamp(system.DimmTemps.Count > 1 ? system.DimmTemps[1] ?? double.NaN : double.NaN, 0, 100), Dimm2Color));
-        Temps.Add(new TempRow("Board", Format.Temp(system.BoardTemp), Math.Clamp(system.BoardTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.BoardTemp))));
-        Temps.Add(new TempRow("NVMe", Format.Temp(system.Disks.Count > 0 ? system.Disks[0].TempC : null),
-            Math.Clamp(system.Disks.Count > 0 ? system.Disks[0].TempC ?? double.NaN : double.NaN, 0, 100),
-            ColorUtil.ToHex(ColorUtil.Heat(system.Disks.Count > 0 ? system.Disks[0].TempC : null))));
+        Temps.ReplaceWith([
+            new TempRow("CPU", Format.Temp(system.CpuTemp), Math.Clamp(system.CpuTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp))),
+            new TempRow("GPU", Format.Temp(system.GpuTemp), Math.Clamp(system.GpuTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp))),
+            new TempRow("GPU hotspot", Format.Temp(system.GpuHotspot), Math.Clamp(system.GpuHotspot ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.GpuHotspot))),
+            new TempRow("DIMM 1", Dimm1Text, Math.Clamp(system.DimmTemps.Count > 0 ? system.DimmTemps[0] ?? double.NaN : double.NaN, 0, 100), Dimm1Color),
+            new TempRow("DIMM 2", Dimm2Text, Math.Clamp(system.DimmTemps.Count > 1 ? system.DimmTemps[1] ?? double.NaN : double.NaN, 0, 100), Dimm2Color),
+            new TempRow("Board", Format.Temp(system.BoardTemp), Math.Clamp(system.BoardTemp ?? double.NaN, 0, 100), ColorUtil.ToHex(ColorUtil.Heat(system.BoardTemp))),
+            new TempRow("NVMe", Format.Temp(system.Disks.Count > 0 ? system.Disks[0].TempC : null),
+                Math.Clamp(system.Disks.Count > 0 ? system.Disks[0].TempC ?? double.NaN : double.NaN, 0, 100),
+                ColorUtil.ToHex(ColorUtil.Heat(system.Disks.Count > 0 ? system.Disks[0].TempC : null)))]);
 
-        Fans.Clear();
-        foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
-            Fans.Add(new FanRow(fan.Name, fan.IsPump ? "Fixed at 100%" : "Curve · " + fan.Curve,
-                Format.Rpm(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump));
+        Fans.ReplaceWith(state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)).Select(fan =>
+            new FanRow(fan.Name, fan.IsPump ? "Fixed at 100%" : "Curve · " + fan.Curve,
+                Format.Rpm(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump)));
 
         var disk = system.Disks.Count > 0 ? system.Disks[0] : null;
         DiskReadText = disk is null ? Format.Dash : Format.Number(disk.ReadMBps) + " MB/s";
@@ -196,9 +193,7 @@ public sealed class MonitorViewModel : PageViewModel
             foreach (var sample in diskHistory.TakeLast(14)) Push(_diskHistory, sample.DiskReadMBps ?? double.NaN, 14);
         }
         else Push(_diskHistory, disk?.ReadMBps ?? double.NaN, 14);
-        DiskBars.Clear();
-        foreach (var value in _diskHistory)
-            DiskBars.Add(new BarItem(Math.Clamp(8 + value / 400 * 82, 8, 90), ColorUtil.ToHex(ColorUtil.Accent)));
+        DiskBars.ReplaceWith(_diskHistory.Select(value => new BarItem(Math.Clamp(8 + value / 400 * 82, 8, 90), ColorUtil.ToHex(ColorUtil.Accent))));
 
         NetDownText = Format.Mbps(system.NetDownMbps);
         NetUpText = Format.Mbps(system.NetUpMbps);

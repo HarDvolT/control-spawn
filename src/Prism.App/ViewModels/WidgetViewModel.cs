@@ -338,12 +338,9 @@ public sealed class WidgetViewModel : ObservableObject
         }
 
         _fanMode = Format.FanModeName(state.FanMode);
-        FanRows.Clear();
-        foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
-        {
-            FanRows.Add(new FanRow(fan.Name, fan.IsPump ? "Fixed" : "Curve",
-                Format.RpmShort(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump));
-        }
+        FanRows.ReplaceWith(state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)).Select(fan =>
+            new FanRow(fan.Name, fan.IsPump ? "Fixed" : "Curve",
+                Format.RpmShort(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump)));
 
         LightingEffectKind = state.Lighting.Effect;
         LightingColor = state.Lighting.Color;
@@ -382,10 +379,8 @@ public sealed class WidgetViewModel : ObservableObject
             if (state.History is null && router.PingMs is { } ping) PingHistory = Append(PingHistory, ping);
 
             modemScore = router.Score;
-            ModemBars.Clear();
             var bars = router.Bars ?? 0;
-            for (var i = 0; i < 5; i++)
-                ModemBars.Add(new BarItem(5 + i * 3, i < bars ? ModemColor : "#3A3A40"));
+            ModemBars.ReplaceWith(Enumerable.Range(0, 5).Select(i => new BarItem(5 + i * 3, i < bars ? ModemColor : "#3A3A40")));
         }
         else
         {

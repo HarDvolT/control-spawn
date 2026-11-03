@@ -117,6 +117,7 @@ public sealed class MainViewModel : ObservableObject
 
         _client.StateReceived += OnStateReceived;
         _client.ConnectionChanged += OnConnectionChanged;
+        _client.ReadOnlyChanged += OnReadOnlyChanged;
 
         if (_client is MockPrismClient mock) ApplyState(mock.CurrentState);
         UpdateNavigation();
@@ -183,7 +184,9 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public bool IsConnected { get => _isConnected; private set => Set(ref _isConnected, value); }
-    public bool ShowBanner => !IsConnected;
+    public const string ReadOnlyBanner = "Read-only: the service doesn't recognise this copy of the app, so changes aren't applied. Run the installed Control Spawn, or start it with scripts/try-live.ps1.";
+    public bool IsReadOnly { get; private set; }
+    public bool ShowBanner => !IsConnected || IsReadOnly;
     public string BannerText { get => _bannerText; private set => Set(ref _bannerText, value); }
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
     public string ServiceDot { get => _serviceDot; private set => Set(ref _serviceDot, value); }
@@ -210,7 +213,7 @@ public sealed class MainViewModel : ObservableObject
         ServiceStatusText = $"Service {(state.Health.Mock ? "mock" : "live")} · {state.Devices?.Count ?? 0} devices";
         StatusText = state.Health.Warnings.Count > 0
             ? state.Health.Warnings[0]
-            : state.Health.FanFailsafeActive ? "Fan failsafe active · BIOS control" : "All systems normal";
+            : state.Health.FanFailsafeActive ? Format.FailsafeStatus(state.Health.LastFailsafeReason) : "All systems normal";
         OnPropertiesChanged(nameof(ShowBanner), nameof(IsMock), nameof(ModeBadge));
     }
 
@@ -322,6 +325,19 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
         ApplyState(state);
+    }
+
+    private void OnReadOnlyChanged(object? sender, bool readOnly)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess()) { dispatcher.BeginInvoke(() => SetReadOnly(readOnly)); return; }
+        SetReadOnly(readOnly);
+    }
+    public void SetReadOnly(bool readOnly)
+    {
+        IsReadOnly = readOnly;
+        if (readOnly) BannerText = ReadOnlyBanner;
+        OnPropertiesChanged(nameof(IsReadOnly), nameof(ShowBanner), nameof(BannerText));
     }
 
     private void OnConnectionChanged(object? sender, ServiceConnection connection)

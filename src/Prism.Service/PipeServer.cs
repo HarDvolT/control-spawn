@@ -103,7 +103,7 @@ public sealed class PipeSession(CommandProcessor commands, bool verifiedApp = fa
                 }
                 else if (!hello) await WriteAsync(new Response(request.Id, false, "Send hello first."));
                 else if (!verifiedApp && request.Command is not (Commands.GetState or Commands.Subscribe))
-                    await WriteAsync(new Response(request.Id, false, "Unverified client has read-only access."));
+                    await WriteAsync(new Response(request.Id, false, PipeErrors.ReadOnly));
                 else if (!interactiveApp && request.Command is Commands.PrepareApplianceStart or Commands.ConfirmApplianceStart)
                     await WriteAsync(new Response(request.Id, false, "Cooking start is only available in the app."));
                 else if (request.Command == Commands.Subscribe)
@@ -153,14 +153,20 @@ public sealed class PipeServer(CommandProcessor commands, IPipeClientVerifier? v
     public async Task RunAsync(CancellationToken token)
     {
         verifier ??= new PipeClientVerifier();
-        var limiter = new ClientCommandLimiter();
+        var limiter = new ClientCommandLimiter(); var connections = new ConnectionLimiter();
         using var clientsStop = CancellationTokenSource.CreateLinkedTokenSource(token);
         var clients = new ConcurrentDictionary<int, Task>(); int id = 0;
         async Task ServeAsync(NamedPipeServerStream pipe)
         {
             await using (pipe)
             {
-                try { var client = verifier.Verify(pipe); await new PipeSession(commands, client.IsApp, limiter, client.Key).RunAsync(pipe, clientsStop.Token); }
+                try
+                {
+                    var client = verifier.Verify(pipe);
+                    if (!connections.TryOpen(client.Key)) return;   // closing the pipe is the answer: too many from that process
+                    try { await new PipeSession(commands, client.IsApp, limiter, client.Key).RunAsync(pipe, clientsStop.Token); }
+                    finally { connections.Close(client.Key); }
+                }
                 catch (Exception e) when (e is IOException or OperationCanceledException or JsonException or InvalidOperationException or DecoderFallbackException) { }
             }
         }

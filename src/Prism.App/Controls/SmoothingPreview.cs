@@ -34,8 +34,22 @@ public sealed class SmoothingPreview : FrameworkElement
     public SmoothingPreview()
     {
         MinHeight = 176;
-        Loaded += (_, _) => CompositionTarget.Rendering += OnFrame;
-        Unloaded += (_, _) => { CompositionTarget.Rendering -= OnFrame; lastFrame = null; };
+        // Merely listening to CompositionTarget.Rendering keeps WPF redrawing the whole window every frame, so listen only
+        // while this is on screen: a Fans page left open behind the tray kept the app rendering at 60 fps.
+        Motion.WhileVisible(this, StartFrames, StopFrames);
+    }
+    private bool listening;
+    /// <summary>Whether the demo is animating; with reduced motion it holds its mid-heat-up frame.</summary>
+    public bool IsAnimating => listening;
+    private void StartFrames()
+    {
+        if (listening || Motion.ReduceAnimations) return;
+        CompositionTarget.Rendering += OnFrame; listening = true;
+    }
+    private void StopFrames()
+    {
+        if (listening) { CompositionTarget.Rendering -= OnFrame; listening = false; }
+        lastFrame = null;
     }
 
     /// <summary>CPU temperature over the loop: idle with three 1 s spikes, then real load for 6 s, then idle with small wobbles.</summary>

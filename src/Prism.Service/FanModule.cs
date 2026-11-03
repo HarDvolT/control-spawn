@@ -17,8 +17,13 @@ public sealed partial class ServiceRuntime
                     HardwareSnapshot next; TimeSpan cycle;
                     lock (runtime.stateGate) { next = runtime.snapshot; cycle = runtime.sensorCycle; }
                     if (cycle < TimeSpan.Zero) continue; // No software writes until sensors and the watchdog are ready.
-                    if (runtime.enableFanGuard) runtime.fanGuard ??= new FanGuardProcess();
-                    runtime.fanGuard?.EnsureAlive();
+                    if (runtime.enableFanGuard)
+                    {
+                        runtime.fanGuard ??= new(() => new FanGuardProcess());
+                        try { runtime.fanGuard.Ensure(); runtime.warnings.TryRemove("fanguard", out _); }
+                        catch (Exception e) when (e is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
+                        { runtime.warnings["fanguard"] = FanGuardKeeper.Warning; throw; }
+                    }
                     var value = Volatile.Read(ref runtime.settings);
                     foreach (var group in value.Fans)
                     {
@@ -30,7 +35,9 @@ public sealed partial class ServiceRuntime
                     bool fresh = runtime.clock.Elapsed - cycle < TimeSpan.FromSeconds(2);
                     if (!fresh) next = next with { Success = false };
                     runtime.fans.Apply(next, runtime.clock.Elapsed - previous); previous = runtime.clock.Elapsed;
-                    if (fresh) runtime.fanGuard?.Beat();
+                    // A guard that died since Ensure: hand back to the BIOS (finally below) and start a new one on the retry.
+                    try { if (fresh) runtime.fanGuard?.Beat(); }
+                    catch (IOException) { runtime.warnings["fanguard"] = FanGuardKeeper.Warning; throw; }
                     if (fresh) runtime.WatchForStalls(next);
                     var required = next.Temperature(SensorCategory.Cpu).HasValue && value.Fans.Values.All(f => FanCurveEngine.SelectTemperature(next, f.Source).HasValue);
                     lock (runtime.stateGate)

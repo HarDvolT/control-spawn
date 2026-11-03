@@ -15,8 +15,8 @@ public sealed partial class ServiceRuntime
     private static readonly TimeSpan MeasureSettle = TimeSpan.FromSeconds(5);
     private readonly ConcurrentDictionary<int, FanRpmMap> fanRpm = new();
     private readonly ConcurrentDictionary<int, string> measuring = new();
-    private readonly Dictionary<int, TimeSpan> stoppedSince = new();
-    private readonly HashSet<int> seenSpinning = new(), stalled = new();
+    private readonly StallWatch stalls = new();
+    public const string PumpWarning = "The AIO pump has stopped spinning. Check the pump cable and power now: the CPU will overheat without it.";
     private DateTimeOffset? lastFailsafe; private string? lastFailsafeReason;
     private string FanRpmPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "fan-rpm.json");
 
@@ -71,20 +71,15 @@ public sealed partial class ServiceRuntime
         return current.Sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{header - 1}"))?.Value;
     }
 
-    /// <summary>Called once a second by the fan loop: a fan that has spun before but reads 0 rpm for 5 s while driven is stalled.</summary>
+    /// <summary>Called once a second by the fan loop with fresh readings.</summary>
     private void WatchForStalls(HardwareSnapshot current)
     {
         lock (stateGate)
-        foreach (int header in controls.Headers.Where(h => h != 7))
         {
-            var rpm = current.Sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{header - 1}"))?.Value;
-            var duty = current.Sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Control" && s.Id.EndsWith($"/control/{header - 1}"))?.Value;
-            if (rpm > 0) { seenSpinning.Add(header); stoppedSince.Remove(header); stalled.Remove(header); continue; }
-            // Below its measured floor a fan is meant to stop, so that isn't a stall.
-            double floor = fanRpm.TryGetValue(header, out var map) && map.StopsBelow is { } stops ? stops : 25;
-            if (!seenSpinning.Contains(header) || measuring.ContainsKey(header) || duty is null || duty < floor) { stoppedSince.Remove(header); stalled.Remove(header); continue; }
-            if (!stoppedSince.TryGetValue(header, out var since)) stoppedSince[header] = since = clock.Elapsed;
-            if (clock.Elapsed - since >= TimeSpan.FromSeconds(5) && stalled.Add(header)) PrismLog.Failure("fans", new InvalidOperationException($"Fan header {header} reads 0 rpm at {duty:0}% duty."));
+            foreach (var header in stalls.Observe(current, controls.Headers, clock.Elapsed, measuring.ContainsKey,
+                h => fanRpm.TryGetValue(h, out var map) && map.StopsBelow is { } stops ? stops : 25))
+                PrismLog.Failure("fans", new InvalidOperationException(header == StallWatch.Pump ? "AIO pump reads below 500 rpm." : $"Fan header {header} reads 0 rpm while driven."));
+            if (stalls.PumpStalled) warnings["pump"] = PumpWarning; else warnings.TryRemove("pump", out _);
         }
     }
 
@@ -96,10 +91,10 @@ public sealed partial class ServiceRuntime
 
     private IReadOnlyList<FanState> WithInsight(IReadOnlyList<FanState> list)
     {
-        int[] stuck; lock (stateGate) stuck = stalled.ToArray();
+        int[] stuck; lock (stateGate) stuck = stalls.Stalled.ToArray();
         return list.Select(f =>
         {
-            if (f.IsPump) return f;
+            if (f.IsPump) return f with { Stalled = stuck.Contains(f.Header) };
             var (target, following) = fans.Status(f.Header);
             return f with { Target = f.Configuration is null ? null : target, Following = f.Configuration is null ? null : following,
                 Measuring = measuring.GetValueOrDefault(f.Header), Stalled = stuck.Contains(f.Header) };

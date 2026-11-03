@@ -12,7 +12,7 @@ namespace Prism.Service;
 public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 {
     private readonly bool mock;
-    private FanGuardProcess? fanGuard;
+    private FanGuardKeeper? fanGuard;
     private TimeSpan sensorCycle = TimeSpan.FromSeconds(-1);
     private readonly bool enableFanGuard;
     private readonly IClock clock = new SystemClock();
@@ -161,7 +161,21 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     }
 
     public Task ApplyAsync(ServiceSettings value, CancellationToken cancellationToken)
-    { cancellationToken.ThrowIfCancellationRequested(); Volatile.Write(ref settings, value); return Task.CompletedTask; }
+    { cancellationToken.ThrowIfCancellationRequested(); Volatile.Write(ref settings, value); CheckOpenRgbPath(value); return Task.CompletedTask; }
+
+    private string? warnedOpenRgbPath;
+    /// <summary>
+    /// A path saved before the folder rule stays in the settings untouched; it just isn't started, and the owner is told
+    /// (top bar and log) so they can move OpenRGB. Logged once per path.
+    /// </summary>
+    private bool CheckOpenRgbPath(ServiceSettings value)
+    {
+        if (!value.LaunchOpenRgb || value.OpenRgbPath is not { } path || OpenRgbLocation.IsAllowed(path))
+        { warnings.TryRemove("openrgb-path", out _); warnedOpenRgbPath = null; return value.LaunchOpenRgb && value.OpenRgbPath is not null; }
+        warnings["openrgb-path"] = OpenRgbLocation.Warning(path);
+        if (warnedOpenRgbPath != path) { warnedOpenRgbPath = path; PrismLog.Warning("rgb", OpenRgbLocation.Warning(path)); }
+        return false;
+    }
 
     public StateMessage GetState(ServiceSettings value) => BuildState(value, history: true);
 
@@ -187,7 +201,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             CustomColors = value.LedLayers.TryGetValue(d.Id, out var layer) && layer.Custom is not null ? LedLayers.Resize(layer.Custom, d.LedCount, false) : null,
             OverlayColors = value.LedLayers.TryGetValue(d.Id, out var over) && over.Overlay is not null ? LedLayers.Resize(over.Overlay, d.LedCount, true) : null,
             CustomEnabled = value.LedLayers.GetValueOrDefault(d.Id)?.CustomEnabled == true }).ToArray();
-        var health = new ServiceHealth(mock, isElevated, warnings.Values.Order().ToArray(), isFailsafe,
+        // The app's top bar shows the first warning, and a stopped pump outranks everything else.
+        var health = new ServiceHealth(mock, isElevated, warnings.Values.OrderBy(w => w == PumpWarning ? 0 : 1).ThenBy(w => w, StringComparer.Ordinal).ToArray(), isFailsafe,
             typeof(ServiceRuntime).Assembly.GetName().Version?.ToString(), lastFailsafe, lastFailsafeReason);
         var lamps = value.ConfiguredLamps.Select(c => (liveLamps.TryGetValue(c.Id, out var liveLamp) ? liveLamp with { On = c.On, Brightness = c.Brightness, Follow = c.Follow, Color = c.Color, Name = c.Name } : null) ?? new LampState("yeelink.light.color5", false, c.On, c.Brightness, c.Color, c.Follow, "not configured", c.Id, c.Name, c.DeviceId, c.LastHost ?? c.Host)).ToArray();
         var state = StateAssembler.Assemble(sensors, value, controls.Headers, synced, lamps.FirstOrDefault(), router, health) with { Lamps = lamps, History = samples };
@@ -255,6 +270,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         var stats = new Dictionary<string, (int Frames, double MaxGapMs, double MaxWriteMs, TimeSpan Last)>();
         var tickGap = 0d; var renderMax = 0d; var lastTick = TimeSpan.Zero; var statsDue = TimeSpan.FromSeconds(10); int gcs = GC.CollectionCount(2);
         var directModes = new HashSet<string>();
+        var frames = new FrameGuard();
         static (RgbDeviceState[] Devices, Dictionary<string, uint> Indices) Identify(OpenRgbClient client)
         {
             var identities = new Dictionary<string, int>(); var indices = new Dictionary<string, uint>();
@@ -280,7 +296,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             {
                 if (!mock && !rgbConnected && clock.Elapsed >= reconnect)
                 {
-                    if (value.LaunchOpenRgb && value.OpenRgbPath is not null) rgbProcess.Start(value.OpenRgbPath);
+                    if (CheckOpenRgbPath(value)) rgbProcess.Start(value.OpenRgbPath!);
                     var client = (OpenRgbClient)rgb;
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
                     await client.ConnectAsync(cancellationToken: timeout.Token);
@@ -324,6 +340,11 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     continue;
                 }
                 RgbDeviceState[] current; lock (stateGate) current = devices;
+                // One 2 s write deadline per tick, made when the first write needs it: a linked source with a timer per
+                // device per frame was ~300 allocations a second for writes that take a few ms.
+                CancellationTokenSource? tickTimeout = null;
+                CancellationToken WriteDeadline() { if (tickTimeout is null) { tickTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); tickTimeout.CancelAfter(TimeSpan.FromSeconds(2)); } return tickTimeout.Token; }
+                try {
                 var tickAt = clock.Elapsed; if (lastTick != TimeSpan.Zero) tickGap = Math.Max(tickGap, (tickAt - lastTick).TotalMilliseconds); lastTick = tickAt;
                 if (tickAt >= statsDue)
                 {
@@ -334,17 +355,19 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 }
                 foreach (var device in current.Where(d => identification.TryGetValue(d.Id, out var identifying) && clock.Elapsed < identifying.Until || (failsafe && value.Events.FanFailsafe) || value.Bindings.Keys.Any(k => k == d.Id || k.StartsWith(d.Id + "/", StringComparison.Ordinal)) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb)))
                 {
+                    // A device the last refresh dropped has no index yet; it rejoins after the next refresh instead of throwing.
+                    if (!rgbIndices.TryGetValue(device.Id, out var index)) continue;
                     // A device switched off under "Applies to" still gets frames: Render sends it black. Skipping it left the
                     // LEDs frozen on whatever they showed last.
                     if (!mock && !directModes.Contains(device.Id))
-                    { using var directTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); directTimeout.CancelAfter(TimeSpan.FromSeconds(2)); await ((OpenRgbClient)rgb).SetDirectModeAsync(rgbIndices[device.Id], directTimeout.Token); directModes.Add(device.Id); }
+                    { await ((OpenRgbClient)rgb).SetDirectModeAsync(index, WriteDeadline()); directModes.Add(device.Id); }
                     var now = clock.Elapsed;
-                    var colors = RenderDevice(value, device, current, DeviceFramePacer.FrameTime(device.Kind, now.TotalSeconds));
+                    if (!frames.TryRun(device.Id, () => RenderDevice(value, device, current, DeviceFramePacer.FrameTime(device.Kind, now.TotalSeconds)), now, out var colors)) continue;
                     renderMax = Math.Max(renderMax, (clock.Elapsed - now).TotalMilliseconds);
                     if (!pacer.ShouldSend(device.Id, device.Kind, colors, now)) continue;
                     // GPU and RAM lighting share a bus with sensor reads: wait for our turn. Retried next tick.
                     if (!mock && BusTurns.ForDeviceKind(device.Kind) is { } bus && !bus.TryBeginWrite()) continue;
-                    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
+                    var deadline = WriteDeadline();
                     // The GPU's chip writes every zone on a full update, and each write can flash; send only the zones that changed.
                     if (!mock && device.Kind == "GPU" && rgb is OpenRgbClient zoned && pacer.Last(device.Id) is { Length: > 0 } last && last.Length == colors.Count && device.Zones is { Count: > 1 } gpuZones
                         && Enumerable.Range(0, gpuZones.Count).Where(z => gpuZones[z].LedCount > 0 && DeviceFramePacer.ZoneChanged(last, colors, gpuZones[z].FirstLed, gpuZones[z].LedCount)).ToArray() is { Length: > 0 } changed)
@@ -354,20 +377,21 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         foreach (var z in changed)
                         {
                             var zone = gpuZones[z];
-                            await zoned.SetZoneColorsAsync(rgbIndices[device.Id], z, colors.Skip(zone.FirstLed).Take(zone.LedCount).ToArray(), timeout.Token);
+                            await zoned.SetZoneColorsAsync(index, z, colors.Skip(zone.FirstLed).Take(zone.LedCount).ToArray(), deadline);
                             for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount; i++) merged[i] = colors[i];
                         }
                         pacer.Sent(device.Id, merged, now);
                         continue;
                     }
                     var writeStart = clock.Elapsed;
-                    await rgb.SetColorsAsync(rgbIndices[device.Id], colors, timeout.Token);
+                    await rgb.SetColorsAsync(index, colors, deadline);
                     pacer.Sent(device.Id, colors, now);
                     var seen = stats.GetValueOrDefault(device.Id);
                     stats[device.Id] = (seen.Frames + 1, seen.Last == TimeSpan.Zero ? 0 : Math.Max(seen.MaxGapMs, (now - seen.Last).TotalMilliseconds),
                         Math.Max(seen.MaxWriteMs, (clock.Elapsed - writeStart).TotalMilliseconds), now);
                 }
                 warnings.TryRemove("rgb", out _);
+                } finally { tickTimeout?.Dispose(); }
             }
             catch (InvalidOperationException) when (!token.IsCancellationRequested && rgb is OpenRgbClient { DeviceListInvalidated: true })
             {
@@ -390,6 +414,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         } while (await timer.WaitForNextTickAsync(token));
     }
 
+    private readonly PositionCache positionCache = new();
+    private static readonly Dictionary<string, bool> NoDeviceSwitches = new();
     private IReadOnlyList<RgbColor> RenderDevice(ServiceSettings value, RgbDeviceState device, IReadOnlyList<RgbDeviceState> current, double time)
     {
         if (identification.TryGetValue(device.Id, out var identify) && clock.Elapsed < identify.Until && device.Zones is { } zones && identify.Zone < zones.Count)
@@ -401,7 +427,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             return preview;
         }
         var layer = value.LedLayers.GetValueOrDefault(device.Id);
-        var positions = CaseMap.Positions(device, CaseMap.Placement(value.Map, device, current), value.Map);
+        var positions = positionCache.Get(value.Map, device, current);
         var inputs = FrameInputs();
         var rendered = value.PartLooks.TryGetValue(device.Id, out var own)
             ? SpatialEffects.Render(PhaseClock.Steady(PartScene(own)), PartParameters(own, value), phases.Time(device.Id, time, own.Speed), positions, device.Id, device.Kind, inputs)
@@ -437,7 +463,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             for (int z = 0; z < parts.Count; z++)
                 if (chosen.GetValueOrDefault(SensorSources.ZoneTarget(device.Id, z), true) == false)
                     for (int i = parts[z].FirstLed; i < parts[z].FirstLed + parts[z].LedCount && i < result.Length; i++) result[i] = RgbColor.Black;
-        foreach (var (key, on) in value.Lighting.Parameters?.Devices ?? new Dictionary<string, bool>())
+        foreach (var (key, on) in value.Lighting.Parameters?.Devices ?? NoDeviceSwitches)
             if (!on && SensorSources.TryRange(key, device.Id, out var first, out var count))
                 for (int i = first; i < first + count && i < result.Length; i++) result[i] = RgbColor.Black;
         return result;
@@ -485,7 +511,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             do
             {
                 var value = Volatile.Read(ref settings); var config = value.ConfiguredLamps.FirstOrDefault(c => c.Id == lampId);
-                if (config is null) return;
+                // Removed, or renamed to its resolved id: the lamp module stops this worker and starts one under the new
+                // id within half a second. Returning here instead counted as "module ended unexpectedly" and backed off.
+                if (config is null) { await Task.Delay(Timeout.Infinite, token); return; }
                 try
                 {
                     if (credentials != Volatile.Read(ref lampCredentials) || revision != lampRevisions.GetValueOrDefault(lampId) || (applied is not null && config.DeviceId != applied.DeviceId))
@@ -512,7 +540,9 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                             if (lampResolutionHandler is not null && (config.DeviceId is null || config.LastHost != resolved.Ip))
                             {
                                 await lampResolutionHandler(config.Id, resolved);
-                                if (config.DeviceId is null) return;
+                                // A first resolution gives the lamp its real id (handled above on the next tick); one the
+                                // handler declined is retried like an offline lamp rather than ending the worker.
+                                if (config.DeviceId is null) { retry = clock.Elapsed + TimeSpan.FromSeconds(30); continue; }
                             }
                             var store = new LampTokenStore();
                             var secret = config.DeviceId is { } key ? store.Load(key) : store.Load();
@@ -585,8 +615,11 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     warnings.TryRemove(lampId, out _);
                     lock (stateGate) lampStates[lampId] = new("yeelink.light.color5", true, config.On, config.Brightness, config.Follow != "own" && sync?.LastColor is { } live ? $"#{live.R:X2}{live.G:X2}{live.B:X2}" : config.Color, config.Follow, transport, config.Id, config.Name, config.DeviceId, connectedHost);
                 }
-                catch (Exception e) when (!token.IsCancellationRequested && e is IOException or SocketException or OperationCanceledException or InvalidOperationException or System.Security.Cryptography.CryptographicException or System.Text.Json.JsonException or KeyNotFoundException or UnauthorizedAccessException)
+                // Any failure of one lamp (a garbled reply throws Format or Argument errors too) means "offline, retry in
+                // 30 s". Errors outside the old list ended the worker into the module's back-off instead.
+                catch (Exception e) when (!token.IsCancellationRequested)
                 {
+                    if (e is not (IOException or SocketException or OperationCanceledException)) PrismLog.Failure("lamps", e);
                     // A lamp switched off at the wall is normal and only shows as offline; a token problem needs the user, so it stays a warning.
                     bool tokenProblem = e is System.Security.Cryptography.CryptographicException or UnauthorizedAccessException or KeyNotFoundException;
                     if (tokenProblem) warnings[lampId] = $"{config.Name}: the lamp rejected its token. Import it again on the Devices page.";
