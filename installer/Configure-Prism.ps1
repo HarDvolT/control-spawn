@@ -50,7 +50,9 @@ function Assert-OwnedService([string]$Name, [string]$Executable) {
     if (Test-Path "$serviceRoot/$Name") {
         $image = (Get-ItemProperty "$serviceRoot/$Name").ImagePath
         # Builds before the split ran the service from $InstallDir itself; that is still ours and gets moved.
-        $ours = @(('"' + (Join-Path $serviceDir $Executable) + '"'), ('"' + (Join-Path $InstallDir $Executable) + '"'))
+        # 1.0.0 lost the quotes when reinstalling (see Register-PrismService): accept that form so this setup can repair it.
+        $unquoted = @((Join-Path $serviceDir $Executable), (Join-Path $InstallDir $Executable))
+        $ours = @($unquoted | ForEach-Object { '"' + $_ + '"' }) + $unquoted
         if ($image -notin $ours) { throw "Refusing to modify unrelated service $Name ($image)." }
     }
 }
@@ -78,7 +80,10 @@ function Register-PrismService([string]$Name, [string]$Executable) {
     $binary = '"' + (Join-Path $serviceDir $Executable) + '"'
     if (!(Get-Service $Name -ErrorAction SilentlyContinue)) {
         New-Service -Name $Name -BinaryPathName $binary -DisplayName $Name -StartupType Automatic | Out-Null
-    } else { Invoke-Sc @('config',$Name,'binPath=',$binary) }
+    } else {
+        # Not through sc.exe: Windows PowerShell drops the quotes inside an argument, leaving a path with spaces unquoted.
+        Set-ItemProperty "$serviceRoot/$Name" -Name ImagePath -Value $binary
+    }
     if ($Name -eq 'Prism') {
         Invoke-Sc @('config',$Name,'DisplayName=','Control Spawn')
         Invoke-Sc @('description',$Name,'Control Spawn: fans, lighting, lamps and router in the background')
