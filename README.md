@@ -8,7 +8,7 @@
 Fans, case RGB, Mi Home lamps, the air fryer and the 5G router, in one app.
 It replaces ASUS Armoury Crate and Corsair iCUE.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-FF4D1A)](https://github.com/HarDvolT/control-spawn/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.0.1-FF4D1A)](https://github.com/HarDvolT/control-spawn/releases/latest)
 [![Platform](https://img.shields.io/badge/Windows%2011-x64-0078D4)](#requirements)
 [![.NET](https://img.shields.io/badge/.NET-8-512BD4)](https://dotnet.microsoft.com/)
 
