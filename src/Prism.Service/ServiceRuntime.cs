@@ -12,7 +12,7 @@ namespace Prism.Service;
 public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
 {
     private readonly bool mock;
-    private FanGuardProcess? fanGuard;
+    private FanGuardKeeper? fanGuard;
     private TimeSpan sensorCycle = TimeSpan.FromSeconds(-1);
     private readonly bool enableFanGuard;
     private readonly IClock clock = new SystemClock();
