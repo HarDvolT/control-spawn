@@ -8,6 +8,11 @@ namespace Prism.App.Common;
 /// </summary>
 public static class Format
 {
+    /// <summary>
+    /// The overheat/sensor guard drives every fan at 100% itself; the BIOS only takes over when Control Spawn stops.
+    /// The old "Fan failsafe active · BIOS control" said the opposite during an overheat.
+    /// </summary>
+    public static string FailsafeStatus(string? reason) => "Overheat guard · all fans at 100%" + (string.IsNullOrWhiteSpace(reason) ? "" : " · " + reason);
     /// <summary>The one-word signal rating. The router sends either a word or a whole sentence, so map both, then fall back to the score.</summary>
     public static string? SignalWord(Prism.Core.Ipc.RouterState? router)
     {

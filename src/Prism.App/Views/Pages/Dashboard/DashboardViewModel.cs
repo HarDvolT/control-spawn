@@ -233,7 +233,7 @@ public sealed class DashboardViewModel : PageViewModel
 
         StatusText = state.Health.Warnings.Count > 0
             ? state.Health.Warnings[0]
-            : state.Health.FanFailsafeActive ? "Fan failsafe active · BIOS control" : "All systems normal · live";
+            : state.Health.FanFailsafeActive ? Format.FailsafeStatus(state.Health.LastFailsafeReason) : "All systems normal · live";
 
         NotifyAll();
     }
