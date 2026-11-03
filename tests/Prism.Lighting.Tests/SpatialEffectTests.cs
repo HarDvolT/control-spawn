@@ -190,4 +190,32 @@ public sealed class SpatialEffectTests
         Assert.Throws<ArgumentException>(() => LightingValidation.Map(new([new("ram", 2, 0.5)])));
         Assert.Throws<ArgumentException>(() => LightingValidation.Map(new([new("ram", 0.5, 0.5), new("ram", 0.4, 0.4)])));
     }
+
+    [Fact]
+    public void TheAioHeaderSplitsIntoPumpAndRadiator()
+    {
+        var board = new RgbDeviceState("board", "Board", "Motherboard", true, true, 86,
+            [new("Aura Mainboard", "Single", 0, 2, 2, 2), new("Addressable RGB Header 1", "Linear", 2, 48, 0, 120), new("Addressable RGB Header 2", "Linear", 50, 36, 0, 120)]);
+        var aio = CaseMap.Pieces(board, 1);
+        Assert.Equal(["Pump", "Radiator"], aio.Select(p => p.Name));
+        Assert.Equal((2, 12), (aio[0].First, aio[0].Count)); Assert.Equal((14, 36), (aio[1].First, aio[1].Count));
+        Assert.True(SensorSources.TryRange(aio[0].Key, "board", out var first, out var count)); Assert.Equal((2, 12), (first, count));
+        Assert.False(SensorSources.TryRange(aio[0].Key, "ram", out _, out _));   // a range belongs to one device
+        Assert.False(SensorSources.TryRange("board/zone/1", "board", out _, out _));
+        Assert.Equal([("Case fans", 50, 36, "board/zone/2")], CaseMap.Pieces(board, 2));   // other headers stay whole
+    }
+
+    [Theory]
+    [InlineData(LightingEffect.Smart)] [InlineData(LightingEffect.TemperatureFlow)] [InlineData(LightingEffect.LoadMeters)]
+    [InlineData(LightingEffect.Music)] [InlineData(LightingEffect.AudioSpectrum)] [InlineData(LightingEffect.Adaptive)] [InlineData(LightingEffect.ScreenAmbient)]
+    public void ReactiveEffectsLightEveryKindOfDevice(LightingEffect effect)
+    {
+        var input = new ReactiveFrame(70, 80, 0.6, 75, 70, [1, 1, 1, 1, 1, 1, 1, 1], 1, new(255, 0, 0), new(0, 255, 0), new(0, 0, 255));
+        var points = Enumerable.Range(0, 12).Select(i => new MapPoint(i / 11.0, 1 - i / 11.0)).ToArray();
+        foreach (var kind in new[] { "Motherboard", "RAM", "GPU", "LEDStrip" })
+        {
+            var colors = SpatialEffects.Render(new("Part", effect, new(255, 77, 26), 1, 1), new EffectParameters(), 3, points, "part", kind, input);
+            Assert.Contains(colors, c => c.R + c.G + c.B > 60);   // something visibly lit on a pump ring, a stick, a card or a strip
+        }
+    }
 }

@@ -46,6 +46,7 @@ internal sealed class ScmLifetime : ServiceBase, IHostLifetime
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         // OnStop only signals cancellation. Host cleanup finishes before reporting stopped to SCM.
+        ExitCode = Environment.ExitCode;
         Stop();
         if (dispatcher is not null) await stopped.Task.WaitAsync(cancellationToken);
     }

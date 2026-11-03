@@ -176,7 +176,8 @@ public sealed class SceneOption : ObservableObject
         }
     }
     public string StateText => IsActive ? "Active" : "Apply";
-    public string Description => Name switch { "Gaming" => "Smart lighting · Turbo fans", "Work" => "Static white · Balanced", "Night" => "Dim breathing · Silent", "Movie" => "Screen ambient · Silent", _ => Name };
+    private string _description = "";
+    public string Description { get => _description; set => Set(ref _description, value); }
 
     public bool IsActive
     {
@@ -258,18 +259,33 @@ public sealed class FanGroupItem : ObservableObject
     public IReadOnlyList<double> History { get; private set; } = [];
     public string MinimumText => History.Count > 0 ? History.Min().ToString("N0") : Format.Dash;
     public string MaximumText => History.Count > 0 ? History.Max().ToString("N0") : Format.Dash;
-    public void SetHistory(IEnumerable<double> values) { History = values.ToArray(); OnPropertyChanged(string.Empty); }
+    public void SetHistory(IEnumerable<double> values, bool notify = true) { History = values.ToArray(); if (notify) OnPropertyChanged(string.Empty); }
     public string ControlLabel { get; private set; } = "Mode curve";
-    public Prism.App.Controls.StatusLevel ControlLevel => IsPump ? Prism.App.Controls.StatusLevel.Ok : Prism.App.Controls.StatusLevel.Cool;
-    public void SetControl(FanState fan)
+    public Prism.App.Controls.StatusLevel ControlLevel => Stalled ? Prism.App.Controls.StatusLevel.Critical : IsPump ? Prism.App.Controls.StatusLevel.Ok : Prism.App.Controls.StatusLevel.Cool;
+    public bool Stalled { get; private set; }
+    public bool Measuring { get; private set; }
+    /// <summary>The pump's lock, a stall or a measurement; otherwise the card shows its profile chip instead.</summary>
+    public bool ShowStatus => IsPump || Stalled || Measuring;
+    public string ProfileText { get; private set; } = "";
+    /// <summary>The profiles this card's chip offers (set once by the Fans page; empty for the pump).</summary>
+    public IReadOnlyList<FanModeChoice> ModeOptions { get; set; } = [];
+    /// <summary>Where the ramp is heading, so a fan still speeding up doesn't read as stuck.</summary>
+    public string DutyText { get; private set; } = "";
+    public void SetControl(FanState fan, bool notify = true)
     {
-        ControlLabel = fan.IsPump ? "Locked" : fan.Configuration?.Source switch
+        Stalled = fan.Stalled; Measuring = fan.Measuring is not null;
+        ProfileText = fan.Curve == "Full" ? "Full speed" : fan.Curve;
+        string follows = fan.Configuration?.Source switch { TemperatureSource.Gpu => "GPU", TemperatureSource.Motherboard => "board", TemperatureSource.Maximum => "hottest", _ => "CPU" };
+        DutyText = (fan.Target is { } target && !fan.IsPump && Math.Abs(target - Percent) >= 2 ? $"{Percent:0}% → {target:0}%" : $"{Percent:0}%")
+            + (fan.IsPump ? " duty" : $" · follows {follows}");
+        ControlLabel = fan.Stalled ? "Not spinning" : fan.Measuring is not null ? "Measuring" : fan.IsPump ? "Locked" : fan.Configuration?.Source switch
         { TemperatureSource.Cpu => "Follows CPU", TemperatureSource.Gpu => "Follows GPU", TemperatureSource.Motherboard => "Follows board", TemperatureSource.Maximum => "Follows hottest", _ => "Mode curve" };
-        OnPropertyChanged(string.Empty);
+        if (notify) OnPropertyChanged(string.Empty);
     }
 
-    public void Update(FanGroupItem item)
-    { Name = item.Name; Sub = item.Sub; RpmText = item.RpmText; Percent = item.Percent; IsPump = item.IsPump; SpinSeconds = item.SpinSeconds; OnPropertyChanged(string.Empty); }
+    public void Update(FanGroupItem item, bool notify = true)
+    { Name = item.Name; Sub = item.Sub; RpmText = item.RpmText; Percent = item.Percent; IsPump = item.IsPump; SpinSeconds = item.SpinSeconds; if (notify) OnPropertyChanged(string.Empty); }
+    public void Changed() => OnPropertyChanged(string.Empty);
 
     public bool IsSelected
     {
@@ -354,9 +370,9 @@ public sealed class SceneCardItem : ObservableObject
     public string ButtonLabel => IsActive ? "Active" : "Apply";
 }
 
-public sealed record LampRow(string Id, string Name, string Color, string Status)
+public sealed record LampRow(string Id, string Name, string Color, string Status, bool On = false, bool Connected = true)
 {
     public static IReadOnlyList<LampRow> From(StateMessage state) => (state.Lamps ?? (state.Lamp is { } first ? [first] : []))
         .Select((l, i) => new LampRow(l.Id ?? "unresolved", Controls.CaseIllustration.LampName(state, l, i), l.Connected && l.On ? l.Color : "#3F3F46",
-            !l.Connected ? "Offline" : l.On ? $"{l.Brightness}% \u00b7 {Controls.FriendlyLabelConverter.Label(l.Transport)}" : "Off")).ToArray();
+            !l.Connected ? "Offline" : l.On ? $"{l.Brightness}% \u00b7 {Controls.FriendlyLabelConverter.Label(l.Transport)}" : "Off", l.On, l.Connected)).ToArray();
 }

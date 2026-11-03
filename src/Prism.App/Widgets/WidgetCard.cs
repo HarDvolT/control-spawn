@@ -132,7 +132,7 @@ public sealed class WidgetCard : UserControl
     private void BuildFans()
     {
         var modes = new UniformGrid { Rows = 1, Margin = new(0, 0, -6, 12) };
-        foreach (var (label, key) in new[] { ("Silent", "Silent"), ("Balanced", "Standard"), ("Turbo", "Turbo") })
+        foreach (var (label, key) in new[] { ("Silent", "Silent"), ("Standard", "Standard"), ("Turbo", "Turbo") })
         {
             var button = Pill(label); button.Padding = new(2, 0, 2, 0); button.FontSize = 11.5; button.Click += (_, _) => vm.SetFanModeCommand.Execute(key);
             modes.Children.Add(button);
@@ -140,7 +140,7 @@ public sealed class WidgetCard : UserControl
         }
         body.Children.Add(modes);
         var rows = new StackPanel(); body.Children.Add(rows);
-        updates.Add(() => status.Text = vm.FanMode is "Standard" ? "Balanced" : vm.FanMode is "Full" ? "Full speed" : vm.FanMode);
+        updates.Add(() => status.Text = vm.FanMode is "Full" ? "Full speed" : vm.FanMode);
         lists["fans"] = (rows, () => string.Join("|", vm.FanRows.Select(f => f.Name + f.RpmText)), () =>
         {
             foreach (var fan in vm.FanRows)
@@ -261,7 +261,7 @@ public sealed class WidgetCard : UserControl
     private ContextMenu BuildMenu()
     {
         var menu = new ContextMenu();
-        var open = new MenuItem { Header = "Open in Prism" }; open.Click += (_, _) => OpenPage?.Invoke(PageFor(vm.Kind)); menu.Items.Add(open);
+        var open = new MenuItem { Header = "Open in Control Spawn" }; open.Click += (_, _) => OpenPage?.Invoke(PageFor(vm.Kind)); menu.Items.Add(open);
         menu.Items.Add(new Separator());
         var size = new MenuItem { Header = "Size" };
         foreach (var option in Enum.GetValues<WidgetSize>()) { var item = new MenuItem { Header = option.ToString(), IsCheckable = true }; item.Click += (_, _) => vm.Size = option; size.Items.Add(item); }

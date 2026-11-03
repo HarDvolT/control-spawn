@@ -16,7 +16,7 @@ public sealed class WidgetWindow : Window
     {
         _vm = vm; DataContext = vm;
         ShowActivated = false;
-        Title = "Prism \u00b7 " + vm.Name;
+        Title = "Control Spawn \u00b7 " + vm.Name;
         // No AllowsTransparency: that forces WPF to paint the whole window on the CPU on every change.
         // Windows draws the rounded corners and the blurred glass instead, on the graphics card.
         // See-through window: the card's own rounded, translucent background shows the wallpaper behind it.
@@ -40,7 +40,8 @@ public sealed class WidgetWindow : Window
         Width = _vm.Width; Topmost = _vm.AlwaysOnTop;
         var handle = new WindowInteropHelper(this).Handle;
         if (handle == IntPtr.Zero) return;
-        var style = GetWindowLong(handle, -20);
+        // WS_EX_TOOLWINDOW (0x80) keeps widgets out of Alt+Tab; ShowInTaskbar only hides them from the taskbar.
+        var style = GetWindowLong(handle, -20) | 0x80;
         SetWindowLong(handle, -20, _vm.ClickThrough ? style | 0x80000 | 0x20 : style & ~0x20);
     }
     public void RefreshPlacement() { if (IsLoaded) Place(); }

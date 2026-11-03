@@ -13,7 +13,7 @@ public sealed class ScenesViewModel : PageViewModel
     private static readonly (string Label, LightingEffect Effect)[] Effects =
         [("Static", LightingEffect.Static), ("Smart", LightingEffect.Smart), ("Breathing", LightingEffect.Breathing), ("Screen ambient", LightingEffect.Adaptive), ("Off", LightingEffect.Off)];
     private static readonly (string Label, FanMode Mode)[] FanChoices =
-        [("Silent", FanMode.Silent), ("Balanced", FanMode.Standard), ("Turbo", FanMode.Turbo), ("Full", FanMode.Full)];
+        [("Silent", FanMode.Silent), ("Standard", FanMode.Standard), ("Turbo", FanMode.Turbo), ("Full", FanMode.Full)];
     private static readonly (string Label, string Key)[] LampChoices =
         [("Same as PC", "pc"), ("Warm white", "warm"), ("Cool white", "cool"), ("Off", "off")];
 
@@ -111,7 +111,7 @@ public sealed class ScenesViewModel : PageViewModel
         SendRule(start ? new { nightStart = text } : (object)new { nightEnd = text });
     }
     public bool AutomationActive => State?.Automations?.Rule is not null;
-    public string AutomationStatus => State?.Automations is not { } a ? "Waiting for the Prism service"
+    public string AutomationStatus => State?.Automations is not { } a ? "Waiting for the Control Spawn service"
         : a.Rule is null ? "No rule is active right now. Your own scene stays until one is."
         : $"{a.Scene} is on because {Lower(a.Detail)}. Your previous setup comes back when it ends.";
     private static string Lower(string? text) => string.IsNullOrEmpty(text) ? "a rule matched" : char.ToLowerInvariant(text[0]) + text[1..];
@@ -158,7 +158,7 @@ public sealed class ScenesViewModel : PageViewModel
         EditEffect = Effects.FirstOrDefault(e => e.Effect == s.Effect).Label ?? "Static";
         EditColor = s.Color;
         EditBrightness = s.Brightness * 100;
-        EditFans = FanChoices.FirstOrDefault(f => f.Mode == s.Fans).Label ?? "Balanced";
+        EditFans = FanChoices.FirstOrDefault(f => f.Mode == s.Fans).Label ?? "Standard";
         EditLamps = LampChoices.FirstOrDefault(l => l.Key == s.Lamps).Label ?? "Same as PC";
         IsNew = isNew;
     }

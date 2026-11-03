@@ -38,7 +38,7 @@ public sealed class OpenRgbClient(IConnectionFactory connections) : IRgbBackend
                 StartReader();
                 ProtocolVersion = 0;
             }
-            await SendAsync(0, 50, Encoding.UTF8.GetBytes("Prism\0"), cancellationToken);
+            await SendAsync(0, 50, Encoding.UTF8.GetBytes("Control Spawn\0"), cancellationToken);
             await LoadControllersAsync(cancellationToken);
         }
         catch { await StopReaderAsync(); if (stream is not null) await stream.DisposeAsync(); stream = null; throw; }

@@ -14,7 +14,7 @@ public sealed class NotificationFeed(AppSettings settings)
         void Add(string message) { messages.Enqueue(message); while (messages.Count > 50) messages.Dequeue(); }
         if (settings.CheckForUpdates && Version.TryParse(state.Health.Version, out var installed) &&
             installed > typeof(NotificationFeed).Assembly.GetName().Version && previous?.Health.Version != state.Health.Version)
-            Add("Prism " + installed + " is installed in the service · update the desktop app");
+            Add("Control Spawn " + installed + " is installed in the service · update the desktop app");
         if (settings.NotifyRunningHot && Hot(state) && (previous is null || !Hot(previous)))
             Add("Running hot · CPU or GPU passed the warning line");
         if (previous is { } last)

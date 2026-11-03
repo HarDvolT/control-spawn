@@ -29,14 +29,14 @@ public sealed class DeviceStudio : UserControl
     {
         public bool Fans => Zone >= 0 && Device.Zones![Zone].MaxLeds > Device.Zones[Zone].MinLeds;
     }
-    private enum Mode { Follow, Own, Off }
+    private enum Mode { Follow, Own, Sensor, Off }
 
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
     private readonly DispatcherTimer timer = Motion.FrameTimer();
     private readonly SensorLighting sensorLighting = new();
     private readonly WrapPanel rail = new();
     private readonly TextBlock name = new() { FontSize = 18, FontWeight = FontWeights.SemiBold }, detail = new() { FontSize = 12, Margin = new(0, 2, 0, 0) };
-    private readonly SegmentedControl mode = new() { ItemsSource = new[] { "Follow the look", "Own look", "Off" }, VerticalAlignment = VerticalAlignment.Center };
+    private readonly SegmentedControl mode = new() { ItemsSource = new[] { "Follow the look", "Own look", "Sensor", "Off" }, VerticalAlignment = VerticalAlignment.Center };
     private readonly PartLeds leds = new() { Height = 230, Margin = new(0, 14, 0, 12) };
     private readonly TextBlock hint = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
     private readonly StackPanel tools = new() { Orientation = Orientation.Horizontal };
@@ -88,7 +88,7 @@ public sealed class DeviceStudio : UserControl
         AddTool("Clear paint", "Wipe the paint so this part follows the look again", () => Paint(Current?.Count is int n ? Enumerable.Range(0, n) : [], true));
 
         mode.SelectionChanged += (_, _) => { if (!suppress) _ = SetModeAsync((Mode)Math.Max(0, mode.SelectedIndex)); };
-        leds.Painted += (indices, erase) => { if (CurrentMode() == Mode.Off) return; Paint(indices, erase); };
+        leds.Painted += (indices, erase) => { if (CurrentMode() is Mode.Off or Mode.Sensor) return; Paint(indices, erase); };
         timer.Tick += (_, _) => { if (!Motion.ReduceAnimations) Tick(); };
         Motion.WhileVisible(this, timer.Start, timer.Stop);
         DataContextChanged += (_, _) => Attach(DataContext as LightingViewModel);
@@ -119,7 +119,7 @@ public sealed class DeviceStudio : UserControl
             if (d.Kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase) && d.Zones is { Count: > 1 } zones)
             {
                 for (int z = 0; z < zones.Count; z++)
-                    if (zones[z].LedCount > 0) list.Add(new(d, z, CaseMap.PartName(d, z), zones[z].FirstLed, zones[z].LedCount, SensorSources.ZoneTarget(d.Id, z)));
+                    if (zones[z].LedCount > 0) foreach (var piece in CaseMap.Pieces(d, z)) list.Add(new(d, z, piece.Name, piece.First, piece.Count, piece.Key));
                 continue;
             }
             var label = d.Kind.Contains("RAM", StringComparison.OrdinalIgnoreCase) ? $"RAM {++ram}" : d.Kind.Contains("GPU", StringComparison.OrdinalIgnoreCase) ? "Graphics card"
@@ -133,13 +133,14 @@ public sealed class DeviceStudio : UserControl
     private IReadOnlyList<string>? Overlay(RgbDeviceState device) =>
         model?.Editor.Device?.Id == device.Id && model.Editor.Layer == "overlay" ? model.Editor.Colors : device.OverlayColors;
 
-    private Mode ModeOf(Part part)
+    // The same driver as the Whole case chips (LightingViewModel.DriverOf), so both views always agree.
+    private Mode ModeOf(Part part) => model?.DriverOf(part.Device, part.Zone, part.Key).Driver switch
     {
-        if (model is null) return Mode.Follow;
-        if (!part.Device.Synced && !part.Device.CustomEnabled || model.Parameters.Devices?.GetValueOrDefault(part.Key, true) == false
-            || part.Zone >= 0 && model.Parameters.Devices?.GetValueOrDefault(part.Device.Id, true) == false) return Mode.Off;
-        return model.PartLookOf(part.Key) is not null || part.Device.CustomEnabled ? Mode.Own : Mode.Follow;
-    }
+        PartDriver.Off => Mode.Off, PartDriver.Sensor => Mode.Sensor, PartDriver.Own => Mode.Own, _ => Mode.Follow
+    };
+    private static PartDriver DriverFor(Mode m) => m switch { Mode.Off => PartDriver.Off, Mode.Sensor => PartDriver.Sensor, Mode.Own => PartDriver.Own, _ => PartDriver.Case };
+    /// <summary>Asks the page to open the Sensor tab on this part.</summary>
+    public event Action<string>? OpenSensor;
     private bool Painted(Part part)
     {
         var overlay = Overlay(part.Device);
@@ -168,9 +169,12 @@ public sealed class DeviceStudio : UserControl
             card.Background = new SolidColorBrush(on ? Color.FromArgb(28, 255, 77, 26) : Color.FromRgb(23, 24, 29));
             var m = ModeOf(part);
             var look = model.PartLookOf(part.Key);
-            state.Text = (m switch { Mode.Off => "Off", Mode.Own => "Own · " + EffectCatalog.For(look?.Effect ?? LightingEffect.Custom).Name, _ => "Follows the look" })
-                + (m != Mode.Off && Painted(part) ? " · painted" : "");
-            state.Foreground = new SolidColorBrush(m switch { Mode.Off => Color.FromRgb(124, 128, 138), Mode.Own => ColorUtil.Accent, _ => Color.FromRgb(163, 166, 174) });
+            state.Text = LightingWorkspace.DriverMark(DriverFor(m)) + " " + (m switch
+            {
+                Mode.Off => "Off", Mode.Sensor => "Sensor · " + model.DriverOf(part.Device, part.Zone, part.Key).Note,
+                Mode.Own => "Own · " + EffectCatalog.For(look?.Effect ?? LightingEffect.Custom).Name, _ => "Follows the look"
+            }) + (m is Mode.Follow or Mode.Own && Painted(part) ? " · painted" : "");
+            state.Foreground = new SolidColorBrush(m == Mode.Follow ? Color.FromRgb(163, 166, 174) : LightingWorkspace.DriverColor(DriverFor(m)));
         }
         if (current is null) { name.Text = "No lit parts found"; detail.Text = "Start OpenRGB, or set the LED count of your ARGB headers on the Whole case view."; return; }
         if (IsVisible) model.PartTarget = current.Key;
@@ -179,17 +183,18 @@ public sealed class DeviceStudio : UserControl
         name.Text = current.Name;
         detail.Text = current.Zone >= 0 ? $"{current.Device.Zones![current.Zone].Name} on {current.Device.Name} · {current.Count} LEDs" : $"{current.Device.Name} · {current.Count} LEDs";
         brush.Background = new SolidColorBrush(ColorUtil.Parse(model.ColorHex, Colors.OrangeRed));
-        brush.Visibility = tools.Visibility = currentMode == Mode.Off ? Visibility.Collapsed : Visibility.Visible;
+        brush.Visibility = tools.Visibility = currentMode is Mode.Off or Mode.Sensor ? Visibility.Collapsed : Visibility.Visible;
         hint.Text = currentMode switch
         {
             Mode.Off => "This part stays dark. Choose Follow the look or Own look to light it.",
+            Mode.Sensor => $"{current.Name}'s colours come from {model.DriverOf(current.Device, current.Zone, current.Key).Note}. Click Sensor to change or stop it there; Follow the look or Own look stop the sensor here.",
             Mode.Own => $"Only {current.Name} changes now: pick a colour, effect, brightness or speed. Click or drag the LEDs to paint accents, right-click to wipe them.",
-            _ => $"Shows the whole-case look. Pick a colour or effect to give {current.Name} its own, or paint LEDs for accents."
+            _ => $"Shows the whole-case look. Pick a colour, then click or drag the LEDs to paint accents. Pick an effect or Own look to give {current.Name} its own."
         };
         leds.Rings = current.Fans ? FanRings(current) : [];
         // Single-LED zones (the graphics card's ARGB header, top side, fan and channel 8) are named under their LED.
         leds.Labels = current.Zone < 0 && current.Device.Zones is { Count: > 1 } z && z.All(x => x.LedCount <= 1) ? z.Where(x => x.LedCount == 1).Select(x => ZoneLabel(current.Device, x.Name)).ToArray() : [];
-        leds.Paintable = currentMode != Mode.Off;
+        leds.Paintable = currentMode is Mode.Follow or Mode.Own;
         Tick();
     }
 
@@ -207,6 +212,7 @@ public sealed class DeviceStudio : UserControl
     {
         if (part.Count % 12 != 0) return [part.Name];
         int rings = part.Count / 12; bool aio = part.Name.StartsWith("Pump", StringComparison.Ordinal);
+        if (part.Name == "Radiator") return Enumerable.Range(1, rings).Select(i => $"Radiator {i}").ToArray();
         return Enumerable.Range(0, rings).Select(i => aio ? i == 0 ? "Pump" : $"Radiator {i}" : $"Fan {i + 1}").ToArray();
     }
 
@@ -278,7 +284,10 @@ public sealed class DeviceStudio : UserControl
 
     private async Task SetModeAsync(Mode next)
     {
-        if (model is null || Current is not { } part || next == ModeOf(part)) return;
+        if (model is null || Current is not { } part) return;
+        if (next == Mode.Sensor) { Rebuild(); OpenSensor?.Invoke(part.Key); return; }   // the Sensor tab is where a sensor is set up
+        if (next == ModeOf(part)) return;
+        if (ModeOf(part) == Mode.Sensor) await model.ReleaseSensorAsync(part.Device, part.Zone, part.Key);
         switch (next)
         {
             case Mode.Follow: if (Painted(part)) Paint(Enumerable.Range(0, part.Count), true); await model.SetPartLookAsync(part.Key, clear: true); await SetIncludedAsync(part, true); break;
@@ -293,7 +302,7 @@ public sealed class DeviceStudio : UserControl
         if (model is null) return;
         if (on && !part.Device.Synced) { model.SetDeviceCommand.Execute(new DeviceOption(part.Device.Id, part.Device.Name, "", true)); }
         var choices = new Dictionary<string, bool>(model.Parameters.Devices ?? new Dictionary<string, bool>()) { [part.Key] = on };
-        if (on && part.Zone >= 0) choices[part.Device.Id] = true;
+        if (on && part.Zone >= 0) { choices[part.Device.Id] = true; choices[SensorSources.ZoneTarget(part.Device.Id, part.Zone)] = true; }
         await model.SetParametersAsync(model.Parameters with { Devices = choices });
     }
 

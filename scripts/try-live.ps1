@@ -50,7 +50,8 @@ try {
   # Give the service up to 30 s to open its pipe (driver loading can be slow right after a restart).
   $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut)
   for ($try = 0; -not $c.IsConnected; $try++) {
-    try { $c.Connect(1000) } catch [TimeoutException] { if ($try -ge 29 -or $svcProc.HasExited) { throw 'The Prism service did not open its pipe - see prism-live.log in your temp folder' } }
+    # A busy pipe (the app just took the free connection) throws IOException ("semaphore timeout"), not TimeoutException.
+    try { $c.Connect(1000) } catch [TimeoutException], [System.IO.IOException] { if ($try -ge 29 -or $svcProc.HasExited) { throw 'The Prism service did not open its pipe - see prism-live.log in your temp folder' }; Start-Sleep -Milliseconds 250 }
   }
   $w = New-Object System.IO.StreamWriter($c); $w.AutoFlush = $true; $r = New-Object System.IO.StreamReader($c)
   $w.WriteLine('{"id":1,"command":"hello","args":{"version":1,"client":"app"}}'); $null = $r.ReadLine()

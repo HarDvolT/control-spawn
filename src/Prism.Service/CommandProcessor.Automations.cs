@@ -63,7 +63,7 @@ public sealed partial class CommandProcessor
         }
         finally { gate.Release(); }
         runtime.TriggerLightingEvent(LightingEventKind.SceneChange);
-        StateChanged?.Invoke();
+        State.Publish();
     }
 
     private async Task CommitFromAutomationAsync(ServiceSettings next)

@@ -7,9 +7,10 @@
 #endif
 [Setup]
 AppId={{C72C2E1F-2F54-4A63-BD51-93FE11BC64A2}
-AppName=Prism
+AppName=Control Spawn
 AppVersion=1.0.0
-AppPublisher=Prism
+AppPublisher=Control Spawn
+SetupIconFile=..\src\Prism.App\Assets\ControlSpawn.ico
 DefaultDirName={autopf}\Prism
 DisableDirPage=yes
 DisableProgramGroupPage=yes
@@ -18,7 +19,7 @@ ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
 MinVersion=10.0.22000
 OutputDir={#SetupOutputDir}
-OutputBaseFilename=PrismSetup
+OutputBaseFilename=ControlSpawnSetup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -28,18 +29,18 @@ RestartApplications=no
 SetupLogging=yes
 
 [Tasks]
-Name: startup; Description: "Start Prism with Windows for my user account (in the system tray)"; Flags: unchecked
+Name: startup; Description: "Open Control Spawn in the system tray when I sign in (the service always starts with Windows)"
 
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "Configure-Prism.ps1"; Flags: dontcopy
 
 [Icons]
-Name: "{commonprograms}\Prism"; Filename: "{app}\Prism.App.exe"; WorkingDir: "{app}"
+Name: "{commonprograms}\Control Spawn"; Filename: "{app}\Prism.App.exe"; WorkingDir: "{app}"
 
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\installer\Configure-Prism.ps1"" -Mode UserStartup -InstallDir ""{app}"""; Tasks: startup; Flags: runhidden runasoriginaluser
-Filename: "{app}\Prism.App.exe"; Description: "Launch Prism"; WorkingDir: "{app}"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchApp
+Filename: "{app}\Prism.App.exe"; Description: "Launch Control Spawn"; WorkingDir: "{app}"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchApp
 
 [Code]
 var
@@ -55,7 +56,7 @@ begin
   Result := (Version.Major = 10) and (Version.Build >= 22000) and
     (Version.ProductType = VER_NT_WORKSTATION);
   if not Result then
-    SuppressibleMsgBox('Prism requires Windows 11 x64 (a desktop edition).', mbCriticalError, MB_OK, IDOK);
+    SuppressibleMsgBox('Control Spawn requires Windows 11 x64 (a desktop edition).', mbCriticalError, MB_OK, IDOK);
 end;
 
 function RunHelper(const Script, Mode, Extra: String; var Code: Integer): Boolean;
@@ -74,8 +75,8 @@ var
 begin
   ConflictNames := TStringList.Create;
   ConflictPage := CreateInputOptionPage(wpSelectTasks, 'Hardware software conflicts',
-    'Choose which detected services Prism may stop and disable.',
-    'Checked services will be stopped and disabled, not uninstalled. Prism restores their prior startup and running state when uninstalled. Uncheck any service you want to keep enabled.', False, False);
+    'Choose which detected services Control Spawn may stop and disable.',
+    'Checked services will be stopped and disabled, not uninstalled. Control Spawn restores their prior startup and running state when uninstalled. Uncheck any service you want to keep enabled.', False, False);
   if RegGetSubkeyNames(HKLM64, 'SYSTEM\CurrentControlSet\Services', Names) then
     for I := 0 to GetArrayLength(Names) - 1 do begin
       Name := Names[I];
@@ -92,7 +93,7 @@ begin
         ConflictPage.Values[Index] := True;
       end;
     end;
-  WizardForm.FinishedLabel.Caption := 'Prism is installed.' + #13#10#13#10 +
+  WizardForm.FinishedLabel.Caption := 'Control Spawn is installed.' + #13#10#13#10 +
     'In your BIOS, disable "Download & Install ARMOURY CRATE app" to prevent ASUS software from being reinstalled.';
 end;
 
@@ -165,7 +166,7 @@ begin
     Form.ClientHeight := ScaleY(125);
   #endif
   try
-    Form.Caption := 'Uninstall Prism';
+    Form.Caption := 'Uninstall Control Spawn';
     Form.Position := poScreenCenter;
     RemoveSettingsBox := TNewCheckBox.Create(Form);
     RemoveSettingsBox.Parent := Form;

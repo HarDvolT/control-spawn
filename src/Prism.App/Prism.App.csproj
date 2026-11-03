@@ -14,7 +14,12 @@
     <RootNamespace>Prism.App</RootNamespace>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\ControlSpawn.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\ControlSpawn.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Prism.Core\Prism.Core.csproj" />

@@ -108,6 +108,18 @@ public static class CaseMap
             _ => $"ARGB header {zone}"
         };
     }
+    /// <summary>
+    /// The pieces a person tells apart in one zone: the AIO header splits into its pump ring (the first 12 LEDs) and the
+    /// radiator fans after it; any other zone is one piece. Each piece has its own part key (see SensorSources).
+    /// </summary>
+    public static IReadOnlyList<(string Name, int First, int Count, string Key)> Pieces(RgbDeviceState device, int zone)
+    {
+        var z = device.Zones![zone]; var name = PartName(device, zone);
+        if (name == "Pump & radiator")
+            return [("Pump", z.FirstLed, 12, SensorSources.RangeTarget(device.Id, z.FirstLed, 12)),
+                ("Radiator", z.FirstLed + 12, z.LedCount - 12, SensorSources.RangeTarget(device.Id, z.FirstLed + 12, z.LedCount - 12))];
+        return [(name, z.FirstLed, z.LedCount, SensorSources.ZoneTarget(device.Id, zone))];
+    }
     public static DevicePlacement Placement(LightingMap? map, RgbDeviceState device, IReadOnlyList<RgbDeviceState> all) =>
         map?.Devices.FirstOrDefault(d => d.Device == device.Id && d.Zone is null) is { } saved && !IsLegacyDevicePlacement(saved)
             ? saved : Default(all).Devices.First(d => d.Device == device.Id && d.Zone is null);

@@ -12,7 +12,7 @@ public sealed class FanTests
             new SensorReading("board", "Board", SensorCategory.Motherboard, "Temperature", "°C", 35) }, success);
 
     [Theory]
-    [InlineData(-10, 20)] [InlineData(20, 20)] [InlineData(25, 23)] [InlineData(50, 45)]
+    [InlineData(-10, 26)] [InlineData(20, 26)] [InlineData(35, 30)] [InlineData(50, 45)] [InlineData(55, 52.5)]
     [InlineData(68.5, 90)] [InlineData(100, 100)] [InlineData(130, 100)]
     public void StandardUsesBiosPointsAndLinearInterpolation(double temperature, double expected) =>
         Assert.Equal(expected, FanCurveEngine.Interpolate(FanCurveEngine.Preset(FanMode.Standard), temperature), 8);
@@ -28,8 +28,9 @@ public sealed class FanTests
     {
         var engine = new FanCurveEngine(); var settings = new FanSettings(FanCurveEngine.Preset(FanMode.Standard));
         Assert.Equal(90, engine.Evaluate(20, settings, TimeSpan.FromSeconds(1)));
-        Assert.Equal(20, engine.Evaluate(20, settings, TimeSpan.FromSeconds(20)));
-        Assert.Equal(50, engine.Evaluate(70, settings, TimeSpan.FromSeconds(1)));
+        // Below the first point (30 °C) the curve holds its idle speed.
+        Assert.Equal(26, engine.Evaluate(20, settings, TimeSpan.FromSeconds(20)));
+        Assert.Equal(56, engine.Evaluate(70, settings, TimeSpan.FromSeconds(1)));
         Assert.Equal(100, engine.Evaluate(70, settings, TimeSpan.FromSeconds(2)));
         Assert.Equal(100, engine.Evaluate(69, settings, TimeSpan.FromSeconds(1)));
         Assert.Equal(90, engine.Evaluate(60, settings, TimeSpan.FromSeconds(1)));

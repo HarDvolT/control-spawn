@@ -60,9 +60,71 @@ public sealed class SensorPanelTests
         client.SendAsync(Commands.ResizeZone, new { device = "board", zone = 1, size = 48 }).GetAwaiter().GetResult();
         var model = new LightingViewModel(client); model.Apply(client.CurrentState);
         var panel = new SensorBindingPanel { DataContext = model };
-        Click(Find<Button>(panel, "Sensor target Pump & radiator"));
+        // The AIO header is two targets: the pump ring and the radiator fans after it.
+        Find<Button>(panel, "Sensor target Radiator");
+        Click(Find<Button>(panel, "Sensor target Pump"));
         Click(Find<Button>(panel, "Apply sensor binding"));
-        Pump(() => client.CurrentState.Lighting.Bindings?.ContainsKey("board/zone/1") == true);
+        var pump = Prism.Lighting.CaseMap.Pieces(client.CurrentState.Lighting.Devices.First(d => d.Id == "board"), 1)[0].Key;
+        Pump(() => client.CurrentState.Lighting.Bindings?.ContainsKey(pump) == true);
+        client.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    });
+
+    [Fact]
+    public void EachPartChipShowsItsDriverAndClicksDoWhatItSays() => RunSta(() =>
+    {
+        var client = new MockPrismClient();
+        client.SendAsync(Commands.ResizeZone, new { device = "board", zone = 1, size = 48 }).GetAwaiter().GetResult();
+        var model = new LightingViewModel(client); model.Apply(client.CurrentState);
+        var workspace = new LightingWorkspace { DataContext = model };
+        var board = client.CurrentState.Lighting.Devices.First(d => d.Id == "board");
+        var pump = Prism.Lighting.CaseMap.Pieces(board, 1)[0].Key;
+        string Driver(string part) => AutomationProperties.GetHelpText(Find<Button>(workspace, "Applies to " + part));
+        void Refresh() { int ticks = 0; Pump(() => ++ticks > 3); model.Apply(client.CurrentState); }
+        Assert.Equal("Case", Driver("Pump"));
+
+        // Following the case: a click keeps the pump as it is (its own look), never dark.
+        Click(Find<Button>(workspace, "Applies to Pump"));
+        Pump(() => client.CurrentState.Lighting.PartLooks?.ContainsKey(pump) == true);
+        Refresh();
+        Assert.Equal("Own", Driver("Pump"));
+        Assert.NotEqual(false, client.CurrentState.Lighting.Parameters?.Devices?.GetValueOrDefault(pump));
+        // With its own look: a click hands it back to the case.
+        Click(Find<Button>(workspace, "Applies to Pump"));
+        Pump(() => client.CurrentState.Lighting.PartLooks?.ContainsKey(pump) != true);
+        Refresh();
+        Assert.Equal("Case", Driver("Pump"));
+
+        // On a sensor: the chip says so, and a click opens the Sensor tab without dropping the sensor.
+        client.SendAsync(Commands.SetSensorBinding, new { target = "gpu", source = "gpu.temperature", min = 30, max = 90 }).GetAwaiter().GetResult();
+        Refresh();
+        Assert.Equal("Sensor", Driver("Graphics card"));
+        Assert.Contains(Texts(Find<Button>(workspace, "Applies to Graphics card")), t => t.Contains("GPU", StringComparison.OrdinalIgnoreCase));
+        Click(Find<Button>(workspace, "Applies to Graphics card"));
+        Refresh();
+        Assert.True(client.CurrentState.Lighting.Bindings?.ContainsKey("gpu"));
+        Assert.Equal(2, Find<SegmentedControl>(workspace, "Lighting mode").SelectedIndex);
+        client.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    });
+
+    [Fact]
+    public void FreeingThePumpFromAHeaderSensorLeavesTheRadiatorOnIt() => RunSta(() =>
+    {
+        var client = new MockPrismClient();
+        client.SendAsync(Commands.ResizeZone, new { device = "board", zone = 1, size = 48 }).GetAwaiter().GetResult();
+        var header = Prism.Lighting.SensorSources.ZoneTarget("board", 1);
+        client.SendAsync(Commands.SetSensorBinding, new { target = header, source = "cpu.temperature", min = 30, max = 90 }).GetAwaiter().GetResult();
+        var model = new LightingViewModel(client); model.Apply(client.CurrentState);
+        var board = client.CurrentState.Lighting.Devices.First(d => d.Id == "board");
+        var (pump, radiator) = (Prism.Lighting.CaseMap.Pieces(board, 1)[0].Key, Prism.Lighting.CaseMap.Pieces(board, 1)[1].Key);
+        Assert.Equal(PartDriver.Sensor, model.DriverOf(board, 1, pump).Driver);
+
+        // The header-wide sensor used to keep winning, so "follow the case" did nothing for the pump.
+        model.FollowCaseAsync(board, 1, pump).GetAwaiter().GetResult();
+        model.Apply(client.CurrentState);
+        Assert.Equal(PartDriver.Case, model.DriverOf(board, 1, pump).Driver);
+        Assert.Equal(PartDriver.Sensor, model.DriverOf(board, 1, radiator).Driver);
+        Assert.Equal("cpu.temperature", client.CurrentState.Lighting.Bindings![radiator].Source);
+        Assert.False(client.CurrentState.Lighting.Bindings.ContainsKey(header));
         client.DisposeAsync().AsTask().GetAwaiter().GetResult();
     });
 

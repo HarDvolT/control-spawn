@@ -115,6 +115,7 @@ public sealed class LightingWorkspace : UserControl
     private Border? argbBanner;
     private FrameworkElement? noTuning;
     private LightingViewModel? model;
+    private SensorBindingPanel? sensorPanel;
     private bool suppress;
     private string deviceSignature = "";
 
@@ -133,7 +134,7 @@ public sealed class LightingWorkspace : UserControl
         titles.Children.Add(Styled(subtitle, "PageSubtitle"));
         heading.Children.Add(titles); host.Children.Add(heading);
 
-        // Shown only while an ARGB header still has 0 LEDs.
+        // Shown only while every ARGB header still has 0 LEDs (lighting not set up yet).
         var setup = new CaseLightingSetup { Visibility = Visibility.Collapsed };
         var setupRow = new DockPanel();
         var setupButton = new Button { Content = "Set up case lighting", Padding = new(18, 0, 18, 0), MinHeight = 40, Background = new SolidColorBrush(ColorUtil.Fair), Foreground = Brushes.Black };
@@ -161,6 +162,7 @@ public sealed class LightingWorkspace : UserControl
         // Per device: the part-by-part studio, with the case layout tools one click away inside it.
         var arrangeTools = BuildPerDeviceTools(); arrangeTools.Visibility = Visibility.Collapsed;
         var studio = new DeviceStudio { ArrangeTools = arrangeTools };
+        studio.OpenSensor += OpenSensor;
         var perDevice = new StackPanel { Visibility = Visibility.Collapsed }; perDevice.Children.Add(studio); perDevice.Children.Add(arrangeTools);
         previewBody.Children.Add(perDevice);
         followNotice.Margin = new(0, 12, 0, 8);
@@ -175,9 +177,10 @@ public sealed class LightingWorkspace : UserControl
         var tuneCard = new GlassCard { Content = BuildTuneCard() }; Place(grid, tuneCard, 2, 2);
 
         // Sensor mode swaps its panel in for the effect row, under the live preview, across the full width.
-        var sensor = new SensorBindingPanel { Visibility = Visibility.Collapsed };
+        var sensor = sensorPanel = new SensorBindingPanel { Visibility = Visibility.Collapsed };
         Grid.SetRow(sensor, 2); Grid.SetColumnSpan(sensor, 3); grid.Children.Add(sensor);
 
+        AutomationProperties.SetName(modes, "Lighting mode");
         modes.SelectionChanged += (_, _) =>
         {
             bool device = modes.SelectedIndex == 1;
@@ -440,8 +443,10 @@ public sealed class LightingWorkspace : UserControl
         RefreshDevices(p);
         UpdateHeading();
         if (argbBanner is not null)
-            argbBanner.Visibility = model.State?.Lighting.Devices.Any(dev => dev.Zones?.Any(z => z.MaxLeds > z.MinLeds && z.LedCount == 0 && z.Name.Contains("Addressable", StringComparison.OrdinalIgnoreCase)) == true) == true
-                ? Visibility.Visible : Visibility.Collapsed;
+        {
+            var headers = model.State?.Lighting.Devices.SelectMany(dev => dev.Zones ?? []).Where(z => z.MaxLeds > z.MinLeds && z.Name.Contains("Addressable", StringComparison.OrdinalIgnoreCase)).ToArray() ?? [];
+            argbBanner.Visibility = headers.Length > 0 && headers.All(z => z.LedCount == 0) ? Visibility.Visible : Visibility.Collapsed;
+        }
         suppress = false;
     }
 
@@ -454,67 +459,73 @@ public sealed class LightingWorkspace : UserControl
         subtitle.Text = $"{info.Name}{(info.Controls.HasFlag(EffectControls.Colour) ? " · " + model.ColorHex : "")} · {model.BrightnessPercent:0}% · {lit} device{(lit == 1 ? "" : "s")}{(lamps > 0 ? $" and {lamps} lamp{(lamps == 1 ? "" : "s")}" : "")}";
     }
 
+    /// <summary>Opens the Sensor tab on one part, where its sensor is edited or stopped.</summary>
+    public void OpenSensor(string target) { modes.SelectedIndex = 2; sensorPanel?.ShowTarget(target); }
+
     private void RefreshDevices(EffectParameters p)
     {
         if (model is null) return;
-        var lighting = model.State?.Lighting.Devices ?? [];
-        var signature = string.Join(";", model.Devices.Select(d => $"{d.Id}:{d.Name}:{d.Synced}:{p.Devices?.GetValueOrDefault(d.Id, true) != false}"))
-            + "|" + string.Join(";", (p.Devices ?? new Dictionary<string, bool>()).Where(k => k.Key.Contains("/zone/")).Select(k => $"{k.Key}={k.Value}"))
-            + "|" + string.Join(";", lighting.Select(d => $"{d.Id}:{string.Join(",", (d.Zones ?? []).Select(z => z.LedCount))}"));
+        // The same parts, names and drivers as Per device: pump and radiator apart, case fans, logo, RAM, graphics card.
+        var parts = DeviceStudio.PartsOf(model.State?.Lighting.Devices ?? []);
+        var drivers = parts.Select(part => (Part: part, Driver: model.DriverOf(part.Device, part.Zone, part.Key))).ToList();
+        var signature = string.Join(";", drivers.Select(x => $"{x.Part.Key}:{x.Part.Name}:{x.Driver.Driver}:{x.Driver.Note}"));
         if (signature == deviceSignature) return;
         deviceSignature = signature; devices.Children.Clear();
-        int ramIndex = 0, excluded = 0;
-        void SetChoice(string key, bool on) =>
-            _ = model.SetParametersAsync(model.Parameters with { Devices = new Dictionary<string, bool>(model.Parameters.Devices ?? new Dictionary<string, bool>()) { [key] = on } });
-        foreach (var d in model.Devices)
+        foreach (var (part, (driver, note)) in drivers)
         {
-            bool on = d.Synced && p.Devices?.GetValueOrDefault(d.Id, true) != false;
-            var state = lighting.FirstOrDefault(x => x.Id == d.Id);
-            var kind = state?.Kind ?? "";
-            if (kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase) && on && state?.Zones is { Count: > 1 } zones)
+            string where = part.Zone >= 0 ? $"{part.Device.Zones![part.Zone].Name} · {part.Count} LEDs on {part.Device.Name}" : $"{part.Device.Name} · {part.Count} LEDs";
+            string tip = driver switch
             {
-                // The board's own LEDs and each header it drives are separate parts here: pump and radiator fans, case fans.
-                for (int z = 0; z < zones.Count; z++)
+                PartDriver.Case => "Follows this look. Click to keep it as it is now while the rest of the case changes.",
+                PartDriver.Own => "Has its own look, so changes here pass it by. Click to make it follow this look again.",
+                PartDriver.Sensor => $"Its colours come from {note}. Click to change or stop that in the Sensor tab.",
+                _ => "Switched off. Click to light it with this look."
+            };
+            var key = part.Key; var chosen = part;
+            devices.Children.Add(Chip(part.Name, driver, note, where + "\n" + tip, async () =>
+            {
+                switch (driver)
                 {
-                    if (zones[z].LedCount == 0) continue;
-                    var key = SensorSources.ZoneTarget(d.Id, z);
-                    bool partOn = p.Devices?.GetValueOrDefault(key, true) != false;
-                    if (!partOn) excluded++;
-                    devices.Children.Add(Chip(CaseMap.PartName(state, z), partOn, " · off", $"{zones[z].Name} · {zones[z].LedCount} LEDs on {d.Name}\n{(partOn ? "Follows the case. Click to turn it off." : "Off. Click to make it follow the case.")}",
-                        now => SetChoice(key, now)));
+                    case PartDriver.Case: await model.SetPartLookAsync(key); break;   // keep it as it looks now
+                    case PartDriver.Sensor: OpenSensor(key); break;   // never drop a sensor behind the user's back
+                    default: await model.FollowCaseAsync(chosen.Device, chosen.Zone, key); break;
                 }
-                continue;
-            }
-            if (!on) excluded++;
-            // Short, recognisable names; the full model name is in the tooltip.
-            var label = kind.Contains("RAM", StringComparison.OrdinalIgnoreCase) ? $"RAM {++ramIndex}"
-                : kind.Contains("GPU", StringComparison.OrdinalIgnoreCase) ? "Graphics card"
-                : kind.Contains("Motherboard", StringComparison.OrdinalIgnoreCase) ? "Motherboard and fans"
-                : kind.Contains("strip", StringComparison.OrdinalIgnoreCase) ? "LED strip" : d.Name;
-            devices.Children.Add(Chip(label, on, " · own colour", $"{d.Name}\n{(on ? "Follows the case. Click to give it its own colour." : "Keeps its own colour. Click to make it follow the case.")}",
-                now => { d.Synced = now; model.SetDeviceCommand.Execute(d); SetChoice(d.Id, now); }));
+            }));
         }
-        followNotice.Text = excluded == 0 ? "APPLIES TO · every part follows this look"
-            : $"APPLIES TO · {excluded} part{(excluded == 1 ? " is" : "s are")} left out. Click a chip to include it.";
-        followNotice.Foreground = new SolidColorBrush(excluded == 0 ? ColorUtil.TextTertiary : ColorUtil.Fair);
+        int following = drivers.Count(x => x.Driver.Driver == PartDriver.Case);
+        var others = new[] { (PartDriver.Own, "with its own look", "with their own look"), (PartDriver.Sensor, "on a sensor", "on sensors"), (PartDriver.Off, "off", "off") }
+            .Select(t => (Count: drivers.Count(x => x.Driver.Driver == t.Item1), t.Item2, t.Item3)).Where(t => t.Count > 0)
+            .Select(t => $"{t.Count} {(t.Count == 1 ? t.Item2 : t.Item3)}").ToList();
+        followNotice.Text = others.Count == 0 ? "APPLIES TO · every part follows this look"
+            : $"APPLIES TO · {following} of {drivers.Count} follow this look · " + string.Join(" · ", others);
+        followNotice.Foreground = new SolidColorBrush(others.Count == 0 ? ColorUtil.TextTertiary : ColorUtil.Fair);
     }
 
-    private static ToggleButton Chip(string label, bool on, string offNote, string tip, Action<bool> changed)
+    // Each driver reads the same way everywhere: case (accent, tick), own look (amber), sensor (cyan), off (grey).
+    public static Color DriverColor(PartDriver driver) => driver switch
     {
+        PartDriver.Case => ColorUtil.Accent, PartDriver.Own => Color.FromRgb(245, 165, 36), PartDriver.Sensor => Color.FromRgb(54, 214, 255), _ => Color.FromRgb(124, 128, 138)
+    };
+    public static string DriverMark(PartDriver driver) => driver switch { PartDriver.Case => "✓", PartDriver.Own => "◐", PartDriver.Sensor => "∿", _ => "○" };
+
+    private static Button Chip(string label, PartDriver driver, string note, string tip, Func<Task> clicked)
+    {
+        var colour = DriverColor(driver); bool following = driver == PartDriver.Case;
         var body = new StackPanel { Orientation = Orientation.Horizontal };
-        body.Children.Add(new TextBlock { Text = on ? "✓" : "○", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(on ? ColorUtil.Accent : Color.FromRgb(124, 128, 138)), Margin = new(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
-        body.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = on ? Brushes.WhiteSmoke : new SolidColorBrush(Color.FromRgb(163, 166, 174)), FontWeight = FontWeights.SemiBold });
-        if (!on) body.Children.Add(new TextBlock { Text = offNote, FontSize = 12, Foreground = new SolidColorBrush(ColorUtil.Fair) });
-        var toggle = new ToggleButton { Content = body, IsChecked = on, Margin = new(0, 0, 8, 8), Cursor = Cursors.Hand, ToolTip = tip };
-        AutomationProperties.SetName(toggle, $"{label} follows case colour");
+        body.Children.Add(new TextBlock { Text = DriverMark(driver), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(colour), Margin = new(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
+        body.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = following ? Brushes.WhiteSmoke : new SolidColorBrush(Color.FromRgb(200, 202, 208)), FontWeight = FontWeights.SemiBold });
+        if (!following) body.Children.Add(new TextBlock { Text = " · " + note, FontSize = 12, Foreground = new SolidColorBrush(colour) });
+        var button = new Button { Content = body, Margin = new(0, 0, 8, 8), Cursor = Cursors.Hand, ToolTip = tip };
+        AutomationProperties.SetName(button, $"Applies to {label}");
+        AutomationProperties.SetHelpText(button, driver.ToString());
         var chrome = new FrameworkElementFactory(typeof(Border)); chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(16));
-        chrome.SetValue(Border.BackgroundProperty, new SolidColorBrush(on ? Color.FromArgb(38, 255, 77, 26) : Colors.Transparent));
-        chrome.SetValue(Border.BorderBrushProperty, new SolidColorBrush(on ? Color.FromArgb(150, 255, 77, 26) : Color.FromArgb(150, 245, 165, 36)));
+        chrome.SetValue(Border.BackgroundProperty, new SolidColorBrush(following ? Color.FromArgb(38, colour.R, colour.G, colour.B) : Colors.Transparent));
+        chrome.SetValue(Border.BorderBrushProperty, new SolidColorBrush(Color.FromArgb(150, colour.R, colour.G, colour.B)));
         chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1)); chrome.SetValue(Border.PaddingProperty, new Thickness(10, 7, 12, 7));
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty)); chrome.AppendChild(presenter);
-        toggle.Template = new ControlTemplate(typeof(ToggleButton)) { VisualTree = chrome };
-        toggle.Click += (_, _) => changed(toggle.IsChecked == true);
-        return toggle;
+        button.Template = new ControlTemplate(typeof(Button)) { VisualTree = chrome };
+        button.Click += async (_, _) => { button.IsEnabled = false; try { await clicked(); } finally { button.IsEnabled = true; } };
+        return button;
     }
 
     private void CommitHex()

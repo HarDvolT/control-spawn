@@ -11,11 +11,15 @@ public interface IFanControlPort
 public sealed class FanSafety
 {
     public int ConsecutiveFailures { get; private set; }
+    /// <summary>Why the last check sent the fans to full speed, in words; null when all is well.</summary>
+    public string? Reason { get; private set; }
     public bool Observe(HardwareSnapshot snapshot, bool requiredSensorsPresent = true)
     {
         ConsecutiveFailures = snapshot.Success && requiredSensorsPresent ? 0 : Math.Min(3, ConsecutiveFailures + 1);
-        return ConsecutiveFailures >= 3 || snapshot.Sensors.Any(s =>
+        var hot = snapshot.Sensors.FirstOrDefault(s =>
             (s.Category is SensorCategory.Cpu or SensorCategory.Gpu) && s.Kind == "Temperature" && s.Value >= LimitFor(s));
+        Reason = hot is not null ? $"{hot.Name} reached {hot.Value:0} °C" : ConsecutiveFailures >= 3 ? "Temperature sensors stopped answering" : null;
+        return Reason is not null;
     }
 
     // GPU hotspot and memory junction normally run past 90 °C under gaming load on an RX 9070 XT,
@@ -34,6 +38,7 @@ public sealed class FanController : IFanController
     private readonly FanSafety safety = new();
     private readonly Dictionary<int, FanCurveEngine> engines = new();
     private readonly Dictionary<int, FanSettings> settings = new();
+    private readonly Dictionary<int, double> overrides = new();
     private bool disposed;
     public FanController(IFanControlPort port)
     {
@@ -69,10 +74,26 @@ public sealed class FanController : IFanController
                     double? temp = FanCurveEngine.SelectTemperature(snapshot, config.Source);
                     double percent = header == 7 || emergency || temp is null || !snapshot.Success
                         ? engine.ForceFull() : engine.Evaluate(temp.Value, config, elapsed);
+                    // Measuring holds one fan at a fixed duty; overheating still wins (emergency is checked above).
+                    if (!emergency && header != 7 && overrides.TryGetValue(header, out var held)) percent = held;
                     port.SetSoftware(header, (float)percent);
                 }
             }
             catch { RestoreDefaults(); throw; }
+        }
+    }
+    /// <summary>The curve's target and the averaged temperature it read on the last tick.</summary>
+    public (double? Target, double? Following) Status(int header)
+    {
+        lock (gate) return engines.TryGetValue(header, out var engine) ? (engine.Target, engine.Following) : (null, null);
+    }
+    /// <summary>Holds a fan at a fixed duty (null releases it). The pump can't be held and safety full speed still applies.</summary>
+    public void Hold(int header, double? percent)
+    {
+        lock (gate)
+        {
+            if (header == 7) throw new InvalidOperationException("The AIO pump is fixed at 100%.");
+            if (percent is { } p) overrides[header] = Math.Clamp(p, 0, 100); else overrides.Remove(header);
         }
     }
     public void RestoreDefaults()
@@ -81,7 +102,7 @@ public sealed class FanController : IFanController
         {
             // Attempt every control even when one fails. Cleanup must never hide the original exception.
             foreach (int header in port.Headers.ToArray())
-                try { port.SetDefault(header); } catch (Exception ex) { System.Diagnostics.Trace.TraceError(ex.ToString()); }
+                try { port.SetDefault(header); } catch (Exception ex) { PrismLog.Failure("fans", ex); }
         }
     }
     private void OnExit(object? sender, EventArgs e) => RestoreDefaults();

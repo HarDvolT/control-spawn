@@ -109,7 +109,7 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
         {
             if (disposed) return;
             foreach (var control in controls.Values)
-                try { control.SetDefault(); } catch (Exception ex) { System.Diagnostics.Trace.TraceError(ex.ToString()); }
+                try { control.SetDefault(); } catch (Exception ex) { PrismLog.Failure("fans", ex); }
             try { computer?.Close(); } finally { disposed = true; controls.Clear(); }
         }
     }
