@@ -1,0 +1,15 @@
+Prism bundles unmodified OpenRGB 1.1 Windows x64 portable and PawnIO Setup 2.2.0.
+
+OpenRGB is licensed under GPL-2.0. Preserve all license files in its portable archive.
+Release and corresponding source: https://codeberg.org/OpenRGB/OpenRGB/releases/tag/release_1.1
+Source mirror: https://github.com/CalcProgrammer1/OpenRGB/tree/release_1.1
+
+PawnIO official signed distribution: https://github.com/namazso/PawnIO.Setup/releases/tag/2.2.0
+Driver source/license: https://github.com/namazso/PawnIO
+Module source/license: https://github.com/namazso/PawnIO.Modules
+The signed distribution's upstream terms apply: https://pawnio.eu/
+PawnIO is shared infrastructure and is not removed when Prism is uninstalled.
+
+.NET and NuGet component notices supplied in the publish folder remain applicable.
+Before public binary redistribution, review all upstream distribution terms and
+provide corresponding source/license materials required by the applicable licenses.

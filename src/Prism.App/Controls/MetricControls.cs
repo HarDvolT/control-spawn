@@ -10,13 +10,19 @@ namespace Prism.App.Controls;
 /// <summary>Shared, bindable metric primitives with the same status scale and motion preference.</summary>
 public abstract class MetricControl : FrameworkElement
 {
+    public bool UseStatusGlow { get; set; } = true;
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(nameof(Value), typeof(double), typeof(MetricControl),
         new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender, Changed));
     public static readonly DependencyProperty MaximumProperty = DependencyProperty.Register(nameof(Maximum), typeof(double), typeof(MetricControl), new FrameworkPropertyMetadata(100d, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty SensorKindProperty = DependencyProperty.Register(nameof(SensorKind), typeof(SensorKind), typeof(MetricControl), new FrameworkPropertyMetadata(SensorKind.Load, FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((MetricControl)d).UpdateGlow()));
     public static readonly DependencyProperty SuffixProperty = DependencyProperty.Register(nameof(Suffix), typeof(string), typeof(MetricControl), new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.AffectsRender));
     private static readonly DependencyProperty DisplayProperty = DependencyProperty.Register("Display", typeof(double), typeof(MetricControl), new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
-    protected MetricControl() { Loaded += (_, _) => UpdateGlow(); }
+    protected MetricControl()
+    {
+        Loaded += (_, _) => { UpdateGlow(); DisplayPreferences.Changed += PreferencesChanged; };
+        Unloaded += (_, _) => DisplayPreferences.Changed -= PreferencesChanged;
+    }
+    private void PreferencesChanged(object? sender, EventArgs e) => InvalidateVisual();
     public double Value { get => (double)GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
     public double Maximum { get => (double)GetValue(MaximumProperty); set => SetValue(MaximumProperty, value); }
     public SensorKind SensorKind { get => (SensorKind)GetValue(SensorKindProperty); set => SetValue(SensorKindProperty, value); }
@@ -32,24 +38,29 @@ public abstract class MetricControl : FrameworkElement
         double from = c.Display;
         c.BeginAnimation(DisplayProperty, null);
         c.SetValue(DisplayProperty, value);
-        if (!Motion.ReduceAnimations && c.IsLoaded) c.BeginAnimation(DisplayProperty, new DoubleAnimation(from, value, TimeSpan.FromMilliseconds(380)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, FillBehavior = FillBehavior.HoldEnd });
+        if (c.IsLoaded && Motion.Glides(from, value, 100)) { var glide = Motion.Glide(value); glide.From = from; c.BeginAnimation(DisplayProperty, glide); }
         c.UpdateGlow();
     }
+    private StatusLevel? glowLevel;
     private void UpdateGlow()
     {
+        if (!UseStatusGlow) { Effect = null; glowLevel = null; return; }
         var level = Thresholds.Level(Value, SensorKind);
+        // A new effect every reading forced the glow to be rebuilt each second; it only changes with the status colour.
+        if (level == glowLevel) return;
+        glowLevel = level;
         Effect = Thresholds.Glow(level);
         BeginAnimation(OpacityProperty, null);
         if (level == StatusLevel.Critical && IsLoaded && !Motion.ReduceAnimations)
-            BeginAnimation(OpacityProperty, new DoubleAnimation(.65, 1, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+            BeginAnimation(OpacityProperty, Motion.Decorative(new DoubleAnimation(.65, 1, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 20));
     }
     protected void Text(DrawingContext dc, string text, Point at, double size = 20)
     {
         var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            new Typeface("Space Grotesk, Segoe UI"), size, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            Typefaces.Number(FontWeights.SemiBold), size, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
         dc.DrawText(formatted, at);
     }
-    protected string Number => double.IsFinite(Value) ? Display.ToString("0", CultureInfo.InvariantCulture) + Suffix : "—";
+    protected string Number => double.IsFinite(Value) ? (Suffix.Contains('\u00b0') ? DisplayPreferences.Temperature(Display) : Display).ToString("0", CultureInfo.InvariantCulture) + (Suffix.Contains("\u00b0C") ? Suffix.Replace("\u00b0C", DisplayPreferences.Unit) : Suffix) : "\u2014";
     protected Point Polar(double angle, double radius, Point center) => new(center.X + Math.Cos(angle) * radius, center.Y + Math.Sin(angle) * radius);
     protected void Arc(DrawingContext dc, Point center, double radius, double start, double sweep, Brush brush, double width)
     {

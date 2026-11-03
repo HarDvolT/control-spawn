@@ -6,6 +6,9 @@ using Prism.Lighting;
 
 namespace Prism.Service;
 
+/// <summary>A token that can't be used, with a reason safe to show: it never contains the token.</summary>
+public sealed class TokenProblem(string message) : Exception(message);
+
 public sealed partial class CommandProcessor
 {
     private DeviceState RegistryDevice(JsonElement a) => Settings.Devices.FirstOrDefault(d => d.Id == Text(a, "id")) ?? throw new ArgumentException("Unknown device.");
@@ -46,10 +49,33 @@ public sealed partial class CommandProcessor
         }
         return settings with { Devices = registry, SyncedDevices = synced, HeaderFans = headers, Lamps = lamps, Lamp = lamps.FirstOrDefault() ?? new() };
     }
-    private ServiceSettings Import(JsonElement args)
+    /// <summary>
+    /// One pasted token for one device. It is tried on the device before it is saved, so a wrong token or IP says so
+    /// instead of saving and then never connecting; the model the device reports decides lamp or appliance.
+    /// </summary>
+    private async Task<ServiceSettings> AddTokenAsync(JsonElement args)
     {
-        var records = TokenExtractorParser.Parse(Text(args, "text"));
-        var selected = args.GetProperty("selected").EnumerateArray().Select(ParseDeviceId).ToHashSet();
+        var text = new string(Text(args, "token").Where(c => !char.IsWhiteSpace(c) && c is not '-' and not ':').ToArray());
+        if (text.Length != 32 || !text.All(Uri.IsHexDigit)) throw new TokenProblem($"A token is 32 characters of 0-9 and a-f. This one has {text.Length}.");
+        var device = args.TryGetProperty("id", out var id) && id.GetString() is { Length: > 0 } key ? Settings.Devices.FirstOrDefault(d => d.Id == key) ?? throw new TokenProblem("That device is no longer listed. Scan again.") : null;
+        var ip = args.TryGetProperty("ip", out var given) && given.GetString() is { Length: > 0 } typed ? typed.Trim() : device?.Ip;
+        if (ip is null) throw new TokenProblem("Control Spawn doesn't know this device's IP address yet. Enter it from your router or the Mi Home app.");
+        try { ServiceSettings.ValidateHost(ip); } catch (ArgumentException) { throw new TokenProblem($"“{ip}” isn't an IP address."); }
+        var secret = Convert.FromHexString(text);
+        try
+        {
+            var (deviceId, model) = await runtime.IdentifyMiioAsync(ip, secret, CancellationToken.None);
+            if (device?.DeviceId is { } expected && expected != deviceId) throw new TokenProblem($"A different device answers at {ip} now. Scan again.");
+            string name = device?.UserName ?? (device?.Name is { } found && !found.StartsWith("Mi Home ", StringComparison.Ordinal) ? found : MiHomeSupport.Describe(model));
+            var record = new ExtractedToken { DeviceId = deviceId, Ip = ip, Model = model, Name = name, Token = text };
+            return Import([record], [deviceId]);
+        }
+        finally { CryptographicOperations.ZeroMemory(secret); }
+    }
+    private ServiceSettings Import(JsonElement args) =>
+        Import(TokenExtractorParser.Parse(Text(args, "text")), args.GetProperty("selected").EnumerateArray().Select(ParseDeviceId).ToHashSet());
+    private ServiceSettings Import(IReadOnlyList<ExtractedToken> records, HashSet<uint> selected)
+    {
         if (selected.Any(id => records.All(r => r.DeviceId != id))) throw new ArgumentException("Invalid selection.");
         var devices = Settings.Devices.ToList(); var lamps = Settings.ConfiguredLamps.Where(l => l.DeviceId is not null || l.Host is not null).ToList();
         var chosen = records.Where(r => selected.Contains(r.DeviceId)).ToArray();
@@ -64,7 +90,7 @@ public sealed partial class CommandProcessor
             if (!string.IsNullOrEmpty(record.Ip)) ServiceSettings.ValidateHost(record.Ip);
             device = device with { Model = record.Model, DetectedName = name, Name = device.UserName ?? name,
                 Ip = old?.Ip ?? (string.IsNullOrEmpty(record.Ip) ? null : record.Ip), Kind = isLamp ? DeviceKind.Lamp : appliance ? DeviceKind.Appliance : DeviceKind.NetworkDevice,
-                Status = isLamp || MiotSpec.Load(record.Model) is not null ? DeviceStatus.Ready : DeviceStatus.Unsupported, Configured = true };
+                Status = isLamp || MiotSpec.Load(record.Model) is not null ? DeviceStatus.Ready : DeviceStatus.Unsupported, Configured = true, Dismissed = false };
             devices.RemoveAll(d => d.Id == device.Id); devices.Add(device);
             if (isLamp)
             {

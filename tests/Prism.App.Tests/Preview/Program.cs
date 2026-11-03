@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -42,22 +42,76 @@ internal static class Program
             sensorClient.SendAsync(Prism.Core.Ipc.Commands.SetSensorBinding, new { target = "gpu", source = "gpu.temperature", min = 35, max = 85, smoothing = 0.5 }).GetAwaiter().GetResult();
             sensorClient.SendAsync(Prism.Core.Ipc.Commands.SetSensorBinding, new { target = "ram", source = "cpu.load", min = 0, max = 100, style = "FillBar" }).GetAwaiter().GetResult();
             var sensorModel = new LightingViewModel(sensorClient); sensorModel.Apply(sensorClient.CurrentState);
-            var sensorPanel = new SensorBindingPanel { DataContext = sensorModel };
-            Render(sensorPanel, Path.Combine(output, "Sensor-panel.png"), 370);
-            var sourcePicker = sensorPanel.Children.OfType<ComboBox>().Last();
-            var sourcePopup = (Popup)sourcePicker.Template.FindName("PART_Popup", sourcePicker);
-            Render((FrameworkElement)sourcePopup.Child, Path.Combine(output, "Sensor-sources.png"), 370);
-            Render(new LightingWorkspace { DataContext = sensorModel }, Path.Combine(output, "Sensor-wide.png"), 1100);
-            Render(new LightingWorkspace { DataContext = sensorModel }, Path.Combine(output, "Sensor-narrow.png"), 700);
+            Motion.ReduceAnimations = true;
+            Render(new SensorBindingPanel { DataContext = sensorModel }, Path.Combine(output, "Sensor-panel.png"), 1180);
+            Render(new SensorBindingPanel { DataContext = sensorModel }, Path.Combine(output, "Sensor-panel-narrow.png"), 640);
+            foreach (var (name, width) in new[] { ("Sensor-wide.png", 1100d), ("Sensor-narrow.png", 700d) })
+            {
+                var workspace = new LightingWorkspace { DataContext = sensorModel };
+                // Switch before the first layout: the effect gallery this mode hides can't lay out at 700 px.
+                LogicalDescendants(workspace).OfType<SegmentedControl>().First(c => c.Items.Contains("Sensor")).SelectedIndex = 2;
+                Render(workspace, Path.Combine(output, name), width);
+            }
             Render(new CaseMapPreview { DataContext = sensorModel, Height = 500, PreviewTime = 1 }, Path.Combine(output, "Sensor-case-map.png"), 700);
             sensorModel.Apply(sensorClient.CurrentState with { System = sensorClient.CurrentState.System with { CpuLoad = null } });
-            Render(new SensorBindingPanel { DataContext = sensorModel }, Path.Combine(output, "Sensor-missing.png"), 370);
+            Render(new SensorBindingPanel { DataContext = sensorModel }, Path.Combine(output, "Sensor-missing.png"), 1180);
             Render(new CaseMapPreview { DataContext = sensorModel, Height = 500, PreviewTime = 1 }, Path.Combine(output, "Sensor-fallback.png"), 700);
             sensorClient.SendAsync(Prism.Core.Ipc.Commands.SetSensorBinding, new { target = "gpu", source = "gpu.temperature", min = 35, max = 85, alert = new { threshold = 40 } }).GetAwaiter().GetResult();
             sensorModel.Apply(sensorClient.CurrentState);
             Render(new CaseMapPreview { DataContext = sensorModel, Height = 500, PreviewTime = 1.25 }, Path.Combine(output, "Sensor-alert.png"), 700);
             File.WriteAllText(Path.Combine(output, "bindings.log"), errors.ToString());
             sensorClient.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            return errors.Length == 0 ? 0 : 2;
+        }
+        if (args.Contains("--widgets"))
+        {
+            var widgetClient = new MockPrismClient();
+            var sheet = new WrapPanel { Width = 1120, Background = new LinearGradientBrush(Color.FromRgb(42, 22, 40), Color.FromRgb(12, 32, 48), 45) };
+            foreach (var kind in Enum.GetValues<WidgetKind>())
+            {
+                var widget = new WidgetViewModel(new WidgetLayout { Kind = kind, Metrics = WidgetMetrics.Defaults(kind), Background = "Glass" }, widgetClient);
+                widget.Apply(widgetClient.CurrentState);
+                sheet.Children.Add(new Border { Margin = new(20), Child = new Prism.App.Widgets.WidgetCard(widget), VerticalAlignment = VerticalAlignment.Top });
+            }
+            Render(sheet, Path.Combine(output, "Widgets-sheet.png"), 1120);
+            widgetClient.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            return 0;
+        }
+        if (args.Contains("--v2"))
+        {
+            var previewClient = new MockPrismClient();
+            // --lighting-mode=sensor (or device) opens the Lighting page on that tab; sensor mode seeds a few bindings first.
+            var lightingMode = args.FirstOrDefault(a => a.StartsWith("--lighting-mode="))?[16..] switch { "device" => 1, "sensor" => 2, _ => 0 };
+            if (lightingMode == 2) SeedSensorBindings(previewClient);
+            var previewModel = new MainViewModel(previewClient, new AppSettings(),
+                new SettingsStore(Path.Combine(output, "settings.json")), new InMemoryStartupRegistry(),
+                new WidgetLayoutStore(Path.Combine(output, "widgets.json")), new NullWidgetHost());
+            Motion.ReduceAnimations = true;
+            var previewWindow = new MainWindow(previewModel);
+            var previewShell = (FrameworkElement)previewWindow.Content;
+            foreach (var page in Enum.GetValues<PageKey>().Where(p => !args.Any(a => a.StartsWith("--page=")) || args.Contains("--page=" + p)))
+            {
+                previewModel.Navigate(page);
+                previewWindow.Close();
+                previewWindow = new MainWindow(previewModel);
+                previewShell = (FrameworkElement)previewWindow.Content;
+                if (page == PageKey.Lighting && lightingMode > 0) SelectLightingMode(previewShell, lightingMode);
+                var designName = page switch { PageKey.Lamp => "Lamps", PageKey.Appliances => "Fryer", _ => page.ToString() };
+                var reference = BitmapFrame.Create(new Uri(Path.GetFullPath($"docs/design-v2/V2{designName}.png")));
+                var height = args.FirstOrDefault(a => a.StartsWith("--height=")) is { } h && int.TryParse(h[9..], out var forced) ? forced : reference.PixelHeight;
+                var width = args.FirstOrDefault(a => a.StartsWith("--width=")) is { } w && int.TryParse(w[8..], out var wide) ? wide : 1440;
+                previewShell.Measure(new Size(width, height)); previewShell.Arrange(new Rect(0, 0, width, height)); previewShell.UpdateLayout();
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Render);
+                previewShell.InvalidateMeasure(); previewShell.UpdateLayout();
+                var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(previewShell);
+                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var stream = File.Create(Path.Combine(output, "V2-" + page + ".png")); encoder.Save(stream);
+                Console.WriteLine(page);
+            }
+            PresentationTraceSources.DataBindingSource.Flush();
+            File.WriteAllText(Path.Combine(output, "bindings.log"), errors.ToString());
+            previewWindow.Close();
+            previewClient.DisposeAsync().AsTask().GetAwaiter().GetResult();
             return errors.Length == 0 ? 0 : 2;
         }
         VerifyControls(output);
@@ -241,6 +295,29 @@ internal static class Program
         sub.DropDown.DrawToBitmap(submenu, new System.Drawing.Rectangle(0, 0, submenu.Width, submenu.Height));
         submenu.Save(Path.Combine(output, "TraySubmenu.png"));
         Console.WriteLine("Verified linear curve geometry and six slider fill cases; rendered detached controls and menus.");
+    }
+    private static void SeedSensorBindings(MockPrismClient client)
+    {
+        // The owner's layout: header 1 carries the pump and radiator fans (48 LEDs).
+        client.SendAsync(Prism.Core.Ipc.Commands.ResizeZone, new { device = "board", zone = 1, size = 48 }).GetAwaiter().GetResult();
+        client.SendAsync(Prism.Core.Ipc.Commands.SetSensorBinding, new { target = "ram", source = "gpu.temperature", min = 35, max = 85, smoothing = 0.5 }).GetAwaiter().GetResult();
+        client.SendAsync(Prism.Core.Ipc.Commands.SetSensorBinding, new { target = "board/zone/1", source = "cpu.temperature", min = 30, max = 95, style = "FillBar", alert = new { threshold = 90 } }).GetAwaiter().GetResult();
+    }
+    private static void SelectLightingMode(FrameworkElement shell, int mode)
+    {
+        shell.Measure(new Size(1440, 1200)); shell.Arrange(new Rect(0, 0, 1440, 1200)); shell.UpdateLayout();
+        var workspace = Descendants(shell).OfType<LightingWorkspace>().FirstOrDefault() ?? throw new InvalidOperationException("Lighting page not found");
+        Descendants(workspace).OfType<SegmentedControl>().First(s => s.Items.Contains("Sensor")).SelectedIndex = mode;
+    }
+    private static IEnumerable<DependencyObject> LogicalDescendants(DependencyObject root) =>
+        LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>().SelectMany(LogicalDescendants).Prepend(root);
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i); yield return child;
+            foreach (var nested in Descendants(child)) yield return nested;
+        }
     }
     private static void Render(FrameworkElement view, string path, double width)
     {

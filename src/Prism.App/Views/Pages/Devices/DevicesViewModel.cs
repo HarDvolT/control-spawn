@@ -13,10 +13,13 @@ public sealed class DevicesViewModel : PageViewModel
     }
     public IReadOnlyList<DeviceGroup> Groups { get; private set; } = [];
     public IReadOnlyList<DeviceState> NewDevices { get; private set; } = [];
-    public string Banner => NewDevices.Count == 0 ? "No new devices. Discovery runs every minute." : $"{NewDevices.Count} new devices found";
+    public string Banner => NewDevices.Count == 0 ? $"{State?.Devices?.Count ?? 0} devices, one place" : $"{NewDevices.Count} new devices found";
     public AsyncRelayCommand FindCommand { get; }
     public bool ImportRequested { get; private set; }
     public void RequestImport() { ImportRequested = true; OnPropertyChanged(nameof(ImportRequested)); }
+    /// <summary>Read once by the page, so a later refresh doesn't reopen the add steps on top of the user's work.</summary>
+    public bool TakeImportRequest() { bool requested = ImportRequested; ImportRequested = false; return requested; }
+    public void OpenPage(Navigation.PageKey key) => RequestNavigate(key);
     public Task DismissAsync(string id) => RunAsync(() => Client.SendAsync(Commands.DismissDevice, new { id }));
     public async Task SetupAsync(DeviceState device)
     {
@@ -29,7 +32,8 @@ public sealed class DevicesViewModel : PageViewModel
     }
     protected override void Refresh()
     {
-        Groups = (State?.Devices ?? []).GroupBy(d => d.Kind).OrderBy(g => g.Key).Select(g => new DeviceGroup(g.Key.ToString(), g.OrderBy(d => d.Name).ToArray())).ToArray();
-        NewDevices = State?.NewDevices ?? []; NotifyAll();
+        Groups = (State?.Devices ?? []).GroupBy(d => d.Kind switch { DeviceKind.RgbController or DeviceKind.FanHeader => "PC", DeviceKind.Lamp => "Lamps", DeviceKind.Router or DeviceKind.NetworkDevice => "Network", DeviceKind.Appliance => "Appliances", _ => "Other" }).OrderBy(g => g.Key == "PC" ? 0 : g.Key == "Lamps" ? 1 : g.Key == "Network" ? 2 : 3).Select(g => new DeviceGroup(g.Key, g.OrderBy(d => d.Kind).ThenBy(d => d.Name).ToArray())).ToArray();
+        // Phones and laptops on the Wi-Fi are listed, not offered for setup: Prism has nothing to control on them.
+        NewDevices = (State?.NewDevices ?? []).Where(d => d.Kind != DeviceKind.NetworkDevice).ToList(); NotifyAll();
     }
 }

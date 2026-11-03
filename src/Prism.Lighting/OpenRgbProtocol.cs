@@ -55,6 +55,15 @@ public static class OpenRgbProtocol
         foreach (var color in colors) WriteColor(w, color);
         return ms.ToArray();
     }
+    /// <summary>RGBCONTROLLER_UPDATEZONELEDS (1051): data size, zone index, colour count, colours.</summary>
+    public static byte[] UpdateZoneLeds(int zone, IReadOnlyList<RgbColor> colors)
+    {
+        if (colors.Count > ushort.MaxValue || zone < 0) throw new ArgumentOutOfRangeException(nameof(colors));
+        using var ms = new MemoryStream(); using var w = new BinaryWriter(ms);
+        w.Write((uint)(10 + 4 * colors.Count)); w.Write((uint)zone); w.Write((ushort)colors.Count);
+        foreach (var color in colors) WriteColor(w, color);
+        return ms.ToArray();
+    }
     public static byte[] UpdateMode(int index, OpenRgbMode mode, uint version)
     {
         ValidateVersion(version);

@@ -31,7 +31,7 @@ public sealed class TrayIcon : IDisposable
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _menu.Items.Add("Quit", null, (_, _) => quit());
         GraphiteTrayTheme.Apply(_menu);
-        _icon = new Forms.NotifyIcon { Text = "Prism", Icon = System.Drawing.SystemIcons.Application, ContextMenuStrip = _menu, Visible = true };
+        _icon = new Forms.NotifyIcon { Text = "Control Spawn", Icon = AppIcon(), ContextMenuStrip = _menu, Visible = true };
         cancelCooking.Click += async (_, _) => {
             foreach (var appliance in lastAppliances)
             {
@@ -42,6 +42,12 @@ public sealed class TrayIcon : IDisposable
         };
         _icon.DoubleClick += (_, _) => open();
         client.StateReceived += OnState;
+    }
+    // The exe's own icon (Assets/ControlSpawn.ico); the stock one only if it can't be read.
+    private static System.Drawing.Icon AppIcon()
+    {
+        try { return System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!) ?? System.Drawing.SystemIcons.Application; }
+        catch (Exception e) when (e is ArgumentException or IOException) { return System.Drawing.SystemIcons.Application; }
     }
     private void OnState(object? sender, StateMessage state)
     {

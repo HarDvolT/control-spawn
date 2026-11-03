@@ -5,7 +5,7 @@ using System.Windows.Media.Effects;
 
 namespace Prism.App.Controls;
 
-public enum StatusLevel { Cool, Ok, Warm, Hot, Critical }
+public enum StatusLevel { Cool, Ok, Warm, Hot, Critical, Unavailable }
 public enum SensorKind { CpuTctl, GpuEdge, GpuHotspot, Dimm, Nvme, Load, Ping }
 public sealed record SensorThreshold(double Warm, double Hot, double Critical);
 public static class Thresholds
@@ -18,27 +18,28 @@ public static class Thresholds
     };
     public static StatusLevel Level(double value, SensorKind kind)
     {
+        if (!double.IsFinite(value)) return StatusLevel.Unavailable;
         var t = Table[kind];
         return value >= t.Critical ? StatusLevel.Critical : value >= t.Hot ? StatusLevel.Hot : value >= t.Warm ? StatusLevel.Warm : value < t.Warm * .5 ? StatusLevel.Cool : StatusLevel.Ok;
     }
     public static Color Color(StatusLevel level) => (Color)ColorConverter.ConvertFromString(level switch
-    { StatusLevel.Cool => "#5AA7FF", StatusLevel.Ok => "#3DDC84", StatusLevel.Warm => "#F5A524", _ => "#FF4D4F" });
+    { StatusLevel.Unavailable => "#7C808A", StatusLevel.Cool => "#36D6FF", StatusLevel.Ok => "#3DDC84", StatusLevel.Warm => "#F5A524", _ => "#FF4D4F" });
     public static Brush Brush(StatusLevel level) => new SolidColorBrush(Color(level));
     public static DropShadowEffect Glow(StatusLevel level) => new() { Color = Color(level), BlurRadius = 18, ShadowDepth = 0, Opacity = .5 };
 }
 public sealed class MetricToLevelConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value is double n && double.IsFinite(n) ? Thresholds.Level(n, Enum.TryParse<SensorKind>(parameter?.ToString(), out var k) ? k : SensorKind.Load) : StatusLevel.Cool;
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value is double n && double.IsFinite(n) ? Thresholds.Level(n, Enum.TryParse<SensorKind>(parameter?.ToString(), out var k) ? k : SensorKind.Load) : StatusLevel.Unavailable;
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 public sealed class LevelToBrushConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => Thresholds.Brush(value is StatusLevel level ? level : StatusLevel.Cool);
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => Thresholds.Brush(value is StatusLevel level ? level : StatusLevel.Unavailable);
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 public sealed class LevelToGlowConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => Thresholds.Glow(value is StatusLevel level ? level : StatusLevel.Cool);
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => Thresholds.Glow(value is StatusLevel level ? level : StatusLevel.Unavailable);
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 public sealed class FriendlyLabelConverter : IValueConverter

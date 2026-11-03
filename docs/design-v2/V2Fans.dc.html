@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism v2 — Fans</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A}
+a{color:#FF4D1A}a:hover{color:#FF7A50}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(60px,40px) scale(1.12)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes crit{0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.6)}50%{box-shadow:0 0 0 7px rgba(255,77,79,0)}}
+@keyframes warnpulse{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,.55)}50%{box-shadow:0 0 0 7px rgba(245,165,36,0)}}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+@keyframes orb{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+@keyframes lbreathe{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes lrainbow{to{filter:hue-rotate(360deg)}}
+@keyframes lflow{from{background-position:0% 50%}to{background-position:200% 50%}}
+@keyframes lstrobe{0%,49%{opacity:1}50%,100%{opacity:.08}}
+.card{animation:rise .6s cubic-bezier(.22,1,.36,1) both;transition:border-color .25s,transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s}
+.card:hover{border-color:rgba(255,255,255,.13)!important}
+.lift:hover{transform:translateY(-3px)}
+.d1{animation-delay:.04s}.d2{animation-delay:.08s}.d3{animation-delay:.12s}.d4{animation-delay:.16s}.d5{animation-delay:.2s}.d6{animation-delay:.24s}.d7{animation-delay:.28s}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s,border-color .2s}.btn:hover{border-color:rgba(255,255,255,.2)!important}.btn:active{transform:scale(.97)}
+.nav{transition:background .2s,color .2s}.nav:hover{background:rgba(255,255,255,.04);color:#F4F5F7}
+.live{animation:livedot 1.6s ease-in-out infinite}
+.crit{animation:crit 1.2s infinite}.warn{animation:warnpulse 1.8s infinite}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;animation:drift 18s ease-in-out infinite alternate}
+.b1{width:520px;height:520px;left:-120px;top:-180px;background:radial-gradient(circle,rgba(255,77,26,.35),transparent 70%)}
+.b2{width:620px;height:620px;right:-160px;top:120px;background:radial-gradient(circle,rgba(54,214,255,.22),transparent 70%);animation-duration:24s}
+.arc{transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1),stroke .5s}
+.needle{transition:transform .8s cubic-bezier(.22,1,.36,1)}
+.fill{position:relative;overflow:hidden;transition:width .8s cubic-bezier(.22,1,.36,1),height .8s cubic-bezier(.22,1,.36,1),background .5s,box-shadow .5s}
+.fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2.6s ease-in-out infinite}
+.spark{stroke-dasharray:600;animation:draw 2.4s cubic-bezier(.22,1,.36,1) both}
+.orb{animation:orb 4s ease-in-out infinite;transition:box-shadow .5s,opacity .5s,background .5s}
+.flow{background-size:200% 100%!important;animation:lflow 3s linear infinite}
+.ring{position:relative;border-radius:18px;padding:1.5px;overflow:hidden}
+.ring::before{content:"";position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent 0 60%,#FF4D1A 75%,#36D6FF 88%,transparent 100%);animation:spin 4s linear infinite}
+.ring > *{position:relative}
+.ico{flex:0 0 18px}
+.topbtn{transition:background .2s,border-color .2s}.topbtn:hover{border-color:rgba(255,255,255,.18)!important}
+.knob{transition:transform .25s cubic-bezier(.22,1,.36,1)}
+@media (max-width: 1100px){main > *{grid-column:span 12!important}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+.pt{transition:left .35s cubic-bezier(.22,1,.36,1),top .35s cubic-bezier(.22,1,.36,1),box-shadow .2s,transform .15s}.pt:hover{transform:scale(1.2)}
+.curve{transition:d .4s}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 1130px; display: flex; flex-wrap: wrap; color: #F4F5F7; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse 70% 40% at 50% -10%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%), radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px) 0 0 / 24px 24px, #07080A;">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden;"><span class="blob b1"></span><span class="blob b2"></span></div>
+  <nav aria-label="Main" style="position: relative; z-index: 1; flex: 0 0 220px; box-sizing: border-box; padding: 20px 12px; background: rgba(13,14,17,.8); backdrop-filter: blur(18px); border-right: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #FF4D1A, #FF8A3D); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 22px rgba(255,77,26,.5);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#07080A" stroke-width="2.4" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"></path></svg></span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700;">Prism</span>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="16">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}"><p style="margin: 14px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">{{n.label}}</p></sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}"><a class="nav" href="{{n.href}}" style="{{n.style}}"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg>{{n.label}}</a></sc-if>
+    </sc-for>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 12px 8px 0; padding: 10px 12px; border-radius: 12px; background: #111216; border: 1px solid rgba(255,255,255,.06); font-size: 12px; color: #A3A6AE;"><span class="live" style="width: 8px; height: 8px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 10px #3DDC84;"></span>Service live · 12 devices</div>
+  </nav>
+
+  <main style="position: relative; z-index: 1; flex: 999 1 600px; min-width: 0; box-sizing: border-box; padding: 20px 26px 26px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: min-content; gap: 16px; align-content: start;">
+    <div style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 2px;">
+      <p style="margin: 0; font-size: 13px; color: #7C808A;">Prism <span style="color: #3A3C44;">/</span> <span style="color: #C9CBD1;">{{pageName}}</span></p>
+      <div style="flex-grow: 1;"></div>
+      <label style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 8px 0 14px; border-radius: 999px; background: rgba(17,18,22,.8); border: 1px solid rgba(255,255,255,.07); flex: 0 1 360px; backdrop-filter: blur(12px);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C808A" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Search</span>
+        <input type="search" placeholder="Search or type a command" style="flex-grow: 1; min-width: 0; background: transparent; border: 0; outline: none; color: #F4F5F7; font: inherit; font-size: 13px;">
+        <span style="padding: 3px 8px; border-radius: 6px; background: #1E2026; font-size: 11px; color: #A3A6AE;">Ctrl Space</span>
+      </label>
+      <span style="display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; background: rgba(61,220,132,.08); border: 1px solid rgba(61,220,132,.3); font-size: 12px; color: #9BEFC2;"><span class="live" style="width: 7px; height: 7px; border-radius: 4px; background: #3DDC84; box-shadow: 0 0 8px #3DDC84;"></span>All systems normal</span>
+      <button class="topbtn" type="button" aria-label="Notifications" style="width: 40px; height: 40px; border-radius: 20px; background: rgba(17,18,22,.8); border: 1px solid rgba(255,255,255,.07); color: #C9CBD1; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"></path></svg></button>
+    </div>
+    <header class="card" style="grid-column: span 12; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div>
+        <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">FANS</p>
+        <h1 style="margin: 4px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -0.02em;">{{headline}}</h1>
+        <p style="margin: 6px 0 0; font-size: 13px; color: #A3A6AE;">{{noise}} · pump locked at 100% · ASUS fan service stays off</p>
+      </div>
+      <div role="group" aria-label="Fan mode" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07); width: fit-content;">
+        <sc-for list="{{modes}}" as="m" hint-placeholder-count="5"><button class="btn" type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="{{m.style}}">{{m.label}}</button></sc-for>
+      </div>
+    </header>
+
+    <sc-for list="{{fans}}" as="f" hint-placeholder-count="3">
+      <section class="card d1 lift" aria-label="{{f.name}}" style="grid-column: span 4; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+          <div><h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{f.name}}</h2><p style="margin: 2px 0 0; font-size: 12px; color: #7C808A;">{{f.where}}</p></div>
+          <span style="{{f.chip}}"><span style="{{f.dot}}"></span>{{f.follows}}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 18px;">
+          <div style="position: relative; width: 96px; height: 96px; flex: 0 0 96px;">
+            <svg width="96" height="96" viewBox="0 0 100 100" aria-hidden="true">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1E2026" stroke-width="6"></circle>
+              <circle class="arc" cx="50" cy="50" r="44" fill="none" stroke="{{f.color}}" stroke-width="6" stroke-linecap="round" stroke-dasharray="276.5" stroke-dashoffset="{{f.offset}}" transform="rotate(-90 50 50)" style="filter: drop-shadow(0 0 6px {{f.color}});"></circle>
+            </svg>
+            <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="{{f.color}}" stroke-width="1.5" aria-hidden="true" style="position: absolute; left: 21px; top: 21px; animation: spin {{f.dur}}s linear infinite;"><path d="M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2"></path></svg>
+          </div>
+          <div style="flex: 1 1 auto; min-width: 0;">
+            <p style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 34px; font-weight: 600; line-height: 1;">{{f.rpm}}<span style="font-size: 13px; color: #7C808A; font-weight: 500;"> rpm</span></p>
+            <p style="margin: 6px 0 0; font-size: 13px; color: {{f.color}};">{{f.duty}}</p>
+            <svg viewBox="0 0 160 30" style="width: 100%; height: 30px; margin-top: 6px;" aria-hidden="true"><path class="spark" d="{{f.spark}}" fill="none" stroke="{{f.color}}" stroke-width="2" style="filter: drop-shadow(0 0 4px {{f.color}});"></path></svg>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{f.stats}}" as="t" hint-placeholder-count="3"><div style="padding: 10px 12px; border-radius: 12px; background: #17181D; border: 1px solid rgba(255,255,255,.04);"><p style="margin: 0; font-size: 11px; color: #7C808A;">{{t.label}}</p><p style="margin: 2px 0 0; font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600;">{{t.value}}</p></div></sc-for>
+        </div>
+      </section>
+    </sc-for>
+
+    <section class="card d2" aria-label="Fan curve" style="grid-column: span 8; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+        <div><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Fan curve</h2><p style="margin: 2px 0 0; font-size: 12px; color: #7C808A;">Tap a point, then nudge it. Dragging works the same in the app.</p></div>
+        <div role="tablist" aria-label="Which fans" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07); width: fit-content;">
+          <sc-for list="{{groups}}" as="g" hint-placeholder-count="2"><button class="btn" type="button" role="tab" aria-selected="{{g.on}}" onClick="{{g.pick}}" style="{{g.style}}">{{g.label}}</button></sc-for>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 34px 1fr; gap: 8px;">
+        <div style="display: flex; flex-direction: column; justify-content: space-between; height: 250px; font-size: 11px; color: #7C808A; text-align: right;"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div>
+        <div style="position: relative; height: 250px; border-radius: 14px; background: #0D0E12; border: 1px solid rgba(255,255,255,.05);">
+          <svg viewBox="0 0 600 240" preserveAspectRatio="none" style="position: absolute; inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); overflow: visible;" aria-hidden="true">
+            <defs><linearGradient id="fanArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF4D1A" stop-opacity=".35"></stop><stop offset="1" stop-color="#FF4D1A" stop-opacity="0"></stop></linearGradient></defs>
+            <path d="M0 60H600M0 120H600M0 180H600M150 0V240M300 0V240M450 0V240" stroke="rgba(255,255,255,.05)" stroke-width="1" vector-effect="non-scaling-stroke"></path>
+            <rect x="{{hotX}}" y="0" width="{{hotW}}" height="240" fill="rgba(255,77,79,.07)"></rect>
+            <path d="{{area}}" fill="url(#fanArea)"></path>
+            <path d="{{curve}}" fill="none" stroke="#FF4D1A" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" style="filter: drop-shadow(0 0 6px rgba(255,77,26,.7));"></path>
+            <line x1="{{nowX}}" x2="{{nowX}}" y1="0" y2="240" stroke="#36D6FF" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>
+          </svg>
+          <div style="position: absolute; inset: 5px;">
+            <span style="{{nowDot}}"></span>
+            <span style="{{nowTag}}">{{nowLabel}}</span>
+            <sc-for list="{{pts}}" as="p" hint-placeholder-count="5"><button class="pt" type="button" onClick="{{p.pick}}" aria-label="{{p.aria}}" aria-pressed="{{p.on}}" style="{{p.style}}"></button></sc-for>
+            <span style="{{selTag}}">{{selLabel}}</span>
+          </div>
+        </div>
+        <span></span>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #7C808A;"><span>20°</span><span>40°</span><span>60°</span><span>80°</span><span>100°C</span></div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+        <span style="font-size: 12px; color: #A3A6AE;">Point {{selNum}}</span>
+        <div style="display: flex; gap: 6px; flex: 1 1 320px;"><sc-for list="{{nudges}}" as="n" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{n.pick}}" style="{{n.style}}">{{n.label}}</button></sc-for></div>
+        <div role="group" aria-label="Curve follows" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07); width: fit-content;"><sc-for list="{{sensors}}" as="s" hint-placeholder-count="3"><button class="btn" type="button" onClick="{{s.pick}}" aria-pressed="{{s.on}}" style="{{s.style}}">{{s.label}}</button></sc-for></div>
+      </div>
+    </section>
+
+    <div style="grid-column: span 4; display: flex; flex-direction: column; gap: 16px;">
+      <section class="card d3" aria-label="Safety" style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Safety</h2><span style="{{safeChip}}"><span style="{{safeDot}}"></span>All rules on</span></div>
+        <sc-for list="{{rules}}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="flex: 1 1 auto; min-width: 0;"><p style="margin: 0; font-size: 13px; font-weight: 600;">{{r.label}}</p><p style="margin: 2px 0 0; font-size: 12px; color: #7C808A;">{{r.sub}}</p></div>
+            <sc-if value="{{r.locked}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 600; color: #7C808A; padding: 4px 10px; border-radius: 999px; background: #1E2026;">Always</span></sc-if>
+            <sc-if value="{{r.editable}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span class="knob" style="{{r.knob}}"></span></button></sc-if>
+          </div>
+        </sc-for>
+      </section>
+      <section class="card d4" aria-label="Smoothing" style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 12px;">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Smoothing</h2>
+        <sc-for list="{{smooth}}" as="m" hint-placeholder-count="2">
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #A3A6AE; margin-bottom: 8px;"><span>{{m.label}}</span><span style="font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; color: #F4F5F7;">{{m.value}}</span></div>
+            <div style="display: flex; gap: 6px;"><sc-for list="{{m.opts}}" as="o" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button></sc-for></div>
+          </div>
+        </sc-for>
+      </section>
+    </div>
+
+    <section class="card d5" aria-label="Fan headers" style="grid-column: span 12; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><div><h2 style="margin: 0; font-size: 15px; font-weight: 600;">Fan headers</h2><p style="margin: 2px 0 0; font-size: 12px; color: #7C808A;">Nuvoton NCT6701D · 7 headers on the ROG STRIX B850-F</p></div><span style="font-size: 12px; color: #7C808A;">Rename a header to name its fans everywhere</span></div>
+      <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px;">
+        <sc-for list="{{headers}}" as="h" hint-placeholder-count="7">
+          <div style="{{h.style}}">
+            <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 11px; font-weight: 600; letter-spacing: .1em; color: #7C808A;">HEADER {{h.n}}</span><span style="{{h.dot}}"></span></div>
+            <p style="margin: 8px 0 0; font-size: 13px; font-weight: 600; color: {{h.text}};">{{h.name}}</p>
+            <p style="margin: 2px 0 0; font-family: 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; font-size: 12px; color: #7C808A;">{{h.rpm}}</p>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1130}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'Silent', group: 'Radiator', sel: 2, t: 0, sensor: { Radiator: 'CPU', 'Case fans': 'Hottest' }, ramp: '2 s', hyst: '3°',
+      rules: { stop: true, crit: true }, curves: { Radiator: this.preset('Silent', 'Radiator'), 'Case fans': this.preset('Silent', 'Case fans') } };
+  }
+  componentDidMount() { this.timer = setInterval(() => this.setState({ t: this.state.t + 1 }), 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  preset(mode, group) {
+    const P = { Silent: [[30, 22], [50, 30], [65, 42], [75, 60], [85, 100]], Balanced: [[30, 30], [50, 40], [65, 55], [75, 75], [85, 100]],
+      Turbo: [[30, 45], [50, 55], [65, 70], [75, 90], [85, 100]], Full: [[30, 100], [50, 100], [65, 100], [75, 100], [85, 100]] }[mode];
+    return P.map(([t, d]) => [t, group === 'Case fans' && mode !== 'Full' ? Math.min(100, d + 6) : d]);
+  }
+  duty(pts, T) { if (T <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (T <= pts[i][0]) { const [a, b] = [pts[i - 1], pts[i]]; return a[1] + (b[1] - a[1]) * (T - a[0]) / (b[0] - a[0]); } return 100; }
+  nudge(dt, dd) {
+    const s = this.state, pts = s.curves[s.group].map(p => p.slice()), i = s.sel, p = pts[i];
+    const lo = i ? pts[i - 1][0] + 3 : 20, hi = i < pts.length - 1 ? pts[i + 1][0] - 3 : 100;
+    p[0] = Math.max(lo, Math.min(hi, p[0] + dt)); p[1] = Math.max(i ? pts[i - 1][1] : 0, Math.min(i < pts.length - 1 ? pts[i + 1][1] : 100, p[1] + dd));
+    this.setState({ mode: 'Custom', curves: { ...s.curves, [s.group]: pts } });
+  }
+  
+  shellVals() {
+    const ICONS = { Dashboard: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z', Monitor: 'M3 12h4l3-8 4 16 3-8h4', Devices: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', Widgets: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z', Lighting: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z', Lamps: 'M8 21h8M12 17v4M6 3h12l-3 8H9zM9 11a3 3 0 0 0 6 0', Fans: 'M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M12 10c0-4 1-7 4-7s3 4-2 7M14 12c4 0 7 1 7 4s-4 3-7-2M12 14c0 4-1 7-4 7s-3-4 2-7M10 12c-4 0-7-1-7-4s4-3 7 2', Scenes: 'M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z', 'Air fryer': 'M5 6h14v14H5zM8 3h8M9 10h6M12 13v4', Internet: 'M5 20v-4M10 20v-8M15 20v-12M20 20V4', Settings: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M18 18h2M14 4v4M8 10v4M16 16v4' };
+    const nav = [
+      { section: true, label: 'GENERAL' }, ['Dashboard', 'V2Dashboard.dc.html'], ['Monitor', 'V2Monitor.dc.html'], ['Devices', 'V2Devices.dc.html'], ['Widgets', 'V2Widgets.dc.html'],
+      { section: true, label: 'CONTROL' }, ['Lighting', 'V2Lighting.dc.html'], ['Lamps', 'V2Lamps.dc.html'], ['Fans', 'V2Fans.dc.html'], ['Scenes', 'V2Scenes.dc.html'],
+      { section: true, label: 'HOME' }, ['Air fryer', 'V2Fryer.dc.html'], ['Internet', 'V2Modem.dc.html'],
+      { section: true, label: 'SYSTEM' }, ['Settings', 'V2Settings.dc.html']
+    ].map(n => Array.isArray(n) ? { link: true, section: false, label: n[0], href: n[1], icon: ICONS[n[0]] || '',
+      style: 'display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 12px; border-radius: 12px; text-decoration: none; font-size: 14px; ' +
+        (n[0] === 'Fans' ? 'background: linear-gradient(90deg, rgba(255,77,26,.18), rgba(255,77,26,.04)); color: #F4F5F7; font-weight: 600; box-shadow: inset 2px 0 0 #FF4D1A;' : 'color: #A3A6AE;') }
+      : { ...n, link: false });
+    return { nav, pageName: 'Fans' };
+  }
+  pill(on) { return 'min-height: 38px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #07080A; box-shadow: 0 0 18px rgba(255,77,26,.45);' : 'background: transparent; color: #A3A6AE;'); }
+  small(on) { return 'flex: 1 1 0; min-height: 36px; padding: 0 10px; border-radius: 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; ' + (on ? 'background: rgba(255,77,26,.16); color: #FF8A60; border: 1px solid rgba(255,77,26,.55);' : 'background: #1E2026; color: #C9CBD1; border: 1px solid rgba(255,255,255,.06);'); }
+  level(v, warm, hot) { return v >= hot ? '#FF4D4F' : v >= warm ? '#F5A524' : v >= warm * 0.6 ? '#3DDC84' : '#36D6FF'; }
+  chip(c) { return 'display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; min-height: 30px; padding: 0 12px; border-radius: 999px; background: ' + c + '1A; border: 1px solid ' + c + '55; font-size: 12px; color: #F4F5F7;'; }
+  dot(c) { return 'width: 7px; height: 7px; border-radius: 4px; background: ' + c + '; box-shadow: 0 0 8px ' + c + ';'; }
+  sw(on) { return { track: 'flex: 0 0 46px; width: 46px; height: 26px; border-radius: 13px; border: 0; padding: 0; position: relative; cursor: pointer; ' + (on ? 'background: #FF4D1A; box-shadow: 0 0 14px rgba(255,77,26,.45);' : 'background: #2A2C33;'), knob: 'position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px; background: #F4F5F7; transform: translateX(' + (on ? 20 : 0) + 'px);' }; }
+  spark(series, w, h) { const max = Math.max(...series), min = Math.min(...series), r = (max - min) || 1; return series.map((v, i) => (i ? 'L' : 'M') + (i * w / (series.length - 1)).toFixed(1) + ' ' + (h - 3 - (v - min) / r * (h - 6)).toFixed(1)).join(' '); }
+
+  renderVals() {
+    const s = this.state, t = s.t;
+    const w = (b, a, k, o = 0) => b + a * Math.sin((t + o) * k) + a * .4 * Math.sin((t + o) * k * 2.3);
+    const cpu = w(54, 3, .5), gpu = w(49, 4, .4), temps = { CPU: cpu, GPU: gpu, Hottest: Math.max(cpu, gpu) };
+    const X = T => (T - 20) / 80 * 600, Y = d => (1 - d / 100) * 240, pc = (v, m) => (v / m * 100).toFixed(2) + '%';
+    const pts = s.curves[s.group], T = temps[s.sensor[s.group]], D = this.duty(pts, T);
+    const line = 'M0 ' + Y(pts[0][1]) + ' ' + pts.map(([a, b]) => 'L' + X(a).toFixed(1) + ' ' + Y(b).toFixed(1)).join(' ') + ' L600 ' + Y(100);
+    const segStyle = on => 'min-height: 36px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #07080A; box-shadow: 0 0 16px rgba(255,77,26,.4);' : 'background: transparent; color: #A3A6AE;');
+    const fanData = [
+      { name: 'Radiator', where: 'Header 2 · CPU_FAN · 2 fans', max: 2987, group: 'Radiator' },
+      { name: 'Case fans', where: 'Header 6 · 3 front + rear', max: 1636, group: 'Case fans' },
+      { name: 'AIO pump', where: 'Header 7 · fixed full speed', max: 2987, pump: true }];
+    const sel = pts[s.sel];
+    return {
+      ...this.shellVals(),
+      headline: { Silent: 'Quiet and cool', Balanced: 'Balanced cooling', Turbo: 'Turbo cooling', Full: 'Full speed', Custom: 'Your own curve' }[s.mode],
+      noise: { Silent: 'Barely audible', Balanced: 'Normal noise', Turbo: 'Noticeable, more cooling', Full: 'Loud, maximum cooling', Custom: 'Custom curve' }[s.mode],
+      modes: ['Silent', 'Balanced', 'Turbo', 'Full', 'Custom'].map(m => ({ label: m, on: s.mode === m, style: segStyle(s.mode === m),
+        pick: () => m === 'Custom' ? this.setState({ mode: 'Custom' }) : this.setState({ mode: m, curves: { Radiator: this.preset(m, 'Radiator'), 'Case fans': this.preset(m, 'Case fans') } }) })),
+      fans: fanData.map((f, i) => { const d = f.pump ? 100 : this.duty(s.curves[f.group], temps[s.sensor[f.group]]); const rpm = f.pump ? w(2812, 12, .9) : Math.max(380, f.max * d / 100) + 15 * Math.sin(t + i);
+        const c = f.pump ? '#3DDC84' : d >= 90 ? '#F5A524' : '#36D6FF';
+        return { name: f.name, where: f.where, color: c, rpm: Math.round(rpm).toLocaleString('en-US'), duty: f.pump ? 'Locked · 100% duty' : Math.round(d) + '% duty · ' + Math.round(temps[s.sensor[f.group]]) + '° ' + s.sensor[f.group],
+          offset: (276.5 * (1 - rpm / f.max)).toFixed(1), dur: (900 / rpm).toFixed(2), chip: this.chip(f.pump ? '#3DDC84' : '#36D6FF'), dot: this.dot(f.pump ? '#3DDC84' : '#36D6FF'),
+          follows: f.pump ? 'Locked' : 'Follows ' + s.sensor[f.group], spark: this.spark(Array.from({ length: 24 }, (_, k) => rpm + 40 * Math.sin((t + k) * .6)), 160, 30),
+          stats: f.pump ? [{ label: 'Liquid', value: w(33, .4, .2).toFixed(1) + '°' }, { label: 'Min', value: '2,790' }, { label: 'Status', value: 'OK' }]
+            : [{ label: 'Min', value: Math.round(f.max * s.curves[f.group][0][1] / 100).toLocaleString('en-US') }, { label: 'Max', value: f.max.toLocaleString('en-US') }, { label: 'Fans', value: i ? '4' : '2' }] }; }),
+      groups: ['Radiator', 'Case fans'].map(g => ({ label: g, on: s.group === g, pick: () => this.setState({ group: g }), style: segStyle(s.group === g) })),
+      curve: line, area: line + ' L600 240 L0 240 Z', hotX: X(85), hotW: 600 - X(85),
+      nowX: X(T).toFixed(1),
+      nowDot: 'position: absolute; left: calc(' + pc(X(T), 600) + ' - 6px); top: calc(' + pc(Y(D), 240) + ' - 6px); width: 12px; height: 12px; border-radius: 6px; background: #36D6FF; box-shadow: 0 0 0 4px rgba(54,214,255,.2), 0 0 14px #36D6FF; transition: left .8s, top .8s;',
+      nowTag: 'position: absolute; left: calc(' + pc(X(T), 600) + ' + 10px); top: 6px; padding: 3px 8px; border-radius: 6px; background: rgba(54,214,255,.12); border: 1px solid rgba(54,214,255,.4); font-size: 11px; color: #9BE9FF; white-space: nowrap; transition: left .8s;',
+      nowLabel: 'Now ' + Math.round(T) + '° → ' + Math.round(D) + '%',
+      pts: pts.map(([a, b], i) => { const on = s.sel === i; return { on, aria: 'Point ' + (i + 1) + ': ' + a + ' degrees, ' + b + ' percent', pick: () => this.setState({ sel: i }),
+        style: 'position: absolute; left: calc(' + pc(X(a), 600) + ' - 9px); top: calc(' + pc(Y(b), 240) + ' - 9px); width: 18px; height: 18px; border-radius: 9px; cursor: pointer; padding: 0; ' +
+          (on ? 'background: #FF4D1A; border: 3px solid #F4F5F7; box-shadow: 0 0 0 6px rgba(255,77,26,.25), 0 0 18px #FF4D1A;' : 'background: #0D0E12; border: 3px solid #FF4D1A;') }; }),
+      selTag: 'position: absolute; left: calc(' + pc(X(sel[0]), 600) + ' - 40px); top: calc(' + pc(Y(sel[1]), 240) + ' + 16px); width: 80px; text-align: center; padding: 4px 0; border-radius: 8px; background: #1E2026; border: 1px solid rgba(255,77,26,.5); font-size: 12px; font-weight: 600; transition: left .35s, top .35s;',
+      selLabel: sel[0] + '° · ' + sel[1] + '%', selNum: (s.sel + 1) + ' of 5',
+      nudges: [['− 5% speed', 0, -5], ['+ 5% speed', 0, 5], ['← 5° cooler', -5, 0], ['5° hotter →', 5, 0]].map(([l, dt, dd]) => ({ label: l, pick: () => this.nudge(dt, dd), style: this.small(false) })),
+      sensors: [['CPU', 'CPU'], ['GPU', 'GPU'], ['Hottest', 'Hottest']].map(([l, k]) => ({ label: l, on: s.sensor[s.group] === k, pick: () => this.setState({ sensor: { ...s.sensor, [s.group]: k } }), style: segStyle(s.sensor[s.group] === k).replace('min-height: 36px', 'min-height: 32px').replace('padding: 0 16px', 'padding: 0 12px') })),
+      safeChip: this.chip('#3DDC84'), safeDot: this.dot('#3DDC84'),
+      rules: [
+        { label: 'Pump never slows down', sub: 'Header 7 is pinned at 100%', locked: true, editable: false },
+        { label: 'Full speed at 90°', sub: 'CPU or GPU over 90° overrides any curve', key: 'crit' },
+        { label: 'Hand back to BIOS on exit', sub: 'If Prism stops, the board takes over', key: 'stop' },
+        { label: 'Never below 20%', sub: 'Radiator and case fans keep spinning', locked: true, editable: false }
+      ].map(r => r.key ? { ...r, locked: false, editable: true, on: s.rules[r.key], toggle: () => this.setState({ rules: { ...s.rules, [r.key]: !s.rules[r.key] } }), ...this.sw(s.rules[r.key]) } : { ...r, on: true, track: '', knob: '', toggle: () => {} }),
+      smooth: [
+        { label: 'Ramp time', value: s.ramp, opts: ['Instant', '1 s', '2 s', '5 s'].map(o => ({ label: o, pick: () => this.setState({ ramp: o }), style: this.small(s.ramp === o) })) },
+        { label: 'Hold before slowing down', value: s.hyst, opts: ['0°', '3°', '5°', '8°'].map(o => ({ label: o, pick: () => this.setState({ hyst: o }), style: this.small(s.hyst === o) })) }],
+      headers: [[1, 'Nothing connected'], [2, 'Radiator', 'Radiator'], [3, 'Nothing connected'], [4, 'Nothing connected'], [5, 'Nothing connected'], [6, 'Case fans', 'Case fans'], [7, 'AIO pump', 'pump']].map(([n, name, g]) => {
+        const used = !!g, rpm = g === 'pump' ? w(2812, 12, .9) : g ? Math.max(380, (g === 'Radiator' ? 2987 : 1636) * this.duty(s.curves[g], temps[s.sensor[g]]) / 100) : 0, c = g === 'pump' ? '#3DDC84' : '#36D6FF';
+        return { n, name, rpm: used ? Math.round(rpm).toLocaleString('en-US') + ' rpm' : '—', text: used ? '#F4F5F7' : '#5A5D66', dot: used ? this.dot(c) : 'width: 7px; height: 7px; border-radius: 4px; background: #2A2C33;',
+          style: 'padding: 12px; border-radius: 14px; ' + (used ? 'background: #17181D; border: 1px solid rgba(255,255,255,.08);' : 'background: transparent; border: 1px dashed rgba(255,255,255,.08);') }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

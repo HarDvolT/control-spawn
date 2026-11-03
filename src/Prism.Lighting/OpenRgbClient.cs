@@ -38,7 +38,7 @@ public sealed class OpenRgbClient(IConnectionFactory connections) : IRgbBackend
                 StartReader();
                 ProtocolVersion = 0;
             }
-            await SendAsync(0, 50, Encoding.UTF8.GetBytes("Prism\0"), cancellationToken);
+            await SendAsync(0, 50, Encoding.UTF8.GetBytes("Control Spawn\0"), cancellationToken);
             await LoadControllersAsync(cancellationToken);
         }
         catch { await StopReaderAsync(); if (stream is not null) await stream.DisposeAsync(); stream = null; throw; }
@@ -95,6 +95,19 @@ public sealed class OpenRgbClient(IConnectionFactory connections) : IRgbBackend
             ValidateController(controller);
             if (colors.Count != Controllers[(int)controller].Colors.Count) throw new ArgumentException("LED color count mismatch.", nameof(colors));
             await SendAsync(controller, 1050, OpenRgbProtocol.UpdateLeds(colors), cancellationToken);
+        }
+        finally { gate.Release(); }
+    }
+    /// <summary>Sets one zone's colours. OpenRGB then writes only that zone to the device, not every zone.</summary>
+    public async Task SetZoneColorsAsync(uint controller, int zone, IReadOnlyList<RgbColor> colors, CancellationToken cancellationToken = default)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            ValidateController(controller);
+            var zones = Controllers[(int)controller].Zones;
+            if (zone < 0 || zone >= zones.Count) throw new ArgumentOutOfRangeException(nameof(zone));
+            await SendAsync(controller, 1051, OpenRgbProtocol.UpdateZoneLeds(zone, colors), cancellationToken);
         }
         finally { gate.Release(); }
     }

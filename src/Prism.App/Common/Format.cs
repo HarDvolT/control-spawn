@@ -8,6 +8,26 @@ namespace Prism.App.Common;
 /// </summary>
 public static class Format
 {
+    /// <summary>
+    /// The overheat/sensor guard drives every fan at 100% itself; the BIOS only takes over when Control Spawn stops.
+    /// The old "Fan failsafe active · BIOS control" said the opposite during an overheat.
+    /// </summary>
+    public static string FailsafeStatus(string? reason) => "Overheat guard · all fans at 100%" + (string.IsNullOrWhiteSpace(reason) ? "" : " · " + reason);
+    /// <summary>The one-word signal rating. The router sends either a word or a whole sentence, so map both, then fall back to the score.</summary>
+    public static string? SignalWord(Prism.Core.Ipc.RouterState? router)
+    {
+        if (router is null) return null;
+        var verdict = router.Verdict?.Trim();
+        if (verdict is "Excellent" or "Good" or "Fair" or "Poor") return verdict;
+        if (verdict is not null)
+        {
+            if (verdict.StartsWith("Great", StringComparison.OrdinalIgnoreCase)) return "Excellent";
+            if (verdict.StartsWith("Solid", StringComparison.OrdinalIgnoreCase)) return "Good";
+            if (verdict.StartsWith("Usable", StringComparison.OrdinalIgnoreCase)) return "Fair";
+            if (verdict.StartsWith("Weak", StringComparison.OrdinalIgnoreCase)) return "Poor";
+        }
+        return router.Score switch { >= 80 => "Excellent", >= 60 => "Good", >= 40 => "Fair", >= 0 => "Poor", _ => null };
+    }
     public const string Dash = "—";
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -24,10 +44,10 @@ public static class Format
         value is { } v && double.IsFinite(v) ? v.ToString("N0", Inv) : Dash;
 
     public static string Temp(double? value, int decimals = 1) =>
-        value is { } v && double.IsFinite(v) ? v.ToString("F" + decimals, Inv) + "°" : Dash;
+        value is { } v && double.IsFinite(v) ? DisplayPreferences.Temperature(v).ToString("F" + decimals, Inv) + "\u00b0" : Dash;
 
     public static string TempUnit(double? value, int decimals = 1) =>
-        value is { } v && double.IsFinite(v) ? v.ToString("F" + decimals, Inv) + " °C" : Dash;
+        value is { } v && double.IsFinite(v) ? DisplayPreferences.Temperature(v).ToString("F" + decimals, Inv) + " " + DisplayPreferences.Unit : Dash;
 
     public static string Gb(double? value, int decimals = 1) =>
         value is { } v && double.IsFinite(v) ? v.ToString("F" + decimals, Inv) + " GB" : Dash;

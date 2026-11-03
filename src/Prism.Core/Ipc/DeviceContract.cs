@@ -17,4 +17,6 @@ public sealed record ApplianceActionState(int Siid, int Aiid, string Name, bool 
 public sealed record ApplianceState(string Id, string Name, string Model, bool Connected, string Status,
     IReadOnlyList<ApplianceProperty> Properties, IReadOnlyList<ApplianceActionState> Actions,
     double? Temperature = null, double? TargetTemperature = null, double? TargetMinutes = null,
-    double? RemainingMinutes = null, bool TurnBasket = false, string? Warning = null);
+    double? RemainingMinutes = null, bool TurnBasket = false, string? Warning = null, IReadOnlyList<CookRecord>? History = null);
+public sealed record CookRecord(DateTimeOffset ObservedSince, DateTimeOffset EndedAt,
+    double? TargetTemperature, double? TargetMinutes, string Outcome);

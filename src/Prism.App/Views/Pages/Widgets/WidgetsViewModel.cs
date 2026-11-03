@@ -42,12 +42,13 @@ public sealed class WidgetsViewModel : PageViewModel
         ToggleVisibilityCommand = new RelayCommand(ToggleVisibility);
         ToggleEditCommand = new RelayCommand(() => IsEditing = !IsEditing);
 
-        _host.VisibilityChanged += () => { WidgetsVisible = _host.IsVisible; OnPropertyChanged(nameof(VisibilityLabel)); };
+        _host.VisibilityChanged += () => { WidgetsVisible = _host.IsVisible; OnPropertyChanged(nameof(VisibilityLabel)); OnPropertyChanged(nameof(ShowWidgets)); };
         _widgetsVisible = _host.IsVisible;
         Selected = Widgets.FirstOrDefault();
         Refresh();
     }
 
+    public string DesktopClock => DateTime.Now.ToString("HH:mm");
     public SettingsViewModel Settings { get; }
     public ObservableCollection<WidgetViewModel> Widgets { get; } = new();
     public ObservableCollection<WidgetGalleryItem> Gallery { get; } = new();
@@ -61,6 +62,30 @@ public sealed class WidgetsViewModel : PageViewModel
     public RelayCommand ToggleEditCommand { get; }
 
     public IReadOnlyList<string> Sizes { get; } = ["Small", "Medium", "Large"];
+    public IReadOnlyList<string> Backgrounds { get; } = ["Glass", "Solid", "Clear"];
+
+    // "Look" applies to every widget at once; each widget's own right-click menu still overrides it.
+    public string AllSize
+    {
+        get => Widgets.FirstOrDefault()?.Size.ToString() ?? "Medium";
+        set { if (Enum.TryParse<WidgetSize>(value, out var size)) foreach (var w in Widgets) w.Size = size; OnPropertyChanged(); _host.Sync(); }
+    }
+    public string AllBackground
+    {
+        get => Widgets.FirstOrDefault()?.Background ?? "Glass";
+        set { if (value is null) return; foreach (var w in Widgets) w.Background = value; OnPropertyChanged(); }
+    }
+    public bool AllOnTop
+    {
+        get => Widgets.Count > 0 && Widgets.All(w => w.AlwaysOnTop);
+        set { foreach (var w in Widgets) w.AlwaysOnTop = value; OnPropertyChanged(); }
+    }
+    public bool AllClickThrough
+    {
+        get => Widgets.Count > 0 && Widgets.All(w => w.ClickThrough);
+        set { foreach (var w in Widgets) w.ClickThrough = value; OnPropertyChanged(); }
+    }
+    public RelayCommand LineUpCommand => new(() => { _host.LineUp(); StatusText = "Widgets lined up on the right of your main screen"; });
 
     public WidgetViewModel? Selected
     {
@@ -71,10 +96,11 @@ public sealed class WidgetsViewModel : PageViewModel
             if (_selected is not null) _selected.IsSelected = false;
             _selected = value;
             if (_selected is not null) _selected.IsSelected = true;
-            OnPropertiesChanged(nameof(Selected), nameof(SelectedName), nameof(SelectedHint), nameof(HasSelection));
+            OnPropertiesChanged(nameof(Selected), nameof(SelectedName), nameof(SelectedHint), nameof(HasSelection), nameof(SelectedSize));
         }
     }
 
+    public string SelectedSize { get => Selected?.SizeName ?? "Medium"; set { SetSize(value); OnPropertyChanged(); } }
     public bool HasSelection => _selected is not null;
     public string SelectedName => _selected?.Name ?? "No widget";
     public string SelectedHint => _selected?.Kind switch
@@ -104,6 +130,11 @@ public sealed class WidgetsViewModel : PageViewModel
     public string EditLabel => IsEditing ? "Done editing" : "Edit layout";
     public bool WidgetsVisible { get => _widgetsVisible; private set => Set(ref _widgetsVisible, value); }
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
+    public bool ShowWidgets
+    {
+        get => WidgetsVisible;
+        set { if (value == WidgetsVisible) return; if (value) _host.ShowAll(); else _host.HideAll(); WidgetsVisible = value; OnPropertyChanged(); }
+    }
     public string VisibilityLabel => WidgetsVisible ? "Hide from desktop" : "Show on desktop";
 
     public override void Apply(StateMessage state)
@@ -182,12 +213,12 @@ public sealed class WidgetsViewModel : PageViewModel
 
     private void SeedDefaults()
     {
-        foreach (var kind in new[]
-                 {
-                     WidgetKind.SystemMonitor, WidgetKind.Fans, WidgetKind.Lighting, WidgetKind.Modem, WidgetKind.Lamp
-                 })
+        foreach (var (kind, left, top, enabled) in new[] { (WidgetKind.SystemMonitor, .03, .065, true), (WidgetKind.Modem, .95, .065, true), (WidgetKind.Fans, .03, .52, true), (WidgetKind.Lamp, .96, .31, true), (WidgetKind.AirFryer, .03, .6, false) })
         {
-            _file.Widgets.Add(WidgetDefaults.Create(kind, _workArea, _file.Widgets.Count));
+            var layout = WidgetDefaults.Create(kind, _workArea, _file.Widgets.Count);
+            layout.X = WidgetGrid.Snap(_workArea.X + left * Math.Max(0, _workArea.Width - WidgetSizes.Width(layout.Size)));
+            layout.Y = WidgetGrid.Snap(_workArea.Y + top * Math.Max(0, _workArea.Height - WidgetSizes.Height(kind, layout.Size)));
+            layout.Enabled = enabled; _file.Widgets.Add(layout);
         }
     }
 

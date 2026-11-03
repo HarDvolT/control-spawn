@@ -9,6 +9,8 @@ public partial class MainWindow : Window
     public MainWindow(MainViewModel vm)
     {
         InitializeComponent(); DataContext = _vm = vm;
+        // A minimized window draws nothing, so hide its content: every animation and timer pauses until it comes back.
+        StateChanged += (_, _) => { if (Content is UIElement root) root.Visibility = WindowState == WindowState.Minimized ? Visibility.Hidden : Visibility.Visible; };
         SourceInitialized += (_, _) => Services.WindowEffects.Apply(this);
         vm.PropertyChanged += SearchChanged;
         Closed += (_, _) => vm.PropertyChanged -= SearchChanged;
@@ -17,6 +19,14 @@ public partial class MainWindow : Window
     { if (e.PropertyName == nameof(_vm.IsSearchOpen) && _vm.IsSearchOpen) Dispatcher.BeginInvoke(() => SearchBox.Focus()); }
     private void TitleDrag(object sender, MouseButtonEventArgs e)
     { if (e.ClickCount == 2) MaximizeClick(sender,e); else DragMove(); }
+    private void NotificationsClick(object sender, RoutedEventArgs e)
+    {
+        var menu = new System.Windows.Controls.ContextMenu();
+        var warnings = (_vm.LastState?.Health.Warnings ?? []).Concat(_vm.Notifications.Messages).ToArray();
+        foreach (var warning in warnings is { Length: > 0 } ? warnings : new[] { _vm.StatusText })
+            menu.Items.Add(new System.Windows.Controls.MenuItem { Header = warning, IsEnabled = false });
+        menu.PlacementTarget = (UIElement)sender; menu.IsOpen = true;
+    }
     private void MinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void MaximizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void CloseClick(object sender, RoutedEventArgs e) => Close();

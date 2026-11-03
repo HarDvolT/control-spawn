@@ -14,6 +14,9 @@ namespace Prism.App.Controls;
 /// </summary>
 public class LedStrip : FrameworkElement
 {
+    public bool WaveHeights { get; set; }
+    /// <summary>False holds one frame (desktop widgets: transparent windows redraw in software, so constant motion is costly).</summary>
+    public bool Live { get; set; } = true;
     public static readonly DependencyProperty EffectKindProperty = DependencyProperty.Register(
         nameof(EffectKind), typeof(LightingEffect), typeof(LedStrip),
         new FrameworkPropertyMetadata(LightingEffect.Smart, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -48,13 +51,15 @@ public class LedStrip : FrameworkElement
 
     private double _phase;
     private TimeSpan _lastFrame;
+    // A frame timer instead of CompositionTarget.Rendering, which would keep the whole window redrawing at 60 fps.
+    private readonly System.Windows.Threading.DispatcherTimer _timer = Motion.FrameTimer();
 
     public LedStrip()
     {
         SnapsToDevicePixels = true;
         UseLayoutRounding = true;
-        Loaded += (_, _) => CompositionTarget.Rendering += OnFrame;
-        Unloaded += (_, _) => CompositionTarget.Rendering -= OnFrame;
+        _timer.Tick += OnFrame;
+        Motion.WhileVisible(this, () => { if (Live) _timer.Start(); }, _timer.Stop);
     }
 
     public LightingEffect EffectKind { get => (LightingEffect)GetValue(EffectKindProperty); set => SetValue(EffectKindProperty, value); }
@@ -71,7 +76,7 @@ public class LedStrip : FrameworkElement
     private void OnFrame(object? sender, EventArgs e)
     {
         if (Motion.ReduceAnimations || !IsVisible || !Animates) return;
-        var now = TimeSpan.FromMilliseconds(Environment.TickCount64);
+        var now = Motion.Clock.Elapsed;
         if (_lastFrame == TimeSpan.Zero) { _lastFrame = now; return; }
         var delta = (now - _lastFrame).TotalSeconds;
         _lastFrame = now;
@@ -106,8 +111,16 @@ public class LedStrip : FrameworkElement
         {
             var color = spatial is null ? ColorAt(i, count) : Color.FromRgb(spatial[i].R, spatial[i].G, spatial[i].B);
             if (brightness < 1) color = ColorUtil.Mix(Color.FromRgb(10, 10, 11), color, 0.25 + brightness * 0.75);
-            var rect = new Rect(i * (ledWidth + gap), 0, ledWidth, height);
+            double wave = WaveHeights ? .55 + .45 * Math.Abs(Math.Sin((i + _phase) * .35)) : 1;
+            double barHeight = WaveHeights ? Math.Min(height, 20 + 30 * wave) : height;
+            var rect = new Rect(i * (ledWidth + gap), height - barHeight, ledWidth, barHeight);
+            if (WaveHeights)
+            {
+                dc.PushOpacity(wave);
+                dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(35, color.R, color.G, color.B)), null, new Rect(rect.X - 3, rect.Y - 3, rect.Width + 6, rect.Height + 6), radius + 2, radius + 2);
+            }
             dc.DrawRoundedRectangle(ColorUtil.Brush(color), null, rect, radius, radius);
+            if (WaveHeights) dc.Pop();
         }
     }
 

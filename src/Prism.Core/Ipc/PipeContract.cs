@@ -29,6 +29,7 @@ public static class Commands
     public const string SetupDevice = "setupDevice";
     public const string RenameDevice = "renameDevice";
     public const string ImportTokens = "importTokens";
+    public const string AddToken = "addToken";           // args: { "token": "<32 hex>", "id"?: registry id, "ip"?: string }; checked on the device before saving
     public const string SetDiscoveryOptions = "setDiscoveryOptions";
     public const string ApplianceProperties = "applianceProperties";
     public const string PrepareApplianceStart = "prepareApplianceStart";
@@ -38,12 +39,20 @@ public static class Commands
     public const string Subscribe = "subscribe";         // start receiving state pushes
     public const string GetState = "getState";           // one StateMessage in Response.Data
     public const string SetFanMode = "setFanMode";       // args: { "group": "Radiator|Case fans", "mode": "Silent|Standard|Turbo|Full|Custom" }
+    public const string SetFanTuning = "setFanTuning";   // args: { "group": "...", "response": "Fast|Normal|Calm|Slow", "hold": 0-10 }
+    public const string MeasureFan = "measureFan";       // args: { "header": 2 } steps one fan through its speeds and records the rpm
+    public const string SetSceneFans = "setSceneFans";   // args: { "name": "Gaming", "fans": "Silent|Standard|Turbo|Full" }
+    public const string SetFanProfile = "setFanProfile"; // args: { "mode": "Silent|Standard|Turbo", "points": [[t,%] x8] } or { "mode", "reset": true }
     public const string SetFanCurve = "setFanCurve";     // args: { "group": "...", "points": [[t,%] x8], "source": "Cpu|Motherboard|Gpu|Maximum" }
     public const string SetSensorBinding = "setSensorBinding";
     public const string SetLighting = "setLighting";     // args: { "effect": "Static|...", "color": "#RRGGBB", "brightness": 0..1, "speed": 0..2 }
+    public const string SetPartLook = "setPartLook";     // args: { "part": "<device id or device/zone/N>", "effect"?, "color"?, "brightness"?, "speed"? } or { "part", "clear": true }
     public const string SetDeviceSync = "setDeviceSync"; // args: { "device": "<id>", "enabled": true }
     public const string SetLamp = "setLamp";             // args: { "lamp"?: id (default first), "on"?: true, "brightness"?: 1..100, "follow"?: "pc|average|own|map", "color"?: "#RRGGBB", "name"?: string }
     public const string ApplyScene = "applyScene";       // args: { "name": "Gaming" }
+    public const string SetAutomations = "setAutomations"; // args: any AutomationSettings fields to change
+    public const string SetSessionLocked = "setSessionLocked"; // args: { "locked": true } — sent by the app, which can see the desktop
+    public const string SaveScene = "saveScene";         // args: { name, fans, effect, color, brightness (0-1), lamps: pc|warm|cool|off }
     public const string SetEffectParams = "setEffectParams"; // { parameters: EffectParameters }
     public const string SetLightingMap = "setLightingMap"; // { map: LightingMap }
     public const string SetEventEffects = "setEventEffects"; // { events: EventEffectOptions }
@@ -81,7 +90,37 @@ public sealed record StateMessage(
     ServiceHealth Health,
     string Type = "state", IReadOnlyList<LampState>? Lamps = null,
     IReadOnlyList<DeviceState>? Devices = null, IReadOnlyList<DeviceState>? NewDevices = null,
-    IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null);
+    IReadOnlyList<ApplianceState>? Appliances = null, DiscoveryOptions? Discovery = null,
+    IReadOnlyList<TelemetrySample>? History = null, IReadOnlyList<SceneSummary>? Scenes = null, AutomationState? Automations = null,
+    // True when History holds only samples newer than the previous push; the client appends them to what it has.
+    bool HistoryIsDelta = false,
+    // Silent, Standard or Turbo curves the user edited; a mode missing here runs its built-in curve.
+    IReadOnlyDictionary<FanMode, IReadOnlyList<FanPoint>>? FanProfiles = null,
+    // What each measured fan spins at for a given duty, keyed by header.
+    IReadOnlyDictionary<int, FanRpmMap>? FanRpm = null);
+
+/// <summary>A fan's measured speeds: rpm at each duty step, and the duty below which it stops.</summary>
+public sealed record FanRpmMap(IReadOnlyList<FanRpmPoint> Points, double? StopsBelow, DateTimeOffset Measured);
+public readonly record struct FanRpmPoint(double Percent, double Rpm);
+
+/// <summary>Rules that switch scenes on their own. Priority: locked PC, then a running game, then night hours.</summary>
+public sealed record AutomationSettings(
+    bool GameEnabled = true, string GameScene = "Gaming",
+    bool NightEnabled = true, string NightScene = "Night", string NightStart = "23:00", string NightEnd = "07:00",
+    bool LockEnabled = true, string LockScene = "Away",
+    IReadOnlyList<string>? ExtraGames = null);
+
+/// <summary>Which rule is driving the scene right now, if any. Rule is "lock", "game" or "night".</summary>
+public sealed record AutomationState(AutomationSettings Settings, string? Rule = null, string? Scene = null, string? Detail = null);
+
+/// <summary>A saved scene as the app shows and edits it. Lamps is "pc", "warm", "cool" or "off".</summary>
+public sealed record SceneSummary(string Name, FanMode Fans, LightingEffect Effect, string Color, double Brightness, string Lamps);
+
+/// <summary>Real service samples; null measurements remain gaps rather than invented readings.</summary>
+public sealed record TelemetrySample(DateTimeOffset Timestamp, double? CpuLoad, double? CpuTemp,
+    double? GpuLoad, double? GpuTemp, double? PingMs, double? NetDownMbps, double? NetUpMbps,
+    IReadOnlyDictionary<int, double?>? FanRpms = null,
+    double? DiskReadMBps = null, double? Rsrp5g = null, double? Sinr5g = null);
 
 public sealed record SystemState(
     double? CpuLoad, IReadOnlyList<double?> CpuCoreLoads, double? CpuClockMhz, double? CpuTemp, double? CpuPowerW,
@@ -90,12 +129,27 @@ public sealed record SystemState(
     double? RamUsedGb, double? RamTotalGb, IReadOnlyList<double?> DimmTemps,
     double? BoardTemp,
     IReadOnlyList<DiskState> Disks,
-    double? NetDownMbps, double? NetUpMbps, double? GpuMemoryJunction = null);
+    double? NetDownMbps, double? NetUpMbps, double? GpuMemoryJunction = null,
+    double? UptimeSeconds = null, IReadOnlyList<ProcessLoad>? TopProcesses = null, bool? ThermalThrottling = null,
+    string? CpuName = null, string? GpuName = null, string? BoardName = null,
+    int? ThrottlingEvents = null, DateTimeOffset? ThrottlingObservedSince = null, double? CpuCcdTemp = null, string? FanChipName = null);
+
+public sealed record ProcessLoad(int Id, string Name, double CpuPercent);
 
 public sealed record DiskState(string Name, double? TempC, double? ReadMBps, double? WriteMBps, double? UsedPercent, double? ActivityPercent = null);
-public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve);
+/// <param name="Target">The speed the curve asks for now; Percent catches up at the fan's response rate.</param>
+/// <param name="Following">The averaged temperature the curve is reading.</param>
+/// <param name="Measuring">Set while the fan is being measured, e.g. "60%".</param>
+/// <param name="Stalled">Asked to spin but reporting 0 rpm: unplugged or stuck.</param>
+public sealed record FanState(int Header, string Name, double? Rpm, double? Percent, bool Controllable, bool IsPump, string Curve,
+    FanControlState? Configuration = null, double? Target = null, double? Following = null, string? Measuring = null, bool Stalled = false);
+public sealed record FanControlState(IReadOnlyList<FanPoint> Points, TemperatureSource Source, double Minimum,
+    double Hysteresis, double SpinUpPerSecond, double SpinDownPerSecond, FanResponse Response = FanResponse.Normal, double Averaging = 0, bool Edited = false);
 public sealed record LightingState(LightingEffect Effect, string Color, double Brightness, double Speed, IReadOnlyList<RgbDeviceState> Devices,
-    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null, IReadOnlyList<ZoneIdentification>? IdentifyingZones = null);
+    EffectParameters? Parameters = null, LightingMap? Map = null, EventEffectOptions? Events = null, ReactiveInputState? Inputs = null, IReadOnlyDictionary<string, SensorBinding>? Bindings = null, IReadOnlyDictionary<string, SensorBindingReading>? BindingReadings = null, IReadOnlyList<ZoneIdentification>? IdentifyingZones = null,
+    IReadOnlyDictionary<string, PartLook>? PartLooks = null);
+/// <summary>A part (a device, or one zone such as an ARGB header) running its own effect instead of the whole-case look.</summary>
+public sealed record PartLook(LightingEffect Effect, string Color, double Brightness, double Speed);
 public sealed record ZoneIdentification(string Device, int Zone, int Size, int LedIndex);
 public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Connected, bool Synced, int LedCount,
     IReadOnlyList<RgbZoneState>? Zones = null,
@@ -106,19 +160,33 @@ public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Co
 public sealed record RgbZoneState(string Name, string Type, int FirstLed, int LedCount, int MinLeds, int MaxLeds,
     IReadOnlyList<string>? LedNames = null,
     int MatrixWidth = 0, int MatrixHeight = 0, IReadOnlyList<int>? Matrix = null); // Matrix: LED index per cell, -1 = empty
-public sealed record LampState(string Model, bool Connected, bool On, int Brightness, string Color, string Follow, string Transport, string? Id = null, string? Name = null, uint? DeviceId = null, string? Host = null, string? Error = null);
+public sealed record LampState(string Model, bool Connected, bool On, int Brightness, string Color, string Follow, string Transport, string? Id = null, string? Name = null, uint? DeviceId = null, string? Host = null, string? Error = null,
+    int? Kelvin = null, bool HandedOff = false);
 public sealed record RouterState(
     bool Connected, string? Network, string? Band, int? Score, int? Bars, string? Verdict, string? Sentence,
     double? Rsrp5g, double? Sinr5g, double? Rsrq5g, double? Rsrp4g, double? Sinr4g, double? Rsrq4g,
-    double? PingMs, double? PingLossPercent, string? Error);
+    double? PingMs, double? PingLossPercent, string? Error,
+    RouterDetails? Details = null);
+
+public sealed record RadioCell(string? Band, string? Pci, string? CellId, string? Arfcn,
+    string? Bandwidth, double? Rssi);
+public sealed record RouterNeighbor(string Radio, string? Arfcn, string? Pci, double? Rsrp, double? Sinr);
+public sealed record RouterDetails(RadioCell? Nr = null, RadioCell? Lte = null,
+    string? CarrierAggregation = null, double? TowerDistanceKm = null,
+    string? Model = null, string? Address = null, double? UptimeSeconds = null,
+    double? MonthlyBytes = null, IReadOnlyList<RouterNeighbor>? Neighbors = null);
 
 /// <summary>Conflicts and warnings the UI should surface (e.g. "AsusFanControlService is running").</summary>
-public sealed record ServiceHealth(bool Mock, bool Elevated, IReadOnlyList<string> Warnings, bool FanFailsafeActive);
+public sealed record ServiceHealth(bool Mock, bool Elevated, IReadOnlyList<string> Warnings, bool FanFailsafeActive,
+    string? Version = null, DateTimeOffset? LastFailsafe = null, string? LastFailsafeReason = null);
 
 // Additive protocol-1 spatial lighting types. Coordinates use top-left origin.
 public sealed record MapPoint(double X, double Y);
+/// <param name="Rings">LEDs form this many fan rings spread along the placement's line; 0 lays them on the line itself.</param>
+/// <param name="FirstRing">The first ring sits here instead of on the line, for a chain that starts elsewhere
+/// (an AIO's pump fan before its radiator fans); the other rings share the line.</param>
 public sealed record DevicePlacement(string Device, double X, double Y, double Length = 0.4,
-    double Rotation = 90, bool Flip = false, int? Zone = null);
+    double Rotation = 90, bool Flip = false, int? Zone = null, int Rings = 0, MapPoint? FirstRing = null);
 public sealed record LightingMap(IReadOnlyList<DevicePlacement> Devices, MapPoint? Lamp = null, IReadOnlyDictionary<string, MapPoint>? Lamps = null);
 public sealed record PaletteStop(double Position, string Color);
 public sealed record EffectParameters

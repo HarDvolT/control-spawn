@@ -21,6 +21,30 @@ public sealed class SpatialEffectTests
         Assert.All(SpatialEffects.Render(scene, parameters with { Devices = new Dictionary<string, bool> { ["ram"] = false } }, 1, Points, "ram"), c => Assert.Equal(RgbColor.Black, c));
     }
     [Fact]
+    public void CyclingEffectsLoopWithoutAJump()
+    {
+        // Spectrum ends on purple and starts on red: the loop must blend across, not snap.
+        var stops = Palettes.BuiltIn["Spectrum"];
+        static int Step(RgbColor a, RgbColor b) => Math.Max(Math.Abs(a.R - b.R), Math.Max(Math.Abs(a.G - b.G), Math.Abs(a.B - b.B)));
+        for (double t = 0; t < 1; t += 0.005)
+            Assert.True(Step(Palettes.SampleLoop(stops, t), Palettes.SampleLoop(stops, t + 0.005)) < 16, $"jump at {t:0.000}");
+        Assert.Equal(Palettes.SampleLoop(stops, 0), Palettes.SampleLoop(stops, 1));
+    }
+
+    [Fact]
+    public void SpeedChangesCarryOnFromTheSamePoint()
+    {
+        var clock = new PhaseClock();
+        Assert.Equal(10, clock.Time("case", 10, 1), 9);
+        Assert.Equal(12, clock.Time("case", 12, 1), 9);
+        Assert.Equal(12, clock.Time("case", 12, 2), 9);   // twice as fast: no jump at the change
+        Assert.Equal(14, clock.Time("case", 13, 2), 9);
+        Assert.Equal(18, clock.Time("case", 15, 0), 9);   // stopped at 15 s, after two more seconds at double speed
+        Assert.Equal(18, clock.Time("case", 20, 0), 9);   // and it holds there
+        Assert.Equal(3, clock.Time("fans", 3, 1), 9);     // each look keeps its own clock
+    }
+
+    [Fact]
     public void LegacyRenderAlsoAcceptsZeroSpeedAndFreezesPhase()
     {
         var clock = new ManualClock(); var input = new FakeInputs(); var engine = new EffectEngine(clock, input, input, input);
@@ -48,7 +72,7 @@ public sealed class SpatialEffectTests
         Assert.InRange(horizontal[0].X, 0.1999, 0.2001);
         var strip = device with { Id = "strip", Kind = "strip" };
         LightingMap map = new([new("strip", 0.3, 0.2, 0.4, 0)]);
-        Assert.Equal(new(0.3, 0.2), CaseMap.LampPoint(map, [strip]));
+        Assert.Equal(new(0.64, 0.07), CaseMap.LampPoint(map, [strip]));
         Assert.Equal(new(0.7, 0.8), CaseMap.LampPoint(map with { Lamp = new(0.7, 0.8) }, [strip]));
         var scene = new Scene("Flow", LightingEffect.GradientFlow, new(255, 0, 0));
         Assert.Equal(SpatialEffects.Render(scene, new(), 1, [forward[1]])[0], SpatialEffects.Render(scene, new(), 1, [flip[1]])[0]);
@@ -61,10 +85,38 @@ public sealed class SpatialEffectTests
         var map = new LightingMap([new("board", 0.3, 0.4), new("board", 0.6, 0.3, 0.4, 0, true, 1)]);
         var positions = CaseMap.Positions(board, map.Devices[0], map);
         Assert.InRange(positions[2].X, 0.7999, 0.8001); Assert.InRange(positions[4].X, 0.3999, 0.4001);
-        Assert.Equal(new(0.6, 0.3), CaseMap.LampPoint(map, [board]));
+        Assert.Equal(new(0.64, 0.07), CaseMap.LampPoint(map, [board]));
         var matrix = board with { LedCount = 3, Zones = [new("Grid", "Matrix", 0, 3, 3, 3, MatrixWidth: 2, MatrixHeight: 2, Matrix: [0, -1, 1, 2])] };
         positions = CaseMap.Positions(matrix, new("board", 0.5, 0.5, 0.4, 0));
         Assert.Equal(3, positions.Length); Assert.Equal(positions[0].X, positions[1].X); Assert.True(positions[2].X > positions[1].X);
+    }
+    [Fact]
+    public void UnplacedHeadersBecomeAioChainAndCaseFans()
+    {
+        var board = new RgbDeviceState("board", "Board", "Motherboard", true, true, 206,
+            [new("Board", "Linear", 0, 2, 2, 2), new("H1", "Linear", 2, 48, 0, 120), new("H2", "Linear", 50, 36, 0, 120), new("H3", "Linear", 86, 120, 0, 120)]);
+        // A map saved before headers had places still holds the shared top line for every header.
+        var map = new LightingMap([new("board", 0.25, 0.4), new("board", 0.5, 0.12, 0.66, 0, Zone: 1), new("board", 0.5, 0.12, 0.66, 0, Zone: 2)]);
+        var p = CaseMap.Positions(board, map.Devices[0], map);
+        var pump = p[2..14]; var radiator = p[14..50]; var caseFans = p[50..86];
+        Assert.All(pump, q => Assert.InRange(Math.Sqrt(Math.Pow(q.X - 0.22, 2) + Math.Pow(q.Y - 0.47, 2)), 0.06, 0.07));
+        Assert.True(pump[0].Y < pump[6].Y, "ring starts at the top");
+        Assert.All(radiator, q => Assert.InRange(q.Y, 0, 0.2));
+        Assert.True(radiator[0].X < 0.2 && radiator[35].X > 0.4, "radiator fans chained after the pump run across the top");
+        Assert.All(caseFans, q => Assert.InRange(q.X, 0.7, 1));
+        Assert.True(caseFans[0].Y < 0.3 && caseFans[30].Y > 0.8, "case fans run down the front");
+        // A header the user placed keeps their placement.
+        var placed = CaseMap.Positions(board, map.Devices[0], map with { Devices = [.. map.Devices, new("board", 0.1, 0.5, 0.2, 90, Zone: 3)] });
+        Assert.All(placed[86..], q => Assert.InRange(q.X, 0.0999, 0.1001));
+    }
+    [Theory]
+    [InlineData(LightingEffect.Comet)] [InlineData(LightingEffect.Scanner)] [InlineData(LightingEffect.Rain)] [InlineData(LightingEffect.Breathing)]
+    public void MovingEffectsKeepAFaintGlowInsteadOfGoingDark(LightingEffect effect)
+    {
+        var line = Enumerable.Range(0, 40).Select(i => new MapPoint(0.5, i / 39d)).ToArray();
+        var scene = new Scene("Glow", effect, new(255, 80, 20));
+        for (double time = 0; time < 6; time += 0.37)
+            Assert.All(SpatialEffects.Render(scene, new() { Palette = "Spectrum" }, time, line), c => Assert.True(c.R + c.G + c.B > 0));
     }
     [Fact]
     public void SpatialWavesSharePhaseAcrossDevicesAndDirectionChangesFlow()
@@ -137,5 +189,33 @@ public sealed class SpatialEffectTests
         Assert.Throws<ArgumentException>(() => LightingValidation.Parameters(new() { Angle = double.NaN }));
         Assert.Throws<ArgumentException>(() => LightingValidation.Map(new([new("ram", 2, 0.5)])));
         Assert.Throws<ArgumentException>(() => LightingValidation.Map(new([new("ram", 0.5, 0.5), new("ram", 0.4, 0.4)])));
+    }
+
+    [Fact]
+    public void TheAioHeaderSplitsIntoPumpAndRadiator()
+    {
+        var board = new RgbDeviceState("board", "Board", "Motherboard", true, true, 86,
+            [new("Aura Mainboard", "Single", 0, 2, 2, 2), new("Addressable RGB Header 1", "Linear", 2, 48, 0, 120), new("Addressable RGB Header 2", "Linear", 50, 36, 0, 120)]);
+        var aio = CaseMap.Pieces(board, 1);
+        Assert.Equal(["Pump", "Radiator"], aio.Select(p => p.Name));
+        Assert.Equal((2, 12), (aio[0].First, aio[0].Count)); Assert.Equal((14, 36), (aio[1].First, aio[1].Count));
+        Assert.True(SensorSources.TryRange(aio[0].Key, "board", out var first, out var count)); Assert.Equal((2, 12), (first, count));
+        Assert.False(SensorSources.TryRange(aio[0].Key, "ram", out _, out _));   // a range belongs to one device
+        Assert.False(SensorSources.TryRange("board/zone/1", "board", out _, out _));
+        Assert.Equal([("Case fans", 50, 36, "board/zone/2")], CaseMap.Pieces(board, 2));   // other headers stay whole
+    }
+
+    [Theory]
+    [InlineData(LightingEffect.Smart)] [InlineData(LightingEffect.TemperatureFlow)] [InlineData(LightingEffect.LoadMeters)]
+    [InlineData(LightingEffect.Music)] [InlineData(LightingEffect.AudioSpectrum)] [InlineData(LightingEffect.Adaptive)] [InlineData(LightingEffect.ScreenAmbient)]
+    public void ReactiveEffectsLightEveryKindOfDevice(LightingEffect effect)
+    {
+        var input = new ReactiveFrame(70, 80, 0.6, 75, 70, [1, 1, 1, 1, 1, 1, 1, 1], 1, new(255, 0, 0), new(0, 255, 0), new(0, 0, 255));
+        var points = Enumerable.Range(0, 12).Select(i => new MapPoint(i / 11.0, 1 - i / 11.0)).ToArray();
+        foreach (var kind in new[] { "Motherboard", "RAM", "GPU", "LEDStrip" })
+        {
+            var colors = SpatialEffects.Render(new("Part", effect, new(255, 77, 26), 1, 1), new EffectParameters(), 3, points, "part", kind, input);
+            Assert.Contains(colors, c => c.R + c.G + c.B > 60);   // something visibly lit on a pump ring, a stick, a card or a strip
+        }
     }
 }

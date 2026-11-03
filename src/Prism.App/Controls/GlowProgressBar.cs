@@ -47,17 +47,16 @@ public class GlowProgressBar : FrameworkElement
     private double _phase;
     private TimeSpan _lastFrame;
     private bool _animating;
+    // A frame timer instead of CompositionTarget.Rendering, which would keep the whole window redrawing at 60 fps.
+    private readonly System.Windows.Threading.DispatcherTimer _timer = Motion.FrameTimer();
 
     public GlowProgressBar()
     {
         SnapsToDevicePixels = true;
         UseLayoutRounding = true;
-        Loaded += (_, _) =>
-        {
-            CompositionTarget.Rendering += OnFrame;
-            if (Value > 0 && DisplayValue <= 0) SetDisplay(Value, animate: true);
-        };
-        Unloaded += (_, _) => CompositionTarget.Rendering -= OnFrame;
+        _timer.Tick += OnFrame;
+        Loaded += (_, _) => { if (Value > 0 && DisplayValue <= 0) SetDisplay(Value, animate: true); };
+        Motion.WhileVisible(this, () => { if (Shimmer) _timer.Start(); }, _timer.Stop);
         MinHeight = 8;
     }
 
@@ -85,6 +84,8 @@ public class GlowProgressBar : FrameworkElement
         set => SetValue(TrackColorProperty, value);
     }
 
+    /// <summary>The moving highlight and the glide to new values. Off in desktop widgets, which redraw in software.</summary>
+    public bool Shimmer { get; set; } = true;
     public bool ShowLabel
     {
         get => (bool)GetValue(ShowLabelProperty);
@@ -134,17 +135,15 @@ public class GlowProgressBar : FrameworkElement
     private void SetDisplay(double value, bool animate)
     {
         value = double.IsFinite(value) ? value : 0;
-        if (!animate || Motion.ReduceAnimations || !IsLoaded)
+        // Without shimmer (desktop widgets) values also jump: a gliding bar in a transparent window means a full software repaint every frame.
+        if (!animate || !Shimmer || !IsLoaded || !Motion.Glides(DisplayValue, value, 100))
         {
             BeginAnimation(DisplayValueProperty, null);
             DisplayValue = value;
             return;
         }
         _animating = true;
-        var animation = new DoubleAnimation(value, TimeSpan.FromMilliseconds(800))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
+        var animation = Motion.Glide(value);
         animation.Completed += (_, _) => _animating = false;
         BeginAnimation(DisplayValueProperty, animation);
     }
@@ -152,7 +151,7 @@ public class GlowProgressBar : FrameworkElement
     private void OnFrame(object? sender, EventArgs e)
     {
         if (Motion.ReduceAnimations || !IsVisible || ActualWidth <= 0) return;
-        var now = TimeSpan.FromMilliseconds(Environment.TickCount64);
+        var now = Motion.Clock.Elapsed;
         if (_lastFrame == TimeSpan.Zero) { _lastFrame = now; return; }
         var delta = (now - _lastFrame).TotalSeconds;
         _lastFrame = now;
@@ -200,7 +199,7 @@ public class GlowProgressBar : FrameworkElement
         {
             var text = FormatLabel();
             var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                new Typeface(new FontFamily("Space Grotesk, Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal),
+                Typefaces.Number(FontWeights.SemiBold),
                 Math.Max(9, Math.Min(13, height * 0.55)), ColorUtil.Brush(ColorUtil.TextPrimary),
                 VisualTreeHelper.GetDpi(this).PixelsPerDip);
             dc.DrawText(formatted, new Point(Math.Max(8, width - formatted.Width - 10), (height - formatted.Height) / 2));

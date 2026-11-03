@@ -41,13 +41,38 @@ public sealed class DashboardViewModel : PageViewModel
 
     public ObservableCollection<double> CpuHistory { get; } = new();
     public ObservableCollection<double> GpuHistory { get; } = new();
+    private IReadOnlyList<double> _pingHistory = [];
+    public IReadOnlyList<double> PingHistory { get => _pingHistory; private set { _pingHistory = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasPingHistory)); } }
+    public bool HasPingHistory => _pingHistory.Count > 1;
+    public IReadOnlyList<string> Swatches { get; } = ["#FF4D1A", "#FF4D4F", "#F5A524", "#3DDC84", "#36D6FF", "#4D6BFF", "#B26BFF"];
+    public string CpuChip => "CPU " + Format.Temp(State?.System.CpuTemp, 0);
+    public string HotspotChip => "Hotspot " + Format.Temp(State?.System.GpuHotspot, 0);
+    public string NetworkChip => State?.Router is { } router ? (router.Network ?? "Unavailable") + " " + router.Band : "Unavailable";
+    public string InternetColor => ColorUtil.ToHex(ColorUtil.ForVerdict(Format.SignalWord(State?.Router)));
+    public string InternetScore => $"{Format.SignalWord(State?.Router) ?? "Unavailable"} · {State?.Router?.Score?.ToString() ?? Format.Dash}";
+    public string InternetDetail => "Ping " + Format.Number(State?.Router?.PingMs) + " ms · ↓ " + Format.Mbps(State?.System.NetDownMbps);
+    public string FanSubtitle => SelectedFanMode switch { "Silent" => "Quiet · you will barely hear it", "Turbo" => "Performance cooling", "Full" => "Every fan at 100%", "" => "Fans on different profiles", _ => "Automatic temperature control" };
+    public RelayCommand<string> PickColorCommand => new(color => { if (color is not null) _ = RunAsync(() => Client.SetLightingAsync(LightingEffect.Static, color, LightingBrightness, LightingSpeed)); });
+    public RelayCommand LightsOffCommand => new(() => _ = RunAsync(() => Client.SetLightingAsync(LightingEffect, LightingColorHex, LightingBrightness > 0 ? 0 : 0.8, LightingSpeed)));
     public ObservableCollection<GaugeItem> Gauges { get; } = new();
     public ObservableCollection<FanRow> Fans { get; } = new();
     public ObservableCollection<SceneOption> Scenes { get; } = new();
 
-    public IReadOnlyList<string> FanModes { get; } = ["Silent", "Standard", "Turbo", "Full speed"];
+    public IReadOnlyList<string> FanModes { get; } = ["Silent", "Standard", "Turbo", "Full"];
 
-    public IReadOnlyList<LampRow> LampRows => State is { } s ? LampRow.From(s) : [];
+    /// <summary>Stable rows replaced only when a lamp changes, so the orbs aren't rebuilt every second.</summary>
+    public ObservableCollection<LampRow> LampRows { get; } = new();
+    public RelayCommand<LampRow> ToggleLampRowCommand => new(row => _ = ToggleLampAsync(row));
+    public string LampsHint => LampRows.Count == 0 ? "No lamps yet · add one in Devices" : "Click a lamp to switch it on or off";
+    public string CpuLevelText => Format.Temp(State?.System.CpuTemp, 0);
+    public Controls.StatusLevel CpuLevel => Level(State?.System.CpuTemp, 85);
+    public Controls.StatusLevel HotspotLevel => Level(State?.System.GpuHotspot, 100);
+    private static Controls.StatusLevel Level(double? value, double hot) => value is not { } v ? Controls.StatusLevel.Unavailable
+        : v >= hot ? Controls.StatusLevel.Critical : v >= hot - 10 ? Controls.StatusLevel.Hot : Controls.StatusLevel.Ok;
+    // The router's network name often already ends with the band ("5G NSA · n78"), so add it only when missing.
+    public string NetworkText => State?.Router is { Connected: true } router
+        ? string.Join(" · ", new[] { router.Network, router.Network?.Contains(router.Band ?? "\0", StringComparison.OrdinalIgnoreCase) == true ? null : router.Band }.Where(s => !string.IsNullOrWhiteSpace(s)))
+        : "Router not connected";
 
     public string Greeting
     {
@@ -58,7 +83,15 @@ public sealed class DashboardViewModel : PageViewModel
         }
     }
 
-    public string MachineLine => "ROG STRIX B850-F · Ryzen 7 9800X3D · RX 9070 XT Taichi";
+    public string MachineLine => string.Join(" · ", new[] { State?.System.BoardName, State?.System.CpuName, State?.System.GpuName }.Where(n => !string.IsNullOrWhiteSpace(n)).DefaultIfEmpty(Environment.MachineName)) + $" · {LampRows.Count} lamps" + (State?.Appliances?.Count > 0 ? " · air fryer" : "");
+    public string FryerName => State?.Appliances?.FirstOrDefault()?.Name ?? "Air fryer";
+    public string GreetingLabel => $"{Greeting}, {Environment.UserName}".ToUpperInvariant();
+    public string Headline => State is null ? "Waiting for your system" : State.Health.Warnings.Count > 0 ? "Your system needs attention" :
+        State.System.CpuTemp is null && State.System.GpuTemp is null ? "Waiting for live readings" :
+        State.System.CpuTemp >= 85 || State.System.GpuTemp >= 85 ? "Your system is running hot" : "Everything is running cool";
+    public string FryerRingText => FryerStatus == "Not connected" ? Format.Dash : FryerStatus;
+    public string FryerStatus => State?.Appliances?.FirstOrDefault() is { } fryer ? !fryer.Connected ? "Offline" : fryer.Status == "idle" ? "Ready" : fryer.Status : "Not connected";
+    public string FryerDetail => State?.Appliances?.FirstOrDefault() is { } fryer ? !fryer.Connected ? "Can't reach it on the network" : fryer.Status == "idle" ? "Idle · ready to cook" : "Cooking now" : "Add your air fryer in Devices";
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
     public string ActiveScene { get => _activeScene; private set => Set(ref _activeScene, value); }
 
@@ -67,7 +100,7 @@ public sealed class DashboardViewModel : PageViewModel
         get => _selectedFanMode;
         set
         {
-            if (!Set(ref _selectedFanMode, value) || _suppressMode) return;
+            if (!Set(ref _selectedFanMode, value) || _suppressMode || string.IsNullOrEmpty(value)) return;
             _ = ApplyFanModeAsync(value);
         }
     }
@@ -83,7 +116,7 @@ public sealed class DashboardViewModel : PageViewModel
     public string LightingColorHex { get => _lightingColor; private set => Set(ref _lightingColor, value); }
     public double LightingBrightness { get => _lightingBrightness; private set => Set(ref _lightingBrightness, value); }
     public double LightingSpeed { get => _lightingSpeed; private set => Set(ref _lightingSpeed, value); }
-    public string LightingTitle => "Lighting · " + Format.EffectName(LightingEffect);
+    public string LightingTitle => LightingBrightness <= 0 || LightingEffect == LightingEffect.Off ? "Off" : $"{Format.EffectName(LightingEffect)} · {LightingBrightness * 100:0}%";
 
     public string LightingSubtitle => LightingEffect == LightingEffect.Smart
         ? "Colour follows CPU temperature · board, strip, RAM, GPU and lamp in sync"
@@ -139,29 +172,35 @@ public sealed class DashboardViewModel : PageViewModel
         Push(GpuHistory, system.GpuLoad ?? double.NaN);
 
 
-        var ramPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : double.NaN;
-        SetGauge(0, new GaugeItem("CPU usage", Format.Percent(system.CpuLoad), "8 cores · 16 threads",
-            ColorUtil.ToHex(ColorUtil.TextPrimary), Math.Clamp(system.CpuLoad ?? double.NaN, 0, 100)));
+        SetGauge(0, new GaugeItem("CPU load", Format.Percent(system.CpuLoad), "Processor",
+            ColorUtil.ToHex(Controls.Thresholds.Color(Controls.Thresholds.Level(system.CpuLoad ?? double.NaN, Controls.SensorKind.Load))), Math.Clamp(system.CpuLoad ?? double.NaN, 0, 100)));
         SetGauge(1, new GaugeItem("CPU temp", Format.Temp(system.CpuTemp), "Tctl / Tdie",
             ColorUtil.ToHex(ColorUtil.Heat(system.CpuTemp)), Math.Clamp(system.CpuTemp ?? double.NaN, 0, 100)));
-        SetGauge(2, new GaugeItem("GPU temp", Format.Temp(system.GpuTemp), "RX 9070 XT",
+        SetGauge(2, new GaugeItem("GPU load", Format.Percent(system.GpuLoad), "Graphics processor",
+            ColorUtil.ToHex(Controls.Thresholds.Color(Controls.Thresholds.Level(system.GpuLoad ?? double.NaN, Controls.SensorKind.Load))), Math.Clamp(system.GpuLoad ?? double.NaN, 0, 100)));
+        SetGauge(3, new GaugeItem("GPU temp", Format.Temp(system.GpuTemp), "Graphics temperature",
             ColorUtil.ToHex(ColorUtil.Heat(system.GpuTemp)), Math.Clamp(system.GpuTemp ?? double.NaN, 0, 100)));
-        SetGauge(3, new GaugeItem("RAM used", Format.Percent(ramPercent), Format.GbPair(system.RamUsedGb, system.RamTotalGb),
-            ColorUtil.ToHex(ColorUtil.Accent), Math.Clamp(ramPercent, 0, 100)));
 
-        Fans.Clear();
-        foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
+        if (state.History is { } history)
         {
-            Fans.Add(new FanRow(
-                fan.Name,
-                fan.Name == "Case fans" ? "front 3 + rear" : fan.IsPump ? "Fixed at 100%" : "CPU_FAN",
-                Format.Rpm(fan.Rpm),
-                fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? 0, 0, 100),
-                fan.IsPump));
+            Func<TelemetrySample, double?>[] readings = [s => s.CpuLoad, s => s.CpuTemp, s => s.GpuLoad, s => s.GpuTemp];
+            var recent = history.TakeLast(24).ToArray();
+            for (var i = 0; i < readings.Length; i++)
+                Gauges[i].History = recent.Select(readings[i]).Where(v => v is { } d && double.IsFinite(d)).Select(v => v!.Value).ToArray();
+            var pings = recent.Select(s => s.PingMs).Where(v => v is { } d && double.IsFinite(d)).Select(v => v!.Value).ToArray();
+            if (!pings.SequenceEqual(PingHistory)) PingHistory = pings;
         }
 
+        // Swap only the rows that changed, so unchanged fan tiles (and their spinning icons) are left alone.
+        var rows = state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump))
+            .Select(fan => new FanRow(fan.Name, fan.IsPump ? "Fixed at 100%" : $"Header {fan.Header}", Format.Rpm(fan.Rpm),
+                fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump)).ToList();
+        if (rows.Count != Fans.Count) { Fans.Clear(); foreach (var row in rows) Fans.Add(row); }
+        else for (int i = 0; i < rows.Count; i++) if (rows[i] != Fans[i]) Fans[i] = rows[i];
+
         _suppressMode = true;
-        SelectedFanMode = Format.FanModeName(state.FanMode);
+        var modes = state.Fans.Where(f => f.Controllable && !f.IsPump && f.Rpm is > 0).Select(f => f.Curve).Distinct().ToArray();
+        SelectedFanMode = modes.Length > 1 ? "" : state.FanMode == FanMode.Full ? "Full" : Format.FanModeName(state.FanMode);
         _suppressMode = false;
 
         _lightingEffect = state.Lighting.Effect;
@@ -179,6 +218,14 @@ public sealed class DashboardViewModel : PageViewModel
             : "Not connected";
 
 
+        var lamps = LampRow.From(state);
+        if (lamps.Count != LampRows.Count || lamps.Select(l => l.Id).Where((id, i) => id != LampRows[i].Id).Any()) { LampRows.Clear(); foreach (var row in lamps) LampRows.Add(row); }
+        else for (int i = 0; i < lamps.Count; i++) if (lamps[i] != LampRows[i]) LampRows[i] = lamps[i];
+
+        foreach (var scene in Scenes)
+            scene.Description = state.Scenes?.FirstOrDefault(s => s.Name == scene.Name) is { } saved
+                ? $"{Format.EffectName(saved.Effect)} lighting · {Format.FanModeName(saved.Fans)} fans"
+                : SceneCatalog.All.FirstOrDefault(s => s.Name == scene.Name) is { } built ? $"{Format.EffectName(built.Effect)} lighting · {Format.FanModeName(built.FanMode)} fans" : "";
         ActiveScene = SceneCatalog.All
             .FirstOrDefault(s => s.Effect == state.Lighting.Effect && s.FanMode == state.FanMode)?.Name ?? "Custom";
         foreach (var scene in Scenes)
@@ -186,7 +233,7 @@ public sealed class DashboardViewModel : PageViewModel
 
         StatusText = state.Health.Warnings.Count > 0
             ? state.Health.Warnings[0]
-            : state.Health.FanFailsafeActive ? "Fan failsafe active · BIOS control" : "All systems normal · live";
+            : state.Health.FanFailsafeActive ? Format.FailsafeStatus(state.Health.LastFailsafeReason) : "All systems normal · live";
 
         NotifyAll();
     }
@@ -197,10 +244,10 @@ public sealed class DashboardViewModel : PageViewModel
     private void BuildEmptyGauges()
     {
         if (Gauges.Count > 0) return;
-        Gauges.Add(new GaugeItem("CPU usage", Format.Dash, "8 cores · 16 threads", ColorUtil.ToHex(ColorUtil.TextPrimary), 0));
-        Gauges.Add(new GaugeItem("CPU temp", Format.Dash, "Tctl / Tdie", ColorUtil.ToHex(ColorUtil.TextTertiary), 0));
-        Gauges.Add(new GaugeItem("GPU temp", Format.Dash, "RX 9070 XT", ColorUtil.ToHex(ColorUtil.TextTertiary), 0));
-        Gauges.Add(new GaugeItem("RAM used", Format.Dash, "— / 32 GB", ColorUtil.ToHex(ColorUtil.Accent), 0));
+        Gauges.Add(new GaugeItem("CPU load", Format.Dash, "Processor", ColorUtil.ToHex(ColorUtil.TextPrimary), double.NaN));
+        Gauges.Add(new GaugeItem("CPU temp", Format.Dash, "Tctl / Tdie", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
+        Gauges.Add(new GaugeItem("GPU load", Format.Dash, "Graphics processor", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
+        Gauges.Add(new GaugeItem("GPU temp", Format.Dash, "Graphics temperature", ColorUtil.ToHex(ColorUtil.TextTertiary), double.NaN));
     }
 
     private static void Push(ObservableCollection<double> history, double value)
@@ -212,7 +259,7 @@ public sealed class DashboardViewModel : PageViewModel
 
     private async Task ApplyFanModeAsync(string name)
     {
-        var normalized = name == "Full speed" ? "Full" : name;
+        var normalized = name == "Full speed" ? "Full" : name == "Balanced" ? "Standard" : name;
         if (!Enum.TryParse<FanMode>(normalized, ignoreCase: true, out var mode)) return;
         await RunAsync(() => Client.SetFanModeAsync("Radiator", mode));
         await RunAsync(() => Client.SetFanModeAsync("Case fans", mode));
@@ -222,6 +269,15 @@ public sealed class DashboardViewModel : PageViewModel
     {
         if (string.IsNullOrWhiteSpace(name)) return;
         await RunAsync(() => Client.ApplySceneAsync(name));
+    }
+
+    /// <summary>Flips one lamp. The orb changes at once; the next state from the service confirms it.</summary>
+    private async Task ToggleLampAsync(LampRow? row)
+    {
+        if (row is null || !row.Connected) return;
+        int index = LampRows.IndexOf(row);
+        if (index >= 0) LampRows[index] = row with { On = !row.On, Color = row.On ? "#3F3F46" : State?.Lamps?.FirstOrDefault(l => l.Id == row.Id)?.Color ?? row.Color, Status = row.On ? "Off" : "On" };
+        await RunAsync(() => Client.SendAsync(Commands.SetLamp, new { lamp = row.Id, on = !row.On }));
     }
 
     private async Task SetLampAsync(bool on, int brightness)

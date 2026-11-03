@@ -134,7 +134,15 @@ public sealed class AppBehaviorTests : IDisposable
         var client = new RecordingClient();
         var dashboard = new DashboardViewModel(client); dashboard.Apply(state);
         Assert.Equal(Format.Dash,dashboard.CpuNowText);
-        Assert.Equal(Format.Dash,dashboard.Gauges.Single(g => g.Label == "RAM used").Value);
+        Assert.Equal(4, dashboard.Gauges.Count);
+        Assert.All(dashboard.Gauges, gauge => {
+            Assert.Equal(Format.Dash, gauge.Value);
+            Assert.True(double.IsNaN(gauge.Percent));
+            Assert.Equal("Unavailable", gauge.LevelText);
+            Assert.Empty(gauge.History);
+        });
+        var monitor = new MonitorViewModel(client); monitor.Apply(state);
+        Assert.StartsWith(Format.Dash, monitor.RamText);
         Assert.Empty(dashboard.CpuHistory);
         var widget = new WidgetViewModel(new WidgetLayout(),client); widget.Apply(state);
         Assert.Equal(Format.Dash,widget.CpuText); Assert.Equal(Format.Dash,widget.CpuTempText);
@@ -156,8 +164,72 @@ public sealed class AppBehaviorTests : IDisposable
         vm.MinSpeed = 45; vm.ApplyCurveCommand.Execute(null);
         var call = Assert.Single(client.Calls);
         var args = JsonLineProtocol.ToArgs(call.Args)!.Value;
-        Assert.Equal("Case fans",args.GetProperty("group").GetString());
+        Assert.Equal((Commands.SetFanProfile, "Turbo"), (call.Command, args.GetProperty("mode").GetString()));
         Assert.All(args.GetProperty("points").EnumerateArray(),p => Assert.InRange(p[1].GetDouble(),45,100));
+    }
+
+    [Fact]
+    public async Task Editing_a_profile_changes_only_that_fan_copy_matches_the_other_and_reset_brings_back_the_built_in_curve()
+    {
+        await using var mock = new MockPrismClient();
+        var vm = new FansViewModel(mock); vm.Apply(mock.CurrentState);
+        FanControlState Config(int header) => mock.CurrentState.Fans.Single(f => f.Header == header).Configuration!;
+        Assert.True(vm.IsProfileMode); Assert.Equal("Save Standard", vm.ApplyLabel); Assert.False(vm.CanResetProfile);
+        var builtIn = vm.Curve.ToArray();
+        vm.SelectedCurvePoint = 3; vm.NudgePointCommand.Execute("down");
+        Assert.True(vm.CanResetProfile);
+        vm.ApplyCurveCommand.Execute(null);
+        await WaitFor(() => Config(2).Edited);
+        vm.Apply(mock.CurrentState);
+        Assert.Equal(FanMode.Standard, mock.CurrentState.FanMode);   // still Standard, not switched to Custom
+        Assert.Equal(builtIn[3].Percent - 5, Config(2).Points[3].Percent);
+        Assert.Equal("Radiator · Standard curve · edited", vm.CurveTitle);
+
+        // The case fans keep their own Standard.
+        Assert.False(Config(6).Edited); Assert.Equal(builtIn[3].Percent, Config(6).Points[3].Percent);
+        vm.SelectedCurveFan = "Case fans";
+        Assert.Equal(builtIn, vm.Curve.ToArray()); Assert.Equal("Case fans · Standard curve", vm.CurveTitle);
+        vm.SelectedCurveFan = "Radiator";
+        Assert.Equal(builtIn[3].Percent - 5, vm.Curve[3].Percent);
+
+        // Copy makes them match when that's wanted.
+        Assert.Equal("Copy to Case fans", vm.CopyLabel);
+        vm.CopyCommand.Execute(null);
+        await WaitFor(() => Config(6).Edited);
+        Assert.Equal(builtIn[3].Percent - 5, Config(6).Points[3].Percent);
+
+        // Another profile and back: the saved Standard comes back, not the built-in one.
+        vm.SelectedModeName = "Silent"; vm.SelectedModeName = "Standard";
+        Assert.Equal(builtIn[3].Percent - 5, vm.Curve[3].Percent);
+        vm.ResetProfileCommand.Execute(null);
+        await WaitFor(() => !Config(2).Edited);
+        vm.Apply(mock.CurrentState);
+        Assert.Equal(builtIn, vm.Curve.ToArray()); Assert.Equal("Radiator · Standard curve", vm.CurveTitle);
+        Assert.True(Config(6).Edited);
+
+        vm.SelectedModeName = "Full speed";
+        Assert.False(vm.CanEditCurve); Assert.False(vm.IsProfileMode);
+    }
+    [Fact]
+    public async Task Safety_tiles_survive_a_refresh_and_the_header_sets_every_fan()
+    {
+        await using var mock = new MockPrismClient();
+        var vm = new FansViewModel(mock); vm.Apply(mock.CurrentState);
+        var tile = vm.SafetyLines[2];
+        vm.Apply(mock.CurrentState);
+        // The same row objects: the card isn't rebuilt by every reading.
+        Assert.Same(tile, vm.SafetyLines[2]);
+
+        Assert.Equal("Standard", vm.AllFansMode);
+        vm.AllFansMode = "Turbo";
+        await WaitFor(() => mock.CurrentState.Fans.Where(f => !f.IsPump && f.Rpm > 0).All(f => f.Curve == "Turbo"));
+        vm.Apply(mock.CurrentState);
+        Assert.Equal("Turbo", vm.AllFansMode); Assert.Equal("Turbo cooling", vm.Headline);
+    }
+    private static async Task WaitFor(Func<bool> done)
+    {
+        for (int i = 0; i < 200 && !done(); i++) await Task.Delay(10);
+        Assert.True(done());
     }
 
     [Fact]
@@ -165,10 +237,10 @@ public sealed class AppBehaviorTests : IDisposable
     {
         await using var mock = new MockPrismClient();
         var vm = new FansViewModel(new RecordingClient()); vm.Apply(mock.CurrentState);
-        Assert.Equal("33%", vm.MinSpeedText);
-        var changed = new List<string?>(); vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-        vm.MinSpeed = 20;
         Assert.Equal("20%", vm.MinSpeedText);
+        var changed = new List<string?>(); vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        vm.MinSpeed = 25;
+        Assert.Equal("25%", vm.MinSpeedText);
         Assert.Contains(nameof(vm.MinSpeedText), changed);
         var radiator = vm.Fans.Single(f => f.Name == "Radiator");
         var slow = vm.Fans.Single(f => f.Name == "Case fans");
@@ -219,6 +291,18 @@ public sealed class AppBehaviorTests : IDisposable
         history.Add(now,null); history.Add(now,double.NaN);
         Assert.Equal(new[] {45d},history.Read(now,TimeSpan.FromMinutes(1)));
         Assert.Equal(new[] {20d,45d},history.Read(now,TimeSpan.FromMinutes(5)));
+    }
+
+    [Fact]
+    public void Metric_history_keeps_order_for_late_samples_and_reports_the_newest()
+    {
+        var history = new MetricHistory(); var now = DateTimeOffset.UtcNow;
+        Assert.Null(history.Latest);
+        for (int i = 3700; i >= 0; i -= 2) history.Add(now - TimeSpan.FromSeconds(i), i);
+        history.Add(now - TimeSpan.FromSeconds(3), 3);
+        Assert.Equal(now, history.Latest);
+        Assert.Equal(new[] {4d, 3, 2, 0}, history.Read(now, TimeSpan.FromSeconds(4)));
+        Assert.True(history.Read(now, TimeSpan.FromHours(2)).Count <= 3601);
     }
 
     [Fact]

@@ -22,6 +22,8 @@ public enum WidgetSize { Small, Medium, Large }
 
 public sealed class WidgetLayout
 {
+    public bool Enabled { get; set; } = true;
+    public string Background { get; set; } = "Glass";
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public WidgetKind Kind { get; set; } = WidgetKind.SystemMonitor;
     public WidgetSize Size { get; set; } = WidgetSize.Medium;
@@ -38,6 +40,8 @@ public sealed class WidgetLayout
     public WidgetLayout Clone() => new()
     {
         Id = Id,
+        Enabled = Enabled,
+        Background = Background,
         Kind = Kind,
         Size = Size,
         X = X,
@@ -249,15 +253,17 @@ public sealed class WidgetLayoutStore
 
     public string FilePath { get; }
 
-    public WidgetLayoutFile Load()
+    /// <summary>The file, else its last good copy (a crash can leave the main file empty), else no widgets.</summary>
+    public WidgetLayoutFile Load() => !File.Exists(FilePath) ? new WidgetLayoutFile() : Read(FilePath) ?? Read(Prism.Core.AtomicFile.Backup(FilePath)) ?? new WidgetLayoutFile();
+    private static WidgetLayoutFile? Read(string path)
     {
         try
         {
-            if (!File.Exists(FilePath)) return new WidgetLayoutFile();
-            var json = File.ReadAllText(FilePath);
-            if (string.IsNullOrWhiteSpace(json)) return new WidgetLayoutFile();
+            if (!File.Exists(path)) return null;
+            var json = File.ReadAllText(path);
+            if (string.IsNullOrWhiteSpace(json)) return null;
             var file = JsonSerializer.Deserialize<WidgetLayoutFile>(json, Options);
-            if (file is null) return new WidgetLayoutFile();
+            if (file is null) return null;
             file.Widgets ??= new List<WidgetLayout>();
             file.Widgets = file.Widgets.Where(w => w is not null).ToList();
             var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -269,6 +275,7 @@ public sealed class WidgetLayoutStore
                 if (!Enum.IsDefined(widget.Size)) widget.Size = WidgetSize.Medium;
                 if (!double.IsFinite(widget.X)) widget.X = 0;
                 if (!double.IsFinite(widget.Y)) widget.Y = 0;
+                if (widget.Background is not ("Glass" or "Solid" or "Clear")) widget.Background = "Glass";
                 widget.Metrics ??= new List<string>();
                 widget.Opacity = double.IsFinite(widget.Opacity) ? Math.Clamp(widget.Opacity, 0.2, 1.0) : 0.72;
             }
@@ -277,16 +284,12 @@ public sealed class WidgetLayoutStore
         catch
         {
             // A broken layout file must never stop Prism from starting.
-            return new WidgetLayoutFile();
+            return null;
         }
     }
 
     public void Save(WidgetLayoutFile file)
     {
-        var folder = System.IO.Path.GetDirectoryName(FilePath);
-        if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
-        var temporary = FilePath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(file, Options));
-        File.Move(temporary, FilePath, overwrite: true);
+        Prism.Core.AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(file, Options));
     }
 }

@@ -28,8 +28,31 @@ public sealed partial class ServiceRuntime
         finally { CryptographicOperations.ZeroMemory(secret); }
     }
     public Task<string> PrepareApplianceAsync(DeviceState device, int siid, int aiid, CancellationToken token) => Task.FromResult(appliances.Prepare(device, siid, aiid));
-    public Task SetApplianceAsync(DeviceState device, System.Text.Json.JsonElement values, CancellationToken token) => Observe ? Task.FromException(new InvalidOperationException("Observe mode.")) : appliances.SetAsync(device, values, token);
-    public Task ActApplianceAsync(DeviceState device, int siid, int aiid, string? nonce, CancellationToken token) => Observe ? Task.FromException(new InvalidOperationException("Observe mode.")) : appliances.ActAsync(device, siid, aiid, nonce, token);
+    public async Task SetApplianceAsync(DeviceState device, System.Text.Json.JsonElement values, CancellationToken token)
+    {
+        if (Observe) throw new InvalidOperationException("Observe mode.");
+        await appliances.SetAsync(device, values, token); RefreshAppliancesSoon();
+    }
+    public async Task ActApplianceAsync(DeviceState device, int siid, int aiid, string? nonce, CancellationToken token)
+    {
+        if (Observe) throw new InvalidOperationException("Observe mode.");
+        await appliances.ActAsync(device, siid, aiid, nonce, token); RefreshAppliancesSoon();
+    }
+    // The regular poll runs every 5 seconds; read the fryer again right after a command so pause or a new time shows at once.
+    // The fryer can take a moment to switch state, so a few quick reads follow.
+    // Quick taps restart the follow-up instead of stacking reads that would hold the fryer while the next tap waits.
+    private CancellationTokenSource? applianceRefresh;
+    private void RefreshAppliancesSoon()
+    {
+        var next = new CancellationTokenSource();
+        Interlocked.Exchange(ref applianceRefresh, next)?.Cancel();
+        _ = Task.Run(async () =>
+        {
+            try { foreach (var wait in new[] { 250, 750, 1500 }) { await Task.Delay(wait, next.Token); await appliances.PollAsync(Volatile.Read(ref settings).Devices, next.Token, quick: true); } }
+            catch (Exception e) when (e is IOException or InvalidOperationException or ObjectDisposedException or OperationCanceledException) { }
+            finally { Interlocked.CompareExchange(ref applianceRefresh, null, next); next.Dispose(); }
+        });
+    }
     public Task<IReadOnlyList<DeviceState>> FindDevicesAsync(CancellationToken token) => ScanDevicesAsync(token, true);
     private async Task<IReadOnlyList<DeviceState>> ScanDevicesAsync(CancellationToken token, bool demand)
     {
@@ -82,36 +105,5 @@ public sealed partial class ServiceRuntime
             deviceObservations = result; return result;
         }
         finally { deviceDiscoveryGate.Release(); }
-    }
-    private async Task DiscoveryAsync(CancellationToken token)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
-        var networkAt = TimeSpan.Zero;
-        do
-        {
-            var result = new List<DeviceState>(); var completed = new List<string> { "openrgb", "lhm" }; var now = DateTimeOffset.UtcNow;
-            try
-            {
-                if (clock.Elapsed >= networkAt)
-                {
-                    networkAt = clock.Elapsed + TimeSpan.FromSeconds(60);
-                    result.AddRange(await ScanDevicesAsync(token, false)); completed.AddRange(["miio", "yeelight"]);
-                }
-                HardwareSnapshot snap; RgbDeviceState[] rgbDevices;
-                lock (stateGate) { snap = snapshot; rgbDevices = devices; }
-                result.AddRange(rgbDevices.Where(d => rgbConnected && d.Connected).Select(d => new DeviceState(d.Id, DeviceKind.RgbController, d.Name, "openrgb", now, now, DeviceStatus.Ready, ["sync", "case-map"])));
-                result.AddRange(FanMap.Discover(snap.Sensors, controls.Headers).Where(f => f.Rpm > 0 && double.IsFinite(f.Rpm)).Select(f => new DeviceState($"fan:{f.Header}", DeviceKind.FanHeader, f.Name, "lhm", now, now, DeviceStatus.Ready, f.IsPump ? ["rpm"] : ["rpm", "curve"])));
-                if (observationsHandler is not null) await observationsHandler(result, completed);
-                if (!mock && !Observe)
-                {
-                    var before = appliances.States;
-                    await appliances.PollAsync(Volatile.Read(ref settings).Devices, token);
-                    if (Volatile.Read(ref settings).Discovery.CookingLightFlash && appliances.States.Any(a => a.Status == "done" && before.Any(b => b.Id == a.Id && b.Status is "cooking" or "preheating"))) TriggerLightingEvent(LightingEventKind.Notification);
-                }
-                warnings.TryRemove("discovery", out _);
-            }
-            catch (Exception e) when (!token.IsCancellationRequested && e is IOException or System.Net.Sockets.SocketException or InvalidOperationException or OperationCanceledException)
-            { warnings["discovery"] = "Device discovery temporarily unavailable."; }
-        } while (await timer.WaitForNextTickAsync(token));
     }
 }

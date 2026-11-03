@@ -12,11 +12,31 @@ public sealed class FanTests
             new SensorReading("board", "Board", SensorCategory.Motherboard, "Temperature", "°C", 35) }, success);
 
     [Theory]
-    [InlineData(-10, 20)] [InlineData(20, 20)] [InlineData(25, 23)] [InlineData(50, 45)]
+    [InlineData(-10, 26)] [InlineData(20, 26)] [InlineData(35, 30)] [InlineData(50, 45)] [InlineData(55, 52.5)]
     [InlineData(68.5, 90)] [InlineData(100, 100)] [InlineData(130, 100)]
     public void StandardUsesBiosPointsAndLinearInterpolation(double temperature, double expected) =>
         Assert.Equal(expected, FanCurveEngine.Interpolate(FanCurveEngine.Preset(FanMode.Standard), temperature), 8);
 
+    // Audit #15: a hold skips the curve minimum, so it may never stop a fan; Measure's 15% floor still works and the guard still wins.
+    [Theory]
+    [InlineData(0, 15)] [InlineData(-20, 15)] [InlineData(15, 15)] [InlineData(40, 40)] [InlineData(150, 100)]
+    public void HoldIsClampedToFifteenToOneHundredPercent(double asked, double applied)
+    {
+        var port = new FakeFanControlPort(); using var fans = new FanController(port);
+        fans.Hold(2, asked); fans.Apply(Snapshot(), TimeSpan.FromSeconds(1));
+        Assert.Equal(applied, port.Speeds[2]);
+        Assert.Equal(100, port.Speeds[7]);
+        fans.Apply(Snapshot(cpu: 95), TimeSpan.FromSeconds(1));
+        Assert.Equal(100, port.Speeds[2]);
+    }
+    [Fact]
+    public void HoldRejectsNonFiniteDutyAndThePump()
+    {
+        using var fans = new FanController(new FakeFanControlPort());
+        Assert.Throws<ArgumentOutOfRangeException>(() => fans.Hold(2, double.NaN));
+        Assert.Throws<InvalidOperationException>(() => fans.Hold(7, 50));
+        fans.Hold(2, null);
+    }
     [Fact]
     public void CurveRejectsWrongCountAndUnorderedPoints()
     {
@@ -28,8 +48,9 @@ public sealed class FanTests
     {
         var engine = new FanCurveEngine(); var settings = new FanSettings(FanCurveEngine.Preset(FanMode.Standard));
         Assert.Equal(90, engine.Evaluate(20, settings, TimeSpan.FromSeconds(1)));
-        Assert.Equal(20, engine.Evaluate(20, settings, TimeSpan.FromSeconds(20)));
-        Assert.Equal(50, engine.Evaluate(70, settings, TimeSpan.FromSeconds(1)));
+        // Below the first point (30 °C) the curve holds its idle speed.
+        Assert.Equal(26, engine.Evaluate(20, settings, TimeSpan.FromSeconds(20)));
+        Assert.Equal(56, engine.Evaluate(70, settings, TimeSpan.FromSeconds(1)));
         Assert.Equal(100, engine.Evaluate(70, settings, TimeSpan.FromSeconds(2)));
         Assert.Equal(100, engine.Evaluate(69, settings, TimeSpan.FromSeconds(1)));
         Assert.Equal(90, engine.Evaluate(60, settings, TimeSpan.FromSeconds(1)));

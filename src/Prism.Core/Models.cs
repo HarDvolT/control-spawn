@@ -9,6 +9,8 @@ public sealed record HardwareSnapshot(DateTimeOffset Timestamp, IReadOnlyList<Se
         .Select(s => s.Value).DefaultIfEmpty(null).Max();
 }
 public enum FanMode { Silent, Standard, Turbo, Full, Custom }
+/// <summary>How quickly a fan follows the temperature: how long a reading is averaged and how fast the speed may change.</summary>
+public enum FanResponse { Fast, Normal, Calm, Slow }
 public enum TemperatureSource { Cpu, Motherboard, Gpu, Maximum }
 public sealed record FanGroup(int Header, string Name, double Rpm, bool CanControl, bool IsPump = false);
 public readonly record struct FanPoint(double Temperature, double Percent);

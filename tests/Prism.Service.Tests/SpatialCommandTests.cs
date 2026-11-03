@@ -21,6 +21,24 @@ public sealed class SpatialCommandTests
     }
     private static Request Command(string name, object args) => new(1, name, JsonSerializer.SerializeToElement(args, PipeContract.Json));
     [Fact]
+    public async Task PartLooksStartFromTheCaseLookAndClearWithSyncAll()
+    {
+        var p = new CommandProcessor(new MemorySettingsStore(), new Runtime());
+        Assert.True((await p.HandleAsync(Command(Commands.SetLighting, new { effect = "RainbowWave", color = "#AABBCC", brightness = 0.5, speed = 1.0 }))).Ok);
+        Assert.True((await p.HandleAsync(Command(Commands.SetPartLook, new { part = "board/zone/2", color = "#0000FF" }))).Ok);
+        Assert.Equal(new PartLook(LightingEffect.RainbowWave, "#0000FF", 0.5, 1.0), p.Settings.PartLooks["board/zone/2"]);
+        Assert.True((await p.HandleAsync(Command(Commands.SetPartLook, new { part = "board/zone/2", effect = "Breathing" }))).Ok);
+        Assert.Equal(LightingEffect.Breathing, p.Settings.PartLooks["board/zone/2"].Effect);
+        Assert.Equal(LightingEffect.RainbowWave, p.Settings.Lighting.Effect);   // the case keeps its own look
+        Assert.False((await p.HandleAsync(Command(Commands.SetPartLook, new { part = "board/zone/2", color = "blue" }))).Ok);
+        Assert.True((await p.HandleAsync(Command(Commands.SetPartLook, new { part = "board/zone/2", clear = true }))).Ok);
+        Assert.Empty(p.Settings.PartLooks);
+        Assert.True((await p.HandleAsync(Command(Commands.SetPartLook, new { part = "gpu", effect = "Static" }))).Ok);
+        Assert.True((await p.HandleAsync(Command(Commands.SetAllLighting, new { effect = "Static", color = "#FFFFFF", brightness = 1.0, speed = 1.0, resetOverrides = true }))).Ok);
+        Assert.Empty(p.Settings.PartLooks);
+    }
+
+    [Fact]
     public async Task ParamsMapEventsAndSceneRoundTripWithoutBreakingOldSetLighting()
     {
         var runtime = new Runtime(); var store = new MemorySettingsStore(); var p = new CommandProcessor(store, runtime);

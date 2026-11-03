@@ -40,16 +40,33 @@ public static class StateAssembler
                 g.First().Name.Split(':')[0], g.FirstOrDefault(s => s.Kind == "Temperature")?.Value,
                 g.FirstOrDefault(s => s.Kind == "Throughput" && s.Name.Contains("Read"))?.Value / 1_000_000,
                 g.FirstOrDefault(s => s.Kind == "Throughput" && s.Name.Contains("Write"))?.Value / 1_000_000,
-                g.FirstOrDefault(s => s.Kind == "Load")?.Value,
+                g.FirstOrDefault(s => s.Kind == "Load" && s.Name.Contains("Used Space", StringComparison.OrdinalIgnoreCase))?.Value,
                 g.FirstOrDefault(s => s.Kind == "Load" && (s.Name.Contains("Activity", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Total", StringComparison.OrdinalIgnoreCase)))?.Value)).ToArray(),
             Sum(SensorCategory.Network, "Throughput", "Download", 125000), Sum(SensorCategory.Network, "Throughput", "Upload", 125000), Pick(SensorCategory.Gpu, "Temperature", "Memory"));
+        var throttle = sensors.Where(s => s.Name.Contains("Thermal Throttling", StringComparison.OrdinalIgnoreCase) && s.Value.HasValue).ToArray();
+        string? Name(SensorCategory category) => sensors.FirstOrDefault(s => s.Category == category && s.Name.Contains(':'))?.Name.Split(':')[0].Trim();
+        system = system with { ThermalThrottling = throttle.Length == 0 ? null : throttle.Any(s => s.Value > 0),
+            CpuName = Name(SensorCategory.Cpu), GpuName = Name(SensorCategory.Gpu), BoardName = Name(SensorCategory.Motherboard),
+            CpuCcdTemp = Pick(SensorCategory.Cpu, "Temperature", "CCD"),
+            FanChipName = sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind is "Fan" or "Control" && s.Name.Contains(':'))?.Name.Split(':')[0].Trim() };
         var fans = FanMap.Discover(sensors, controls).Select(f => new FanState(f.Header, f.Name,
             sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Fan" && s.Id.EndsWith($"/fan/{f.Header - 1}"))?.Value,
             sensors.FirstOrDefault(s => s.Category == SensorCategory.Motherboard && s.Kind == "Control" && s.Id.EndsWith($"/control/{f.Header - 1}"))?.Value,
             f.CanControl, f.IsPump, f.IsPump ? "Fixed 100%" : (settings.HeaderFans.GetValueOrDefault(f.Header) ?? settings.Fans.GetValueOrDefault(f.Name))?.Mode.ToString() ?? "BIOS")).ToArray();
+        fans = fans.Select(f =>
+        {
+            var configured = settings.HeaderFans.GetValueOrDefault(f.Header) ?? settings.Fans.GetValueOrDefault(f.Name);
+            if (f.IsPump || configured is null) return f;
+            var tuning = configured.ToSettings(settings.FanProfiles);
+            return f with { Configuration = new(tuning.Curve.Points, tuning.Source, tuning.Minimum, tuning.Hysteresis, tuning.SpinUpPerSecond, tuning.SpinDownPerSecond, configured.Response, tuning.Averaging,
+                configured.Mode != FanMode.Custom && configured.EditedProfile(settings.FanProfiles) is not null) };
+        }).ToArray();
         return new(snapshot.Timestamp, system, fans, settings.Fans["Radiator"].Mode,
-            new(settings.Lighting.Effect, settings.Lighting.Color, settings.Lighting.Brightness, settings.Lighting.Speed, devices, settings.Lighting.GetParameters(), settings.Map, settings.Events, Bindings: settings.Bindings), lamp, router, health);
+            new(settings.Lighting.Effect, settings.Lighting.Color, settings.Lighting.Brightness, settings.Lighting.Speed, devices, settings.Lighting.GetParameters(), settings.Map, settings.Events, Bindings: settings.Bindings), lamp, router, health)
+            { Scenes = Scenes(settings), FanProfiles = settings.FanProfiles.ToDictionary(p => p.Key, p => (IReadOnlyList<FanPoint>)p.Value) };
     }
+    public static IReadOnlyList<SceneSummary> Scenes(ServiceSettings settings) => settings.Scenes.Select(s => new SceneSummary(s.Key, s.Value.Fans, s.Value.Lighting.Effect, s.Value.Lighting.Color, s.Value.Lighting.Brightness,
+        !s.Value.Lamp.On ? "off" : s.Value.Lamp.Follow is "pc" or "average" ? "pc" : s.Value.Lamp.Kelvin is >= 5000 ? "cool" : "warm")).ToArray();
     private static string DeviceId(string id)
     {
         var index = id.LastIndexOf('/');

@@ -27,6 +27,8 @@ public sealed class SettingsViewModel : PageViewModel
         _settings = settings;
         _changed = changed;
         Motion.ReduceAnimations = settings.ReduceAnimations;
+        DisplayPreferences.Apply(settings);
+        SetAccentCommand = new RelayCommand<string>(color => { if (color is not null && AccentColors.Contains(color)) { _settings.AccentColor = color; DisplayPreferences.Apply(_settings); Save(nameof(AccentColor)); } });
         OpenDataFolderCommand = new RelayCommand(OpenDataFolder);
         SaveServiceOptionsCommand = new AsyncRelayCommand(() => RunAsync(() => Client.SendAsync(Commands.SetServiceOptions,
             new { openRgbPath = OpenRgbPath, launchOpenRgb = LaunchOpenRgb, routerEnabled = RouterEnabled, routerHost = RouterHost })));
@@ -34,6 +36,36 @@ public sealed class SettingsViewModel : PageViewModel
         Refresh();
     }
 
+    public IReadOnlyList<string> TemperatureUnits { get; } = ["\u00b0C", "\u00b0F"];
+    public IReadOnlyList<string> AccentColors { get; } = ["#FF4D1A", "#F5A524", "#3DDC84", "#4D6BFF", "#B26BFF"];
+    public RelayCommand<string> SetAccentCommand { get; }
+    public string AccentColor => _settings.AccentColor;
+    public string TemperatureUnit
+    {
+        get => _settings.TemperatureUnit;
+        set { if (!TemperatureUnits.Contains(value) || value == TemperatureUnit) return; _settings.TemperatureUnit = value; DisplayPreferences.Apply(_settings); Save(nameof(TemperatureUnit)); }
+    }
+    public bool NotifyRunningHot { get => _settings.NotifyRunningHot; set { _settings.NotifyRunningHot = value; Save(nameof(NotifyRunningHot)); } }
+    public bool NotifyCookingFinished { get => _settings.NotifyCookingFinished; set { _settings.NotifyCookingFinished = value; Save(nameof(NotifyCookingFinished)); } }
+    public bool NotifyDeviceOffline { get => _settings.NotifyDeviceOffline; set { _settings.NotifyDeviceOffline = value; Save(nameof(NotifyDeviceOffline)); } }
+    public string HealthUpdated => State is null ? "waiting" : "just now";
+    public string SectionSubtitle => SelectedSection switch { "General" => "Units, look and notifications", "Devices & access" => "Integrations, credentials and startup", "Safety" => "Protection for your hardware", "Backup" => "Save and restore your preferences", _ => "Version, logs and diagnostics" };
+    public IReadOnlyList<string> Sections { get; } = ["General", "Devices & access", "Safety", "Backup", "About"];
+    private string selectedSection = "General";
+    public string SelectedSection { get => selectedSection; set { if (Sections.Contains(value) && Set(ref selectedSection, value)) NotifyAll(); } }
+    public bool IsBackup => SelectedSection == "Backup";
+    public IReadOnlyList<StatRow> HealthRows => [
+        new("Control Spawn service", State is not null && (Client.IsConnected || IsMock) ? "running" : "offline", State is not null && (Client.IsConnected || IsMock) ? "#3DDC84" : "#F5A524"),
+        new("OpenRGB", State is { } rgb ? $"{rgb.Lighting.Devices.Count(d => d.Connected)} devices" : Format.Dash, State?.Lighting.Devices.Any(d => d.Connected) == true ? "#3DDC84" : "#7C808A"),
+        new("Fan chip", State?.System.FanChipName ?? "Unavailable", State?.System.FanChipName is null ? "#7C808A" : "#3DDC84"),
+        new("Lamps", State?.Lamps is { } lamps ? $"{lamps.Count(l => l.Connected)} online" : Format.Dash, State?.Lamps?.Any(l => l.Connected) == true ? "#3DDC84" : "#7C808A"),
+        new("Router", State?.Router?.Connected == true ? "signed in" : "offline", State?.Router?.Connected == true ? "#3DDC84" : "#F5A524")];
+    public bool IsGeneral => SelectedSection == "General";
+    public bool IsAccess => SelectedSection == "Devices & access";
+    public bool IsStartup => SelectedSection == "Startup & tray";
+    public bool IsSafety => SelectedSection == "Safety";
+    public bool IsAbout => SelectedSection == "About";
+    public string HealthSummary => State is { } state ? $"{state.Lighting.Devices.Count(d => d.Connected)} RGB devices · {state.Lamps?.Count(l => l.Connected) ?? 0} lamps · Router {(state.Router?.Connected == true ? "connected" : "offline")}" : "Waiting for the service";
     public RelayCommand OpenDataFolderCommand { get; }
     public AsyncRelayCommand SaveServiceOptionsCommand { get; }
     public bool LaunchOpenRgb { get => _settings.LaunchOpenRgb; set { _settings.LaunchOpenRgb = value; Save(nameof(LaunchOpenRgb)); } }
@@ -217,6 +249,12 @@ public sealed class SettingsViewModel : PageViewModel
         _settings.ShowWidgetsAtStartup = defaults.ShowWidgetsAtStartup;
         _settings.ReduceAnimations = defaults.ReduceAnimations;
         _settings.CheckForUpdates = defaults.CheckForUpdates;
+        _settings.TemperatureUnit = defaults.TemperatureUnit;
+        _settings.AccentColor = defaults.AccentColor;
+        _settings.NotifyRunningHot = defaults.NotifyRunningHot;
+        _settings.NotifyCookingFinished = defaults.NotifyCookingFinished;
+        _settings.NotifyDeviceOffline = defaults.NotifyDeviceOffline;
+        DisplayPreferences.Apply(_settings);
         _settings.SceneAutoGame = defaults.SceneAutoGame;
         _settings.SceneAutoNight = defaults.SceneAutoNight;
         _settings.SceneAutoLock = defaults.SceneAutoLock;

@@ -1,45 +1,142 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:Prism.App.Controls" xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:v="clr-namespace:Prism.App.Views">
-<DataTemplate DataType="{x:Type vm:ScenesViewModel}">
+<ResourceDictionary xmlns:vm="clr-namespace:Prism.App.ViewModels" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:c="clr-namespace:Prism.App.Controls">
+  <DataTemplate DataType="{x:Type vm:ScenesViewModel}">
     <StackPanel>
-      <c:GlassCard Margin="0,0,0,18"><StackPanel>
-        <TextBlock Text="Scene LED layout" Style="{StaticResource H2}"/>
-        <ComboBox ItemsSource="{Binding PresetScenes}" SelectedItem="{Binding PresetScene}" Margin="0,8"/>
-        <TextBox Background="#252529" BorderBrush="#3F3F46" BorderThickness="1" Padding="10" Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/>
-        <Button Content="Save layout reference" Command="{Binding SavePresetReferenceCommand}" HorizontalAlignment="Left"/>
-        <TextBlock Text="Saved for future scene automation. Enter a layout name from Edit LEDs." Style="{StaticResource Muted}" Margin="0,8"/>
-      </StackPanel></c:GlassCard>
-      <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-      <ItemsControl ItemsSource="{Binding Scenes}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel/>
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <c:GlassCard Width="300" Margin="0,12,18,12" StaggerIndex="3">
-              <StackPanel>
-                <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-                <TextBlock Text="{Binding Trigger}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <TextBlock Text="{Binding LightingText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <TextBlock Text="{Binding FansText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <TextBlock Text="{Binding LampText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <c:GlowProgressBar Value="{Binding Noise}"/>
-                <TextBlock Text="{Binding NoiseText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-                <Button Content="{Binding ButtonLabel}" Command="{Binding DataContext.ApplyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Style="{StaticResource BaseButton}" Margin="4"/>
-              </StackPanel>
-            </c:GlassCard>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
-      <c:GlassCard Margin="0,0,0,18" StaggerIndex="4">
-        <StackPanel>
-          <TextBlock Text="Switch automatically" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,4"/>
-          <TextBlock Text="Automation rules require a future service protocol. Presets can be applied above." Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4"/>
+      <DockPanel Margin="0,0,0,16">
+        <StackPanel DockPanel.Dock="Right" VerticalAlignment="Bottom">
+          <Button Content="+ New scene" Command="{Binding NewSceneCommand}" Style="{StaticResource PrimaryPillButton}" Padding="20,0" MinHeight="42" Margin="0,4,0,4" />
         </StackPanel>
-      </c:GlassCard>
-      <TextBlock Text="{Binding LastError}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,12"/>
+        <StackPanel>
+          <TextBlock Text="SCENES" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
+          <TextBlock Text="One tap sets everything" Style="{StaticResource H1}" TextWrapping="Wrap" />
+          <TextBlock Text="A scene sets case lighting, fans and both lamps together" Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" />
+        </StackPanel>
+      </DockPanel>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="2.08*" />
+          <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
+        <ItemsControl ItemsSource="{Binding Scenes}" Margin="0,0,16,0" VerticalAlignment="Top">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <c:SpacedGrid Columns="3" Gap="12"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <c:GlassCard Height="180" StaggerIndex="3" Background="{Binding Background}" Padding="16">
+                <DockPanel>
+                  <Grid DockPanel.Dock="Bottom">
+                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Button Content="{Binding ButtonLabel}" Command="{Binding DataContext.ApplyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Style="{StaticResource BaseButton}" MinHeight="34" Margin="0,0,8,0" />
+                    <Button Grid.Column="1" Content="Edit" Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}" Style="{StaticResource BaseButton}" MinHeight="34" Padding="14,0" AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}" />
+                  </Grid>
+                  <StackPanel>
+                    <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,4" TextTrimming="CharacterEllipsis"/>
+                    <c:LedStrip ColorHex="{Binding ColorHex}" EffectKind="Static" Height="8" CornerRadius="3" Margin="0,4,0,10" LedCount="12" />
+                    <WrapPanel><Border Background="#6607080A" CornerRadius="8" Padding="7,3" Margin="0,0,4,6"><TextBlock Text="{Binding LightingText}" FontSize="11"/></Border><Border Background="#6607080A" CornerRadius="8" Padding="7,3" Margin="0,0,4,6"><TextBlock Text="{Binding FansText}" FontSize="11"/></Border><Border Background="#6607080A" CornerRadius="8" Padding="7,3" Margin="0,0,4,6"><TextBlock Text="{Binding LampText}" FontSize="11"/></Border></WrapPanel>
+                  </StackPanel>
+                </DockPanel>
+              </c:GlassCard>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <c:GlassCard Grid.Column="1" VerticalAlignment="Top">
+          <StackPanel>
+            <TextBlock Text="Automations" Style="{StaticResource CardTitle}"/>
+            <DockPanel Margin="0,8,0,0">
+              <c:LiveIndicator DockPanel.Dock="Left" Width="8" Height="8" Margin="0,5,8,0" VerticalAlignment="Top" Color="#3DDC84" Visibility="{Binding AutomationActive, Converter={StaticResource BoolToVisibility}}"/>
+              <TextBlock Text="{Binding AutomationStatus}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap"/>
+            </DockPanel>
+            <Border Background="#17181D" CornerRadius="14" Padding="12" Margin="0,10,0,0">
+              <StackPanel>
+                <DockPanel>
+                  <c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding LockEnabled, Mode=TwoWay}" AutomationProperties.Name="When the PC locks"/>
+                  <StackPanel><TextBlock Text="When the PC locks" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="Highest priority" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,2,8,0"/></StackPanel>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0" IsEnabled="{Binding LockEnabled}">
+                  <TextBlock Text="Scene" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <ComboBox ItemsSource="{Binding SceneNames}" SelectedItem="{Binding LockScene, Mode=TwoWay}" AutomationProperties.Name="When the PC locks scene"/>
+                </DockPanel>
+              </StackPanel>
+            </Border>
+            <Border Background="#17181D" CornerRadius="14" Padding="12" Margin="0,10,0,0">
+              <StackPanel>
+                <DockPanel>
+                  <c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding GameEnabled, Mode=TwoWay}" AutomationProperties.Name="When a game is running"/>
+                  <StackPanel><TextBlock Text="When a game is running" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="Games from Steam, Epic, Riot, Xbox, GOG, EA, Ubisoft and Battle.net" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,2,8,0"/></StackPanel>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0" IsEnabled="{Binding GameEnabled}">
+                  <TextBlock Text="Scene" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <ComboBox ItemsSource="{Binding SceneNames}" SelectedItem="{Binding GameScene, Mode=TwoWay}" AutomationProperties.Name="When a game is running scene"/>
+                </DockPanel>
+                <StackPanel Margin="0,8,0,0" IsEnabled="{Binding GameEnabled}">
+                  <TextBlock Text="Other games, by program name (comma separated)" Style="{StaticResource SmallMuted}" Margin="0,0,0,4"/><Border Background="#0D0E12" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="8" Padding="8,4"><TextBox Text="{Binding ExtraGamesText, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="#F4F5F7" CaretBrush="#FF4D1A" AutomationProperties.Name="Other games"/></Border>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Background="#17181D" CornerRadius="14" Padding="12" Margin="0,10,0,0">
+              <StackPanel>
+                <DockPanel>
+                  <c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding NightEnabled, Mode=TwoWay}" AutomationProperties.Name="At night"/>
+                  <StackPanel><TextBlock Text="At night" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="Lowest priority" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,2,8,0"/></StackPanel>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0" IsEnabled="{Binding NightEnabled}">
+                  <TextBlock Text="Scene" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <ComboBox ItemsSource="{Binding SceneNames}" SelectedItem="{Binding NightScene, Mode=TwoWay}" AutomationProperties.Name="At night scene"/>
+                </DockPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NightEnabled}">
+                  <TextBlock Text="From" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/><Border Background="#0D0E12" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="8" Padding="8,4" Width="70"><TextBox Text="{Binding NightStart, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="#F4F5F7" CaretBrush="#FF4D1A" AutomationProperties.Name="Night starts"/></Border>
+                  <TextBlock Text="to" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="8,0"/><Border Background="#0D0E12" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="8" Padding="8,4" Width="70"><TextBox Text="{Binding NightEnd, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="#F4F5F7" CaretBrush="#FF4D1A" AutomationProperties.Name="Night ends"/></Border>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </c:GlassCard>
+      </Grid>
+      <c:GlassCard Margin="0,16,0,0"><c:GlassCard.ContextMenu><ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"><MenuItem Header="LED layout references"><MenuItem StaysOpenOnClick="True"><MenuItem.Header><StackPanel><ComboBox ItemsSource="{Binding PresetScenes}" SelectedItem="{Binding PresetScene}"/><TextBox Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}" Margin="0,8"/><Button Content="Save layout reference" Command="{Binding SavePresetReferenceCommand}" HorizontalAlignment="Left"/></StackPanel></MenuItem.Header></MenuItem></MenuItem></ContextMenu></c:GlassCard.ContextMenu><StackPanel>
+        <DockPanel Margin="0,0,0,16">
+          <Button DockPanel.Dock="Right" Content="Save and apply" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryPillButton}" Padding="20,0" MinHeight="40" VerticalAlignment="Top"/>
+          <StackPanel>
+            <TextBlock Text="{Binding EditorTitle}" Style="{StaticResource CardTitle}"/>
+            <DockPanel Margin="0,8,24,0" MaxWidth="420" HorizontalAlignment="Left">
+              <TextBlock Text="Name" Style="{StaticResource SmallMuted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+              <Border Background="#17181D" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="10,6" MinWidth="240"><TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" MaxLength="32" Background="Transparent" BorderThickness="0" Foreground="#F4F5F7" CaretBrush="#FF4D1A" FontSize="14" AutomationProperties.Name="Scene name"/></Border>
+            </DockPanel>
+          </StackPanel>
+        </DockPanel>
+        <c:SpacedGrid Columns="3" Gap="16">
+          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16"><StackPanel>
+            <TextBlock Text="Case lighting" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Board, RAM, GPU and the ARGB strip" Style="{StaticResource SmallMuted}" Margin="0,6,0,12"/>
+            <c:SegmentedControl ItemsSource="{Binding EffectOptions}" SelectedItem="{Binding EditEffect, Mode=TwoWay}" ItemContainerStyle="{StaticResource OutlinedSegmentItem}" Background="Transparent" BorderThickness="0" Padding="0">
+              <c:SegmentedControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></c:SegmentedControl.ItemsPanel>
+            </c:SegmentedControl>
+            <ItemsControl ItemsSource="{Binding Swatches}" Margin="0,12,0,0"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
+              <c:ColorSwatch Width="30" Height="30" ColorHex="{Binding}" SelectedHex="{Binding DataContext.EditColor, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Margin="0,0,8,0" Command="{Binding DataContext.PickColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+            </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+            <DockPanel Margin="0,14,0,0"><TextBlock DockPanel.Dock="Right" Text="{Binding EditBrightness, StringFormat={}{0:0}%}" Style="{StaticResource SmallMuted}"/><TextBlock Text="Brightness" Style="{StaticResource SmallMuted}"/></DockPanel>
+            <c:ThickSlider Minimum="5" Maximum="100" Value="{Binding EditBrightness, Mode=TwoWay}" AccentColor="{Binding EditColor, Converter={StaticResource HexToColor}}" Glow="False" Margin="0,8,0,0" AutomationProperties.Name="Scene brightness"/>
+          </StackPanel></Border>
+          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16"><StackPanel>
+            <TextBlock Text="Fans" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Radiator and case fans &#x00B7; pump stays at 100%" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,6,0,12"/>
+            <c:SegmentedControl ItemsSource="{Binding FanOptions}" SelectedItem="{Binding EditFans, Mode=TwoWay}" ItemContainerStyle="{StaticResource OutlinedSegmentItem}" Background="Transparent" BorderThickness="0" Padding="0">
+              <c:SegmentedControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></c:SegmentedControl.ItemsPanel>
+            </c:SegmentedControl>
+          </StackPanel></Border>
+          <Border BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="16"><StackPanel>
+            <TextBlock Text="Lamps" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="What every lamp does in this scene" Style="{StaticResource SmallMuted}" Margin="0,6,0,12"/>
+            <c:SegmentedControl ItemsSource="{Binding LampOptions}" SelectedItem="{Binding EditLamps, Mode=TwoWay}" ItemContainerStyle="{StaticResource OutlinedSegmentItem}" Background="Transparent" BorderThickness="0" Padding="0">
+              <c:SegmentedControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></c:SegmentedControl.ItemsPanel>
+            </c:SegmentedControl>
+          </StackPanel></Border>
+        </c:SpacedGrid>
+      </StackPanel></c:GlassCard>
+
+      <TextBlock Visibility="{Binding StatusText, Converter={StaticResource StringToVisibility}}" Text="{Binding StatusText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,12,0,0" />
+      <TextBlock Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" Text="{Binding LastError}" Style="{StaticResource Muted}" TextWrapping="Wrap" Foreground="#FF8A8A" Margin="0,12" />
     </StackPanel>
   </DataTemplate>
 </ResourceDictionary>

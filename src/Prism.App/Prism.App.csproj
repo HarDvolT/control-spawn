@@ -14,12 +14,18 @@
     <RootNamespace>Prism.App</RootNamespace>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\ControlSpawn.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\ControlSpawn.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Prism.Core\Prism.Core.csproj" />
     <ProjectReference Include="..\Prism.Lighting\Prism.Lighting.csproj" />
   </ItemGroup>
+
 
   <!-- The WinForms SDK adds global usings that make Application/Color/Timer ambiguous with WPF. -->
   <ItemGroup>

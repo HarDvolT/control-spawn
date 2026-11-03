@@ -65,6 +65,12 @@ public sealed class WidgetViewModel : ObservableObject
     public Action? Changed { get; }
     public IPrismClient Client => _client;
 
+    private IReadOnlyList<LampState> lampStates = [];
+    public RelayCommand<string> ToggleLampByIdCommand => new(id =>
+    {
+        if (lampStates.FirstOrDefault(l => l.Id == id) is { } lamp)
+            _ = RunAsync(() => _client.SendAsync(Commands.SetLamp, new { lamp = id, on = !lamp.On }));
+    });
     public IReadOnlyList<LampRow> LampRows { get; private set; } = [];
     public bool IsAirFryer => Kind == WidgetKind.AirFryer;
     public IReadOnlyList<ApplianceState> Appliances { get; private set; } = [];
@@ -72,7 +78,24 @@ public sealed class WidgetViewModel : ObservableObject
     public string Id => Layout.Id;
     public WidgetKind Kind => Layout.Kind;
     public string Name => WidgetNames.Name(Kind);
+    public Prism.App.Controls.DeviceIconKind PreviewIcon => Kind switch { WidgetKind.SystemMonitor => Prism.App.Controls.DeviceIconKind.Activity, WidgetKind.Fans => Prism.App.Controls.DeviceIconKind.Fan, WidgetKind.Lamp => Prism.App.Controls.DeviceIconKind.Lamp, WidgetKind.AirFryer => Prism.App.Controls.DeviceIconKind.Fryer, WidgetKind.Modem => Prism.App.Controls.DeviceIconKind.Router, _ => Prism.App.Controls.DeviceIconKind.Board };
+    public string IconColor => Kind switch { WidgetKind.Modem => "#F5A524", WidgetKind.Lamp => "#FF7A3D", WidgetKind.AirFryer => "#FF4D1A", _ => "#36D6FF" };
+    public string DisplayName => Kind switch { WidgetKind.SystemMonitor => "System", WidgetKind.Modem => "Internet", WidgetKind.Lamp => "Lamps", _ => Name };
+    public string DisplaySubtitle => Kind switch { WidgetKind.SystemMonitor => "CPU, GPU and RAM at a glance", WidgetKind.Modem => "5G score and ping", WidgetKind.Fans => "Mode and live RPM", WidgetKind.Lamp => "Tap a lamp to switch it", _ => Subtitle };
+    public System.Windows.Media.Brush IconBackground
+    {
+        get { var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(IconColor); return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(64, color.R, color.G, color.B)); }
+    }
     public string Subtitle => WidgetNames.Subtitle(Kind);
+    public bool Enabled { get => Layout.Enabled; set { if (Layout.Enabled == value) return; Layout.Enabled = value; OnPropertyChanged(); Persist(); } }
+    public IReadOnlyList<string> Backgrounds { get; } = ["Glass", "Solid", "Clear"];
+    public string Background
+    {
+        get => Layout.Background;
+        set { if (!Backgrounds.Contains(value) || Layout.Background == value) return; Layout.Background = value; OnPropertyChanged(); OnPropertyChanged(nameof(BackgroundBrush)); Persist(); }
+    }
+    public System.Windows.Media.Brush BackgroundBrush => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(
+        Background == "Clear" ? (byte)70 : Background == "Solid" ? (byte)255 : (byte)(Opacity * 255), 17, 18, 22));
     public string SizeName => WidgetSizes.Name(Layout.Size);
 
     public double Width => WidgetSizes.Width(Layout.Size);
@@ -122,7 +145,7 @@ public sealed class WidgetViewModel : ObservableObject
             if (Math.Abs(Layout.Opacity - clamped) < 0.001) return;
             Layout.Opacity = clamped;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(OpacityPercent));
+            OnPropertyChanged(nameof(OpacityPercent)); OnPropertyChanged(nameof(BackgroundBrush));
             Persist();
         }
     }
@@ -209,9 +232,12 @@ public sealed class WidgetViewModel : ObservableObject
     public IReadOnlyList<string> Swatches { get; }
     public ObservableCollection<FanRow> FanRows { get; } = new();
     public ObservableCollection<SceneOption> Scenes { get; } = new();
-    public ObservableCollection<double> PingHistory { get; } = new();
-    public ObservableCollection<double> NetDownHistory { get; } = new();
-    public ObservableCollection<double> NetUpHistory { get; } = new();
+    // Whole lists replaced once per update: one change per chart instead of a layout pass per point,
+    // which matters in a transparent window that repaints in software.
+    private IReadOnlyList<double> _pingHistory = [], _netDownHistory = [], _netUpHistory = [];
+    public IReadOnlyList<double> PingHistory { get => _pingHistory; private set { _pingHistory = value; OnPropertyChanged(); } }
+    public IReadOnlyList<double> NetDownHistory { get => _netDownHistory; private set { _netDownHistory = value; OnPropertyChanged(); } }
+    public IReadOnlyList<double> NetUpHistory { get => _netUpHistory; private set { _netUpHistory = value; OnPropertyChanged(); } }
     public ObservableCollection<BarItem> ModemBars { get; } = new();
 
     public RelayCommand<string> SetFanModeCommand { get; }
@@ -219,10 +245,21 @@ public sealed class WidgetViewModel : ObservableObject
     public RelayCommand ToggleLampCommand { get; }
     public RelayCommand<string> ApplySceneCommand { get; }
 
-    public double CpuPercent => double.IsFinite(_cpu) ? Math.Clamp(_cpu, 0, 100) : 0;
-    public double GpuPercent => double.IsFinite(_gpu) ? Math.Clamp(_gpu, 0, 100) : 0;
+    public double CpuPercent => double.IsFinite(_cpu) ? Math.Clamp(_cpu, 0, 100) : double.NaN;
+    public double GpuPercent => double.IsFinite(_gpu) ? Math.Clamp(_gpu, 0, 100) : double.NaN;
     public string CpuText => Format.Percent(_cpu);
     public string GpuText => Format.Percent(_gpu);
+    public string CpuTemperatureLabel => Format.Temp(_cpuTemp, 0);
+    public string GpuTemperatureLabel => Format.Temp(_gpuTemp, 0);
+    public double CpuTemperature => _cpuTemp;
+    public double GpuTemperature => _gpuTemp;
+    private int? modemScore;
+    public double ModemBarCount => ModemBars.Count(b => b.ColorHex != "#3A3A40");
+    public string MiniModemVerdict => ModemVerdict + " \u00b7 " + (modemScore?.ToString() ?? Format.Dash);
+    public string MiniModemPing => PingText + " ms";
+    public string MiniFanHeading => "FANS \u00b7 " + FanMode.ToUpperInvariant();
+    public string MiniPump => "pump " + (FanRows.FirstOrDefault(f => f.IsPump)?.RpmText ?? Format.Dash);
+    public IReadOnlyList<FanRow> MiniFanRows => FanRows.Where(f => !f.IsPump).ToArray();
     public string CpuTempText => Format.Temp(_cpuTemp);
     public string GpuTempText => Format.Temp(_gpuTemp);
     public string RamText => _ramText;
@@ -283,26 +320,33 @@ public sealed class WidgetViewModel : ObservableObject
         _gpu = system.GpuLoad ?? double.NaN;
         _cpuTemp = system.CpuTemp ?? double.NaN;
         _gpuTemp = system.GpuTemp ?? double.NaN;
-        _ramPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : 0;
+        _ramPercent = system is { RamUsedGb: { } used, RamTotalGb: { } total } && total > 0 ? used / total * 100 : double.NaN;
         _ramText = Format.GbPair(system.RamUsedGb, system.RamTotalGb);
         _downText = Format.Mbps(system.NetDownMbps);
         _upText = Format.Mbps(system.NetUpMbps);
-        Push(NetDownHistory, system.NetDownMbps ?? 0);
-        Push(NetUpHistory, system.NetUpMbps ?? 0);
+        if (state.History is { } history)
+        {
+            var recent = history.TakeLast(40).ToArray();
+            NetDownHistory = Series(recent.Select(s => s.NetDownMbps));
+            NetUpHistory = Series(recent.Select(s => s.NetUpMbps));
+            PingHistory = Series(recent.Select(s => s.PingMs));
+        }
+        else
+        {
+            NetDownHistory = Append(NetDownHistory, system.NetDownMbps);
+            NetUpHistory = Append(NetUpHistory, system.NetUpMbps);
+        }
 
         _fanMode = Format.FanModeName(state.FanMode);
-        FanRows.Clear();
-        foreach (var fan in state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)))
-        {
-            FanRows.Add(new FanRow(fan.Name, fan.IsPump ? "Fixed" : "Curve",
-                Format.RpmShort(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? 0, 0, 100), fan.IsPump));
-        }
+        FanRows.ReplaceWith(state.Fans.Where(f => (f.Controllable || f.IsPump) && (f.Rpm is > 0 || f.IsPump)).Select(fan =>
+            new FanRow(fan.Name, fan.IsPump ? "Fixed" : "Curve",
+                Format.RpmShort(fan.Rpm), fan.IsPump ? 100 : Math.Clamp(fan.Percent ?? double.NaN, 0, 100), fan.IsPump)));
 
         LightingEffectKind = state.Lighting.Effect;
         LightingColor = state.Lighting.Color;
         Brightness = state.Lighting.Brightness;
         Speed = state.Lighting.Speed;
-        Temperature = system.CpuTemp ?? 45;
+        Temperature = system.CpuTemp ?? double.NaN;
 
         if (state.Lamp is { } lamp)
         {
@@ -321,25 +365,26 @@ public sealed class WidgetViewModel : ObservableObject
         }
 
         LampRows = LampRow.From(state);
+        lampStates = state.Lamps ?? (state.Lamp is { } first ? [first] : []);
         Appliances = state.Appliances ?? [];
         if (state.Router is { } router)
         {
             ModemNetwork = router.Network ?? "5G modem";
-            ModemVerdict = router.Verdict ?? Format.Dash;
-            ModemColor = ColorUtil.ToHex(router.Verdict == "Good" ? ColorUtil.Good : router.Verdict == "Fair" ? ColorUtil.Fair : router.Verdict == "Poor" ? ColorUtil.Poor : ColorUtil.TextTertiary);
+            ModemVerdict = Format.SignalWord(router) ?? Format.Dash;
+            ModemColor = ColorUtil.ToHex(ColorUtil.ForVerdict(Format.SignalWord(router)));
             ModemRsrp = Format.Dbm(router.Rsrp5g, 0);
             ModemSinr = Format.Db(router.Sinr5g);
             PingText = Format.MsValue(router.PingMs);
             PingColor = ColorUtil.ToHex(router.PingMs is null ? ColorUtil.TextTertiary : router.PingMs < 35 ? ColorUtil.Good : router.PingMs < 80 ? ColorUtil.Fair : ColorUtil.Poor);
-            if (router.PingMs is { } ping) Push(PingHistory, ping);
+            if (state.History is null && router.PingMs is { } ping) PingHistory = Append(PingHistory, ping);
 
-            ModemBars.Clear();
+            modemScore = router.Score;
             var bars = router.Bars ?? 0;
-            for (var i = 0; i < 5; i++)
-                ModemBars.Add(new BarItem(5 + i * 3, i < bars ? ModemColor : "#3A3A40"));
+            ModemBars.ReplaceWith(Enumerable.Range(0, 5).Select(i => new BarItem(5 + i * 3, i < bars ? ModemColor : "#3A3A40")));
         }
         else
         {
+            modemScore = null;
             ModemBars.Clear();
             ModemNetwork = "5G modem";
             ModemVerdict = Format.Dash;
@@ -407,6 +452,9 @@ public sealed class WidgetViewModel : ObservableObject
 
     private void Persist() => Changed?.Invoke();
 
+    private static double[] Series(IEnumerable<double?> values) => values.Where(v => v is { } d && double.IsFinite(d)).Select(v => Math.Round(v!.Value, 1)).ToArray();
+    private static IReadOnlyList<double> Append(IReadOnlyList<double> history, double? value) =>
+        value is { } v && double.IsFinite(v) ? history.Append(Math.Round(v, 1)).TakeLast(40).ToArray() : history;
     private static void Push(ObservableCollection<double> history, double value)
     {
         if (!double.IsFinite(value)) return;

@@ -20,6 +20,7 @@ public sealed class NavItem : ObservableObject
     public PageDefinition Definition { get; }
     public string Title => Definition.Title;
     public string Glyph => Definition.Glyph;
+    public System.Windows.Media.Geometry Icon => System.Windows.Media.Geometry.Parse(Definition.Glyph);
     public string Subtitle => Definition.Subtitle;
 
     public bool IsCurrent
@@ -62,11 +63,13 @@ public sealed class MainViewModel : ObservableObject
     private string _serviceDot = ColorUtil.ToHex(ColorUtil.Fair);
     private string _serviceStatusText = "Service · connecting";
     private StateMessage? _lastState;
+    public NotificationFeed Notifications { get; }
 
     public MainViewModel(IPrismClient client, AppSettings settings, SettingsStore settingsStore,
         IStartupRegistry startup, WidgetLayoutStore widgetStore, IWidgetHost host)
     {
         _client = client;
+        Notifications = new NotificationFeed(settings);
         _host = host;
 
         Dashboard = new DashboardViewModel(client);
@@ -75,10 +78,10 @@ public sealed class MainViewModel : ObservableObject
         Fans = new FansViewModel(client);
         Lamp = new LampViewModel(client);
         Devices = new DevicesViewModel(client);
-        Appliances = new AppliancesViewModel(client);
+        Appliances = new AppliancesViewModel(client, settings, settingsStore);
         Scenes = new ScenesViewModel(client, settings, settingsStore);
         Modem = new ModemViewModel(client);
-        Settings = new SettingsViewModel(client, settingsStore, startup, settings);
+        Settings = new SettingsViewModel(client, settingsStore, startup, settings, () => { if (_lastState is { } state) ApplyState(state); });
         Widgets = new WidgetsViewModel(client, widgetStore, host, Settings);
 
         _pages = new Dictionary<PageKey, PageViewModel>
@@ -98,7 +101,10 @@ public sealed class MainViewModel : ObservableObject
         _currentPage = Dashboard;
 
         foreach (var page in _pages.Values)
+        {
             page.NavigateRequested += (_, key) => Navigate(key);
+            page.AddDeviceRequested += (_, _) => { Navigate(PageKey.Devices); Devices.RequestImport(); };
+        }
 
         NavigationGroups = new ObservableCollection<NavGroupViewModel>(
             Navigation.Pages.Groups.Select(group => new NavGroupViewModel(group,
@@ -114,6 +120,7 @@ public sealed class MainViewModel : ObservableObject
 
         _client.StateReceived += OnStateReceived;
         _client.ConnectionChanged += OnConnectionChanged;
+        _client.ReadOnlyChanged += OnReadOnlyChanged;
 
         if (_client is MockPrismClient mock) ApplyState(mock.CurrentState);
         UpdateNavigation();
@@ -145,8 +152,8 @@ public sealed class MainViewModel : ObservableObject
     public PageViewModel CurrentPage { get => _currentPage; private set => Set(ref _currentPage, value); }
     public PageKey CurrentKey { get => _currentKey; private set => Set(ref _currentKey, value); }
     public string CurrentTitle => CurrentPage.PageTitle;
-    public string BreadcrumbLeft => CurrentKey == PageKey.Modem ? "Insights" : "Prism";
-    public string BreadcrumbTitle => CurrentTitle;
+    public string BreadcrumbLeft => "Control Spawn";
+    public string BreadcrumbTitle => Navigation.Pages.Get(CurrentKey).Title;
     public StateMessage? LastState => _lastState;
 
     public bool IsSearchOpen
@@ -180,7 +187,9 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public bool IsConnected { get => _isConnected; private set => Set(ref _isConnected, value); }
-    public bool ShowBanner => !IsConnected;
+    public const string ReadOnlyBanner = "Read-only: the service doesn't recognise this copy of the app, so changes aren't applied. Run the installed Control Spawn, or start it with scripts/try-live.ps1.";
+    public bool IsReadOnly { get; private set; }
+    public bool ShowBanner => !IsConnected || IsReadOnly;
     public string BannerText { get => _bannerText; private set => Set(ref _bannerText, value); }
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
     public string ServiceDot { get => _serviceDot; private set => Set(ref _serviceDot, value); }
@@ -199,14 +208,15 @@ public sealed class MainViewModel : ObservableObject
 
     public void ApplyState(StateMessage state)
     {
+        Notifications.Observe(state);
         _lastState = state;
         foreach (var page in _pages.Values) page.Apply(state);
         IsConnected = true;
         ServiceDot = ColorUtil.ToHex(ColorUtil.Good);
-        ServiceStatusText = state.Health.Mock ? "Service · mock data" : "Service · live";
+        ServiceStatusText = $"Service {(state.Health.Mock ? "mock" : "live")} · {state.Devices?.Count ?? 0} devices";
         StatusText = state.Health.Warnings.Count > 0
             ? state.Health.Warnings[0]
-            : state.Health.FanFailsafeActive ? "Fan failsafe active · BIOS control" : "All systems normal · live";
+            : state.Health.FanFailsafeActive ? Format.FailsafeStatus(state.Health.LastFailsafeReason) : "All systems normal";
         OnPropertiesChanged(nameof(ShowBanner), nameof(IsMock), nameof(ModeBadge));
     }
 
@@ -318,6 +328,19 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
         ApplyState(state);
+    }
+
+    private void OnReadOnlyChanged(object? sender, bool readOnly)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess()) { dispatcher.BeginInvoke(() => SetReadOnly(readOnly)); return; }
+        SetReadOnly(readOnly);
+    }
+    public void SetReadOnly(bool readOnly)
+    {
+        IsReadOnly = readOnly;
+        if (readOnly) BannerText = ReadOnlyBanner;
+        OnPropertiesChanged(nameof(IsReadOnly), nameof(ShowBanner), nameof(BannerText));
     }
 
     private void OnConnectionChanged(object? sender, ServiceConnection connection)

@@ -13,6 +13,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        CrashLog.Install(this);
         var options = LaunchOptions.Parse(e.Args);
         _instance = new SingleInstance(options.Mock ? "Prism.App.Mock" : "Prism.App", () => Dispatcher.BeginInvoke(OpenMain));
         if (!_instance.IsPrimary) { Shutdown(); return; }
@@ -32,9 +33,12 @@ public partial class App : Application
             else if (!_quitting) { args.Cancel = true; Dispatcher.BeginInvoke(Quit); }
         };
         _tray = new TrayIcon(vm, _widgets, OpenMain, Quit);
+        WidgetCard.OpenPage = page => { vm.Navigate(page); OpenMain(); };
         if (!options.Tray && !settings.StartMinimizedToTray) window.Show();
         if (settings.ShowWidgetsAtStartup) _widgets.ShowAll();
         await _client.StartAsync();
+        // The service runs outside your desktop session, so the app tells it when the PC locks (for the "PC locked" scene).
+        Microsoft.Win32.SystemEvents.SessionSwitch += SessionSwitched;
     }
     private void OpenMain()
     {
@@ -51,8 +55,15 @@ public partial class App : Application
         _widgets?.Dispose(); _widgets = null;
         Shutdown();
     }
+    private void SessionSwitched(object? sender, Microsoft.Win32.SessionSwitchEventArgs e)
+    {
+        bool? locked = e.Reason switch { Microsoft.Win32.SessionSwitchReason.SessionLock => true, Microsoft.Win32.SessionSwitchReason.SessionUnlock => false, _ => null };
+        if (locked is { } value && _client is { } client) _ = client.SendAsync(Prism.Core.Ipc.Commands.SetSessionLocked, new { locked = value });
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
+        Microsoft.Win32.SystemEvents.SessionSwitch -= SessionSwitched;
         _tray?.Dispose(); _widgets?.Dispose();
         if (_client is not null) _client.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _instance?.Dispose();

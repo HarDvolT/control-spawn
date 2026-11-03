@@ -32,6 +32,19 @@ public sealed class MultiLampTests
         Assert.False(client.CurrentState.Lamp!.On); Assert.Equal(30, client.CurrentState.Lamp.Brightness);
     }
     [Fact]
+    public async Task ClickingADashboardLampFlipsOnlyThatLampAndAClickBackTurnsItOn()
+    {
+        await using var client = new MockPrismClient();
+        var dashboard = new DashboardViewModel(client); dashboard.Apply(client.CurrentState);
+        Assert.True(dashboard.LampRows[1].On);
+        dashboard.ToggleLampRowCommand.Execute(dashboard.LampRows[1]);
+        Assert.False(dashboard.LampRows[1].On); // flipped at once, before the service confirms
+        Assert.False(client.CurrentState.Lamps![1].On); Assert.True(client.CurrentState.Lamps[0].On);
+        dashboard.Apply(client.CurrentState);
+        dashboard.ToggleLampRowCommand.Execute(dashboard.LampRows[1]);
+        Assert.True(client.CurrentState.Lamps![1].On);
+    }
+    [Fact]
     public async Task DecimalAndHexProvisioningUpdateExistingLampWithoutDuplicates()
     {
         await using var client = new MockPrismClient();

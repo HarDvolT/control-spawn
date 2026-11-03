@@ -37,6 +37,10 @@ public sealed partial class MockPrismClient : PrismClientBase
     private double _diskWrite = 40;
 
     private FanMode _fanMode = FanMode.Standard;
+    private readonly Dictionary<(string Group, FanMode Mode), IReadOnlyList<FanPoint>> _fanProfiles = new();
+    private readonly Dictionary<string, (FanResponse Response, double Hold)> _fanTuning = new();
+    private readonly Dictionary<int, FanRpmMap> _fanRpm = new();
+    private readonly Dictionary<string, FanMode> _sceneFans = new(StringComparer.OrdinalIgnoreCase);
     private EffectParameters _parameters = new();
     private LightingMap _map = new([]);
     private readonly Dictionary<string, SensorBinding> _bindings = new();
@@ -47,6 +51,7 @@ public sealed partial class MockPrismClient : PrismClientBase
     private double _brightness = 0.8;
     private double _speed = 1;
     private readonly HashSet<string> _unsyncedDevices = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PartLook> _partLooks = new();
     private readonly Dictionary<string, IReadOnlyList<FanPoint>> _curves = new(StringComparer.OrdinalIgnoreCase);
     private string _curveSource = "Cpu";
 
@@ -57,6 +62,7 @@ public sealed partial class MockPrismClient : PrismClientBase
     private int _lampBrightness = 70;
     private string _lampFollow = "pc";
     private string _lampColor = "#FF4D1A";
+    private int? _lampKelvin;
 
     public MockPrismClient()
     {
@@ -144,10 +150,21 @@ public sealed partial class MockPrismClient : PrismClientBase
             NetDownMbps: Math.Round(_netDown, 1),
             NetUpMbps: Math.Round(_netUp, 1));
 
+        // Like the service: each fan reports the curve it runs, its tuning, and what that curve asks for at the CPU's temperature.
+        FanState Driven(int header, string group, double idleRpm)
+        {
+            var points = _fanMode == FanMode.Custom ? _curves.GetValueOrDefault(group) ?? ViewModels.FansViewModel.BuiltIn(FanMode.Custom)
+                : _fanProfiles.GetValueOrDefault((group, _fanMode)) ?? ViewModels.FansViewModel.BuiltIn(_fanMode);
+            var (response, hold) = _fanTuning.GetValueOrDefault(group, (FanResponse.Normal, 2));
+            var source = Enum.TryParse<TemperatureSource>(_curveSource, out var parsed) ? parsed : TemperatureSource.Cpu;
+            var config = new FanControlState(points, source, 20, hold, 30, 10, response, 4, _fanMode != FanMode.Custom && _fanProfiles.ContainsKey((group, _fanMode)));
+            return new(header, group, RpmFor(idleRpm, _fanMode), FanPercent(_fanMode), true, false, _fanMode.ToString(), config,
+                Target: Math.Round(ViewModels.FansViewModel.DutyAt(points, _cpuTemp)), Following: Math.Round(_cpuTemp, 1));
+        }
         var fans = new List<FanState>
         {
-            new(2, "Radiator", RpmFor(1268, _fanMode), FanPercent(_fanMode), true, false, _curveSource),
-            new(6, "Case fans", RpmFor(622, _fanMode), FanPercent(_fanMode), true, false, _curveSource),
+            Driven(2, "Radiator", 1268),
+            Driven(6, "Case fans", 622),
             new(7, "AIO pump", 2801, 100, false, true, "Fixed 100%"),
             new(1, "Fan #1", 0, 0, true, false, "None"),
             new(3, "Fan #3", 0, 0, true, false, "None"),
@@ -171,8 +188,8 @@ public sealed partial class MockPrismClient : PrismClientBase
         };
 
         system = system with { Disks = system.Disks.Select(d => d with { ActivityPercent = 50 + 40 * Math.Sin(t) }).ToArray(), GpuMemoryJunction = 65 + 10 * Math.Sin(t * 0.3) };
-        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events, Bindings: new Dictionary<string, SensorBinding>(_bindings), IdentifyingZones: identifyUntil > now ? [new("board", 1, _stripSize, _stripSize == 0 ? 0 : (int)(now.TimeOfDay.TotalSeconds * 6) % _stripSize + 1)] : []);
-        var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "miio", "lamp:470875761", firstLampName, 470875761, "192.0.2.1");
+        var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events, Bindings: new Dictionary<string, SensorBinding>(_bindings), PartLooks: new Dictionary<string, PartLook>(_partLooks), IdentifyingZones: identifyUntil > now ? [new("board", 1, _stripSize, _stripSize == 0 ? 0 : (int)(now.TimeOfDay.TotalSeconds * 6) % _stripSize + 1)] : []);
+        var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "miio", "lamp:470875761", firstLampName, 470875761, "192.0.2.1", Kelvin: _lampFollow == "own" ? _lampKelvin : null);
 
         var rsrp5 = Math.Round(-97 + Math.Sin(t * 0.11) * 3);
         var rsrp4 = Math.Round(-92 + Math.Sin(t * 0.09) * 3);
@@ -195,7 +212,9 @@ public sealed partial class MockPrismClient : PrismClientBase
 
         var lamps = (firstRemoved ? Array.Empty<LampState>() : new[] { lamp }).Concat(extraLamps.Values).ToArray();
         return Decorate(new StateMessage(now, system, fans, _fanMode, lighting, lamps.FirstOrDefault(), router,
-            new ServiceHealth(true, false, Array.Empty<string>(), false), Lamps: lamps));
+            new ServiceHealth(true, false, Array.Empty<string>(), false), Lamps: lamps,
+            FanRpm: new Dictionary<int, FanRpmMap>(_fanRpm),
+            Scenes: SceneCatalog.All.Select(s => new SceneSummary(s.Name, _sceneFans.GetValueOrDefault(s.Name, s.FanMode), s.Effect, s.Color, s.LampBrightness / 100d, s.LampFollow)).ToArray()));
     }
 
     private static double RpmFor(double idleRpm, FanMode mode)
@@ -236,6 +255,7 @@ public sealed partial class MockPrismClient : PrismClientBase
                 case Commands.DismissDevice:
                 case Commands.SetupDevice:
                 case Commands.ImportTokens:
+                case Commands.AddToken:
                 case Commands.SetDiscoveryOptions:
                 case Commands.ApplianceProperties:
                 case Commands.PrepareApplianceStart:
@@ -356,11 +376,52 @@ public sealed partial class MockPrismClient : PrismClientBase
                     if (TryString(element, "mode", out var modeText) && Enum.TryParse<FanMode>(modeText, true, out var mode))
                     {
                         _fanMode = mode;
+                        if (TryString(element, "source", out var modeSource)) _curveSource = modeSource;
                         publish = BuildState();
                         response = new Response(0, true);
                     }
                     else response = new Response(0, false, "mode is required");
                     break;
+                case Commands.SetFanTuning:
+                {
+                    var group = TryString(element, "group", out var tuned) ? tuned : "Radiator";
+                    if (TryString(element, "response", out var responseText) && Enum.TryParse<FanResponse>(responseText, out var fanResponse) && TryNumber(element, "hold", out var hold) && hold is >= 0 and <= 10)
+                    { _fanTuning[group] = (fanResponse, hold); publish = BuildState(); response = new Response(0, true); }
+                    else response = new Response(0, false, "response and hold (0-10) are required");
+                    break;
+                }
+                case Commands.MeasureFan:
+                {
+                    // Instant in the mock: rpm follows duty, and the case fans stop below 20%.
+                    if (TryNumber(element, "header", out var measured) && measured is 2 or 6)
+                    {
+                        double idle = measured == 2 ? 1268 : 622;
+                        _fanRpm[(int)measured] = new([.. new double[] { 15, 20, 25, 30, 40, 50, 60, 80, 100 }.Select(p => new FanRpmPoint(p, measured == 6 && p < 20 ? 0 : Math.Round(idle * p / 44)))],
+                            measured == 6 ? 20 : null, DateTimeOffset.Now);
+                        publish = BuildState(); response = new Response(0, true);
+                    }
+                    else response = new Response(0, false, "That header can't be measured.");
+                    break;
+                }
+                case Commands.SetSceneFans:
+                {
+                    if (TryString(element, "name", out var sceneName) && TryString(element, "fans", out var sceneFansText) && Enum.TryParse<FanMode>(sceneFansText, out var sceneFans) && sceneFans != FanMode.Custom)
+                    { _sceneFans[sceneName] = sceneFans; publish = BuildState(); response = new Response(0, true); }
+                    else response = new Response(0, false, "Unknown scene or fan profile.");
+                    break;
+                }
+                case Commands.SetFanProfile:
+                {
+                    if (!TryString(element, "mode", out var profileText) || !Enum.TryParse<FanMode>(profileText, out var profile) || profile is FanMode.Full or FanMode.Custom)
+                    { response = new Response(0, false, "Only Silent, Standard and Turbo can be edited."); break; }
+                    var profileGroup = TryString(element, "group", out var named) ? named : "Radiator";
+                    if (TryBool(element, "reset", out var resetProfile) && resetProfile) _fanProfiles.Remove((profileGroup, profile));
+                    else if (ReadPoints(element) is { Count: 8 } edited) _fanProfiles[(profileGroup, profile)] = edited;
+                    else { response = new Response(0, false, "Exactly eight points are required."); break; }
+                    publish = BuildState();
+                    response = new Response(0, true);
+                    break;
+                }
                 case Commands.SetFanCurve:
                 {
                     var group = TryString(element, "group", out var g) ? g : "Radiator";
@@ -394,6 +455,21 @@ public sealed partial class MockPrismClient : PrismClientBase
                     publish = BuildState();
                     response = new Response(0, true);
                     break;
+                case Commands.SetPartLook:
+                    if (TryString(element, "part", out var part))
+                    {
+                        if (TryBool(element, "clear", out var clear) && clear) _partLooks.Remove(part);
+                        else
+                        {
+                            var from = _partLooks.GetValueOrDefault(part) ?? new(_effect, _lightColor, _brightness, _speed);
+                            _partLooks[part] = new(TryString(element, "effect", out var pe) && Enum.TryParse<LightingEffect>(pe, true, out var partEffect) ? partEffect : from.Effect,
+                                TryString(element, "color", out var pc) ? pc : from.Color, TryNumber(element, "brightness", out var pb) ? Math.Clamp(pb, 0, 1) : from.Brightness,
+                                TryNumber(element, "speed", out var ps) ? Math.Clamp(ps, 0, 2) : from.Speed);
+                        }
+                        publish = BuildState(); response = new(0, true);
+                    }
+                    else response = new(0, false, "part is required");
+                    break;
                 case Commands.SetDeviceSync:
                     if (TryString(element, "device", out var device) && TryBool(element, "enabled", out var enabled))
                     {
@@ -414,6 +490,7 @@ public sealed partial class MockPrismClient : PrismClientBase
                             Brightness = TryNumber(element, "brightness", out var level) ? (int)Math.Clamp(level, 1, 100) : current.Brightness,
                             Color = TryString(element, "color", out var colour) ? colour : current.Color,
                             Follow = TryString(element, "follow", out var followed) ? followed : current.Follow,
+                            Kelvin = TryNumber(element, "kelvin", out var white) ? (int)white : TryString(element, "color", out _) ? null : current.Kelvin,
                             Name = TryString(element, "name", out var renamed) ? renamed : current.Name };
                         publish = BuildState(); response = new(0, true); break;
                     }
@@ -421,7 +498,8 @@ public sealed partial class MockPrismClient : PrismClientBase
                     if (TryBool(element, "on", out var on)) _lampOn = on;
                     if (TryNumber(element, "brightness", out var lampBrightness)) _lampBrightness = (int)Math.Clamp(lampBrightness, 1, 100);
                     if (TryString(element, "follow", out var follow)) _lampFollow = follow;
-                    if (TryString(element, "color", out var lampColor)) _lampColor = lampColor;
+                    if (TryString(element, "color", out var lampColor)) { _lampColor = lampColor; _lampKelvin = null; }
+                    if (TryNumber(element, "kelvin", out var lampKelvin)) _lampKelvin = (int)lampKelvin;
                     publish = BuildState();
                     response = new Response(0, true);
                     break;
@@ -432,7 +510,7 @@ public sealed partial class MockPrismClient : PrismClientBase
                     ActiveScene = scene.Name;
                     _effect = scene.Effect;
                     _lightColor = scene.Color;
-                    _fanMode = scene.FanMode;
+                    _fanMode = _sceneFans.GetValueOrDefault(scene.Name, scene.FanMode);
                     _lampOn = scene.LampOn;
                     _lampBrightness = scene.LampBrightness;
                     _lampFollow = scene.LampFollow;

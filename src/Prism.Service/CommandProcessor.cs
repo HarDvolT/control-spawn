@@ -23,8 +23,14 @@ public interface IServiceRuntime
     void SetLampResolutionHandler(Func<string, MiioDevice, Task> handler) { }
     void CredentialsChanged(bool lamp) { }
     void LampCredentialsChanged(string id) => CredentialsChanged(true);
+    /// <summary>Asks the Mi Home device at <paramref name="ip"/> who it is, using <paramref name="token"/>: its id and model.</summary>
+    Task<(uint DeviceId, string Model)> IdentifyMiioAsync(string ip, byte[] token, CancellationToken cancellationToken) =>
+        Task.FromException<(uint, string)>(new TokenProblem("Checking tokens is unavailable."));
+    /// <summary>The user changed this lamp here, so a bulb handed off to Mi Home is driven again.</summary>
+    void TakeOverLamp(string id) { }
     void TriggerLightingEvent(LightingEventKind kind) { }
     Task<SpeedTestResult?> StartSpeedTestAsync(CancellationToken cancellationToken);
+    void MeasureFan(int header) => throw new InvalidOperationException("Fan measuring is unavailable.");
 }
 
 /// <summary>Serialized settings commands; connection-local hello/subscribe live in PipeSession.</summary>
@@ -39,6 +45,7 @@ public sealed partial class CommandProcessor
     private readonly LampTokenStore lampTokens;
     private readonly SemaphoreSlim gate = new(1, 1);
     private ServiceSettings settings;
+    public StateHub State { get; }
     public ServiceSettings Settings => Volatile.Read(ref settings);
     public CommandProcessor(ISettingsStore store, IServiceRuntime runtime, Action<byte[]>? saveLampToken = null, Action<string>? saveRouterPassword = null, Action<uint, byte[]>? saveDeviceToken = null, Action<uint>? removeDeviceToken = null, LampTokenStore? lampTokens = null)
     {
@@ -49,6 +56,7 @@ public sealed partial class CommandProcessor
         this.saveLampToken = saveLampToken ?? (token => this.lampTokens.Save(token));
         this.saveRouterPassword = saveRouterPassword ?? (password => { var credentials = new CredentialStore(); credentials.SavePassword(password); credentials.ForgetSession(); });
         settings = store.Load(); Settings.Validate();
+        State = new StateHub(AssembleState);
         runtime.SetLampResolutionHandler(CacheLampAsync);
         runtime.SetDeviceObservationHandler(ObserveDevicesAsync);
     }
@@ -85,18 +93,30 @@ public sealed partial class CommandProcessor
         }
         finally { gate.Release(); }
     }
-    public StateMessage GetState() => DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery);
-    public event Action? StateChanged;
+    private StateMessage AssembleState()
+    {
+        var state = DeviceNames.Apply(runtime.GetState(Settings), Settings.Devices, Settings.Discovery) with { Automations = Automations };
+        return store is JsonSettingsStore { HealthWarning: { } warning } ? state with { Health = state.Health with { Warnings = state.Health.Warnings.Append(warning).ToArray() } } : state;
+    }
+    public StateMessage GetState() => State.Read();
+    // Pushed after every accepted command and after an automation commits.
+    public event Action? StateChanged { add => State.Changed += value; remove => State.Changed -= value; }
     public async Task<Response> HandleAsync(Request request, CancellationToken cancellationToken = default)
     {
         var response = await HandleCoreAsync(request, cancellationToken);
-        if (response.Ok && request.Command != Commands.GetState) StateChanged?.Invoke();
+        if (response.Ok && request.Command != Commands.GetState) State.Publish();
         return response;
     }
     private async Task<Response> HandleCoreAsync(Request request, CancellationToken cancellationToken)
     {
         // A speed test must not hold the settings gate while fans/scenes need to change.
         if (request.Command == Commands.StartSpeedTest) return await SpeedResponseAsync(request.Id, cancellationToken);
+        // Lock reports only wake the automation check; they never change saved settings.
+        if (request.Command == Commands.SetSessionLocked)
+        {
+            try { SetSessionLocked(request.Args ?? default); return new(request.Id, true); }
+            catch (Exception e) when (e is InvalidOperationException or KeyNotFoundException) { return new(request.Id, false, "Expected { locked: true|false }."); }
+        }
         await gate.WaitAsync(cancellationToken);
         try
         {
@@ -148,6 +168,8 @@ public sealed partial class CommandProcessor
                 }
                 case Commands.ImportTokens:
                     next = Import(a); break;
+                case Commands.AddToken:
+                    next = await AddTokenAsync(a); break;
                 case Commands.SetDiscoveryOptions:
                     next = Settings with { Discovery = a.GetProperty("options").Deserialize<DiscoveryOptions>(PipeContract.Json) ?? throw new ArgumentException("Missing options.") }; break;
                 case Commands.PrepareApplianceStart:
@@ -277,30 +299,82 @@ public sealed partial class CommandProcessor
                 case Commands.SetServiceOptions:
                 {
                     next = Settings with { OpenRgbPath = Text(a, "openRgbPath"), LaunchOpenRgb = a.GetProperty("launchOpenRgb").GetBoolean(),
-                        RouterEnabled = a.GetProperty("routerEnabled").GetBoolean(), RouterHost = Text(a, "routerHost") }; break;
+                        RouterEnabled = a.GetProperty("routerEnabled").GetBoolean(), RouterHost = Text(a, "routerHost") };
+                    // Only a path the service will start matters; the app sends its saved path even with launching off.
+                    if (next.LaunchOpenRgb && !OpenRgbLocation.IsAllowed(next.OpenRgbPath)) throw new ArgumentException(OpenRgbLocation.Rule);
+                    break;
                 }
                 case Commands.SetFanMode:
                 {
                     var group = Group(a); var mode = EnumValue<FanMode>(a, "mode");
+                    TemperatureSource? source = a.TryGetProperty("source", out _) ? EnumValue<TemperatureSource>(a, "source") : null;
                     if (group.StartsWith("fan:", StringComparison.Ordinal))
                     {
                         int header = int.Parse(group.AsSpan(4)); var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans);
                         var current = headers.GetValueOrDefault(header) ?? new();
                         if (mode == FanMode.Custom && current.Points is null) throw new ArgumentException("Set a custom curve first.");
-                        headers[header] = current with { Mode = mode }; next = Settings with { HeaderFans = headers }; break;
+                        headers[header] = current with { Mode = mode, Source = source ?? current.Source }; next = Settings with { HeaderFans = headers }; break;
                     }
                     var fans = new Dictionary<string, FanConfiguration>(Settings.Fans);
                     if (mode == FanMode.Custom && fans[group].Points is null) throw new ArgumentException("Set a custom curve first.");
-                    fans[group] = fans[group] with { Mode = mode }; next = Settings with { Fans = fans }; break;
+                    fans[group] = fans[group] with { Mode = mode, Source = source ?? fans[group].Source }; next = Settings with { Fans = fans }; break;
+                }
+                case Commands.SetFanTuning:
+                {
+                    var group = Group(a); var response = EnumValue<FanResponse>(a, "response");
+                    var hold = a.GetProperty("hold").GetDouble();
+                    if (!double.IsFinite(hold) || hold is < 0 or > 10) throw new ArgumentException("Hold must be 0-10 degrees.");
+                    if (group.StartsWith("fan:", StringComparison.Ordinal))
+                    {
+                        int header = int.Parse(group.AsSpan(4)); var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans);
+                        headers[header] = (headers.GetValueOrDefault(header) ?? new()) with { Response = response, Hold = hold }; next = Settings with { HeaderFans = headers }; break;
+                    }
+                    var fans = new Dictionary<string, FanConfiguration>(Settings.Fans);
+                    fans[group] = fans[group] with { Response = response, Hold = hold }; next = Settings with { Fans = fans }; break;
+                }
+                case Commands.MeasureFan:
+                    runtime.MeasureFan(a.GetProperty("header").GetInt32()); next = Settings; break;
+                case Commands.SetSceneFans:
+                {
+                    var name = Text(a, "name");
+                    if (!Settings.Scenes.TryGetValue(name, out var chosen)) throw new ArgumentException("Unknown scene.");
+                    var fans = EnumValue<FanMode>(a, "fans");
+                    if (fans == FanMode.Custom) throw new ArgumentException("A scene uses a profile, not one fan's curve.");
+                    next = Settings with { Scenes = new(Settings.Scenes) { [name] = chosen with { Fans = fans } } }; break;
+                }
+                case Commands.SetFanProfile:
+                {
+                    var mode = EnumValue<FanMode>(a, "mode");
+                    if (!FanConfiguration.Editable(mode)) throw new ArgumentException("Only Silent, Standard and Turbo can be edited.");
+                    bool resetting = a.TryGetProperty("reset", out var reset) && reset.ValueKind == JsonValueKind.True;
+                    FanPoint[]? edited = resetting ? null : new FanCurve(Points(a)).Points.ToArray();
+                    if (!a.TryGetProperty("group", out _))
+                    {
+                        var profiles = new Dictionary<FanMode, FanPoint[]>(Settings.FanProfiles);
+                        if (edited is null) profiles.Remove(mode); else profiles[mode] = edited;
+                        next = Settings with { FanProfiles = profiles }; break;
+                    }
+                    // Per fan: a profile once edited for every fan moves onto each fan first, so this edit leaves the other fans as they were.
+                    var target = Group(a); var shared = Settings.FanProfiles.GetValueOrDefault(mode);
+                    FanConfiguration Edit(FanConfiguration fan, bool chosen)
+                    {
+                        var own = new Dictionary<FanMode, FanPoint[]>(fan.Profiles ?? new());
+                        if (shared is not null && !own.ContainsKey(mode)) own[mode] = shared;
+                        if (chosen) { if (edited is null) own.Remove(mode); else own[mode] = edited; }
+                        return fan with { Profiles = own.Count > 0 ? own : null };
+                    }
+                    var fans = Settings.Fans.ToDictionary(f => f.Key, f => Edit(f.Value, f.Key == target));
+                    var headers = Settings.HeaderFans.ToDictionary(h => h.Key, h => Edit(h.Value, target == $"fan:{h.Key}"));
+                    if (target.StartsWith("fan:", StringComparison.Ordinal) && int.Parse(target.AsSpan(4)) is var header && !headers.ContainsKey(header))
+                        headers[header] = Edit(new(), true);
+                    else if (!target.StartsWith("fan:", StringComparison.Ordinal) && !fans.ContainsKey(target)) throw new ArgumentException("Unknown fan.");
+                    var left = new Dictionary<FanMode, FanPoint[]>(Settings.FanProfiles); left.Remove(mode);
+                    next = Settings with { Fans = fans, HeaderFans = headers, FanProfiles = left }; break;
                 }
                 case Commands.SetFanCurve:
                 {
                     var group = Group(a); var source = EnumValue<TemperatureSource>(a, "source");
-                    var points = a.GetProperty("points").EnumerateArray().Select(p =>
-                    {
-                        if (p.ValueKind != JsonValueKind.Array || p.GetArrayLength() != 2) throw new ArgumentException("Points must be [temperature,percent].");
-                        return new FanPoint(p[0].GetDouble(), p[1].GetDouble());
-                    }).ToArray();
+                    var points = Points(a);
                     if (group.StartsWith("fan:", StringComparison.Ordinal))
                     { var headers = new Dictionary<int, FanConfiguration>(Settings.HeaderFans) { [int.Parse(group.AsSpan(4))] = new(FanMode.Custom, source, points) }; next = Settings with { HeaderFans = headers }; break; }
                     var fans = new Dictionary<string, FanConfiguration>(Settings.Fans) { [group] = new(FanMode.Custom, source, points) };
@@ -320,11 +394,30 @@ public sealed partial class CommandProcessor
                     if (parameters is not null) lighting = lighting with { Parameters = parameters with { Devices = null } };
                     next = Settings with { Lighting = lighting, Lamps = lamps,
                         SyncedDevices = runtime.GetState(Settings).Lighting.Devices.ToDictionary(d => d.Id, _ => true),
-                        LedLayers = reset ? new() : Settings.LedLayers, Bindings = reset ? new() : Settings.Bindings };
+                        LedLayers = reset ? new() : Settings.LedLayers, Bindings = reset ? new() : Settings.Bindings, PartLooks = reset ? new() : Settings.PartLooks };
                     break;
                 }
                 case Commands.SetLighting:
-                    next = Settings with { Lighting = new(EnumValue<LightingEffect>(a, "effect"), Text(a, "color"), a.GetProperty("brightness").GetDouble(), a.GetProperty("speed").GetDouble(), Settings.Lighting.Parameters) }; break;
+                    next = Settings with { Lighting = new(EnumValue<LightingEffect>(a, "effect"), Text(a, "color"),
+                        a.TryGetProperty("brightness", out var lightBrightness) ? lightBrightness.GetDouble() : Settings.Lighting.Brightness,
+                        a.TryGetProperty("speed", out var lightSpeed) ? lightSpeed.GetDouble() : Settings.Lighting.Speed, Settings.Lighting.Parameters) }; break;
+                case Commands.SetPartLook:
+                {
+                    var part = Text(a, "part");
+                    if (string.IsNullOrWhiteSpace(part) || part.Length > 256) throw new ArgumentException("Invalid part.");
+                    var looks = new Dictionary<string, PartLook>(Settings.PartLooks);
+                    if (a.TryGetProperty("clear", out var clear) && clear.GetBoolean()) looks.Remove(part);
+                    else
+                    {
+                        // A new part look starts from the whole-case look, so the first change is the only thing that differs.
+                        var from = looks.GetValueOrDefault(part) ?? new(Settings.Lighting.Effect, Settings.Lighting.Color, Settings.Lighting.Brightness, Settings.Lighting.Speed);
+                        looks[part] = new(a.TryGetProperty("effect", out _) ? EnumValue<LightingEffect>(a, "effect") : from.Effect,
+                            a.TryGetProperty("color", out _) ? Text(a, "color") : from.Color,
+                            a.TryGetProperty("brightness", out var pb) ? pb.GetDouble() : from.Brightness,
+                            a.TryGetProperty("speed", out var ps) ? ps.GetDouble() : from.Speed);
+                    }
+                    next = Settings with { PartLooks = looks }; break;
+                }
                 case Commands.SetDeviceSync:
                     var sync = new Dictionary<string, bool>(Settings.SyncedDevices) { [Text(a, "device")] = a.GetProperty("enabled").GetBoolean() };
                     next = Settings with { SyncedDevices = sync }; break;
@@ -338,16 +431,39 @@ public sealed partial class CommandProcessor
                     lamps[index] = current with { On = a.TryGetProperty("on", out var on) ? on.GetBoolean() : current.On,
                         Brightness = a.TryGetProperty("brightness", out var brightness) ? brightness.GetInt32() : current.Brightness,
                         Follow = a.TryGetProperty("follow", out var follow) ? follow.GetString()! : current.Follow,
-                        Color = a.TryGetProperty("color", out var color) ? color.GetString()! : current.Color, Kelvin = a.TryGetProperty("color", out _) ? null : current.Kelvin,
+                        Color = a.TryGetProperty("color", out var color) ? color.GetString()! : current.Color,
+                        // A white is a colour temperature; picking a colour without one clears it.
+                        Kelvin = a.TryGetProperty("kelvin", out var kelvin) && kelvin.ValueKind == JsonValueKind.Number ? kelvin.GetInt32() : a.TryGetProperty("color", out _) ? null : current.Kelvin,
                         Name = a.TryGetProperty("name", out var name) ? name.GetString()! : current.Name };
                     next = Settings with { Lamps = lamps, Lamp = lamps[0] }; break;
                 }
+                case Commands.SaveScene:
+                {
+                    var savedName = Text(a, "name").Trim();
+                    if (savedName.Length is 0 or > 32) throw new ArgumentException("Scene name must be 1-32 characters.");
+                    if (!Enum.TryParse<FanMode>(Text(a, "fans"), true, out var sceneFans) || sceneFans == FanMode.Custom) throw new ArgumentException("Unknown fan mode.");
+                    if (!Enum.TryParse<LightingEffect>(Text(a, "effect"), true, out var sceneEffect)) throw new ArgumentException("Unknown effect.");
+                    var sceneColor = Text(a, "color");
+                    if (!Prism.Lighting.LedLayers.Valid(sceneColor, false)) throw new ArgumentException("Invalid colour.");
+                    var sceneBrightness = a.TryGetProperty("brightness", out var sb) && sb.TryGetDouble(out var sbv) ? Math.Clamp(sbv, 0.05, 1) : 1;
+                    var sceneLamp = Text(a, "lamps") switch
+                    {
+                        "off" => new LampConfiguration(On: false),
+                        "pc" => new LampConfiguration(Follow: "pc"),
+                        "cool" => new LampConfiguration(Brightness: 80, Color: "#DCEEFF", Kelvin: 5500),
+                        "warm" => new LampConfiguration(Brightness: 80, Color: "#FFD5A8", Kelvin: 3000),
+                        _ => throw new ArgumentException("Unknown lamp setting.")
+                    };
+                    var existing = Settings.Scenes.GetValueOrDefault(savedName);
+                    var lighting = (existing?.Lighting ?? new LightingConfiguration()) with { Effect = sceneEffect, Color = sceneColor, Brightness = sceneBrightness };
+                    next = Settings with { Scenes = new Dictionary<string, SceneConfiguration>(Settings.Scenes) { [savedName] = new(sceneFans, lighting, sceneLamp) } };
+                    break;
+                }
                 case Commands.ApplyScene:
                     if (!Settings.Scenes.TryGetValue(Text(a, "name"), out var scene)) throw new ArgumentException("Unknown scene.");
-                    next = Settings with { Fans = Settings.Fans.ToDictionary(f => f.Key, f => f.Value with { Mode = scene.Fans }),
-                        HeaderFans = Settings.HeaderFans.ToDictionary(f => f.Key, f => f.Value with { Mode = scene.Fans }),
-                        Lighting = scene.Lighting, Lamp = scene.Lamp with { Host = Settings.Lamp.Host },
-                        Lamps = Settings.Lamps?.Select(l => l with { On = scene.Lamp.On, Brightness = scene.Lamp.Brightness, Color = scene.Lamp.Color, Follow = scene.Lamp.Follow, Kelvin = scene.Lamp.Kelvin }).ToArray() }; break;
+                    next = WithScene(Settings, scene); break;
+                case Commands.SetAutomations:
+                    next = Settings with { Automations = UpdateAutomations(Settings.Automations, a) }; break;
                 default: throw new ArgumentException("Unknown command.");
             }
             if (next.Lamps is not null) next = next with { Lamp = next.Lamps.FirstOrDefault() ?? new() };
@@ -364,14 +480,21 @@ public sealed partial class CommandProcessor
             }
             if (request.Command == Commands.RemoveLamp)
                 next = next with { Devices = next.Devices.Select(d => d.Id == Text(a, "lamp") ? d with { Configured = false } : d).ToArray() };
-            next.Validate(); store.Save(next); Volatile.Write(ref settings, next);
+            next.Validate(); store.Save(next); NoteUserChange(Settings, next); Volatile.Write(ref settings, next);
             // Once persisted, a disconnect must not leave the running adapters on the old settings.
             await runtime.ApplyAsync(next, CancellationToken.None);
             if (removedToken is { } removed) removeDeviceToken(removed);
             if (removedLegacyToken) lampTokens.DeleteLegacy();
             if (request.Command == Commands.ApplyScene) runtime.TriggerLightingEvent(LightingEventKind.SceneChange);
+            // Saved, so a bulb handed off to Mi Home follows this change; a refused one leaves it be.
+            if (request.Command == Commands.SetLamp) runtime.TakeOverLamp(a.TryGetProperty("lamp", out var takenLamp) ? takenLamp.GetString() ?? next.Lamp.Id : next.Lamp.Id);
             return new(request.Id, true);
         }
+        catch (TokenProblem e) { return new(request.Id, false, e.Message); }
+        // A fryer that times out or refuses is not a settings problem; say what happened to the fryer.
+        catch (Exception e) when (request.Command is Commands.ApplianceAction or Commands.ApplianceProperties or Commands.ConfirmApplianceStart
+            && e is IOException or System.Net.Sockets.SocketException or OperationCanceledException && !cancellationToken.IsCancellationRequested)
+        { return new(request.Id, false, e.Message.StartsWith("Device rejected", StringComparison.Ordinal) ? "The fryer refused that. It may not allow it right now." : "The fryer didn't answer. Check it is on and try again."); }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or KeyNotFoundException or JsonException or FormatException or OverflowException)
         { return new(request.Id, false, request.Command is Commands.SetLampToken or Commands.SetRouterPassword or Commands.ImportTokens ? "Credential command failed." : e.Message); }
         catch (System.Security.Cryptography.CryptographicException) { return new(request.Id, false, "Credentials could not be protected."); }
@@ -408,6 +531,11 @@ public sealed partial class CommandProcessor
     private static T EnumValue<T>(JsonElement a, string key) where T : struct, Enum =>
         Enum.TryParse<T>(Text(a, key), false, out var value) && Enum.IsDefined(value) && !int.TryParse(Text(a, key), out _)
             ? value : throw new ArgumentException($"Invalid {key}.");
+    private static FanPoint[] Points(JsonElement a) => a.GetProperty("points").EnumerateArray().Select(p =>
+    {
+        if (p.ValueKind != JsonValueKind.Array || p.GetArrayLength() != 2) throw new ArgumentException("Points must be [temperature,percent].");
+        return new FanPoint(p[0].GetDouble(), p[1].GetDouble());
+    }).ToArray();
     private string Group(JsonElement a)
     {
         string group = Text(a, "group");

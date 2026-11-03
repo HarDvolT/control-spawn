@@ -73,17 +73,14 @@ public class NumberTicker : FrameworkElement
     private void SetDisplay(double value, bool animate)
     {
         value = double.IsFinite(value) ? value : 0;
-        if (!animate || Motion.ReduceAnimations || !IsLoaded)
+        if (!animate || !IsLoaded || !Motion.Glides(DisplayValue, value, Math.Max(10, Math.Abs(value))))
         {
             BeginAnimation(DisplayValueProperty, null);
             DisplayValue = value;
             InvalidateMeasure();
             return;
         }
-        var animation = new DoubleAnimation(value, TimeSpan.FromMilliseconds(800))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
+        var animation = Motion.Glide(value);
         animation.Completed += (_, _) => InvalidateMeasure();
         BeginAnimation(DisplayValueProperty, animation);
         InvalidateMeasure();
@@ -103,7 +100,7 @@ public class NumberTicker : FrameworkElement
 
     private FormattedText BuildText(double pixelsPerDip) => new(
         Text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-        new Typeface(new FontFamily("Space Grotesk, Segoe UI"), FontStyles.Normal, FontWeight, FontStretches.Normal),
+        Typefaces.Number(FontWeight),
         Math.Max(1, FontSize), ColorUtil.Brush(Foreground), pixelsPerDip);
 
     protected override Size MeasureOverride(Size availableSize)

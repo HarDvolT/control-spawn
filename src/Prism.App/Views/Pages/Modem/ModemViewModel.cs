@@ -62,6 +62,30 @@ public sealed class ModemViewModel : PageViewModel
         Refresh();
     }
 
+    private string selectedRadio = "5G";
+    private double download = double.NaN, upload = double.NaN;
+    public double Download => download;
+    public string UploadText => "Upload " + Format.Mbps(upload);
+    public string NetworkChip => Network + " \u00b7 " + Band;
+    public string PingChip => "Ping " + Format.Ms(_ping);
+    public string ConnectionChip => Connected ? "Connected" : "Offline";
+    public IReadOnlyList<string> Radios { get; } = ["5G", "LTE anchor"];
+    public string SelectedRadio { get => selectedRadio; set { if (Set(ref selectedRadio, value)) NotifyAll(); } }
+    public IReadOnlyList<MetricRow> RadioMetrics => MetricGroups.Select(g => g.Rows[SelectedRadio == "5G" ? 0 : 1] with { Net = g.Code }).Append(new("RSSI", Format.Dbm(SelectedCell?.Rssi), "Total received power", "#36D6FF", SelectedCell?.Rssi is { } rssi ? Normalize(rssi, -110, -45) : double.NaN)).ToArray();
+    public IReadOnlyList<double> PingHistory => _pingHistory;
+    public string AveragePing => _pingHistory.Count > 0 ? Format.Ms(_pingHistory.Average()) : Format.Dash;
+    public string JitterText => _pingHistory.Count > 1 ? Format.Ms(_pingHistory.Zip(_pingHistory.Skip(1), (a, b) => Math.Abs(a - b)).Average()) : Format.Dash;
+    public IReadOnlyList<StatRow> PingStats => [new("Now", PingNowText, "#36D6FF"), new("Average", AveragePing, "#F4F5F7"), new("Jitter", JitterText, "#F4F5F7"), new("Lost", LossText, "#3DDC84")];
+    private RadioCell? SelectedCell => SelectedRadio == "5G" ? State?.Router?.Details?.Nr : State?.Router?.Details?.Lte;
+    public IReadOnlyList<StatRow> CellStats => [new("Band", Format.Text(SelectedCell?.Band ?? State?.Router?.Band), "#F4F5F7"), new("Bandwidth", Format.Text(SelectedCell?.Bandwidth), "#F4F5F7"), new("PCI", PciText, "#F4F5F7"), new("Cell ID", EnodebText, "#F4F5F7"), new("ARFCN", Format.Text(SelectedCell?.Arfcn), "#F4F5F7"), new("Anchor", AnchorText, "#F4F5F7"), new("Carrier aggregation", Format.Text(State?.Router?.Details?.CarrierAggregation), "#F4F5F7"), new("Tower distance", State?.Router?.Details?.TowerDistanceKm is { } km ? $"{km:0.0} km" : Format.Dash, "#F4F5F7")];
+    public string RouterModel => Format.Text(State?.Router?.Details?.Model);
+    public string RouterAddress => Format.Text(State?.Router?.Details?.Address);
+    public string RouterUptime => State?.Router?.Details?.UptimeSeconds is { } seconds ? $"{(int)(seconds / 86400)} d {(int)(seconds / 3600) % 24} h" : Format.Dash;
+    public string RouterMonthlyData => State?.Router?.Details?.MonthlyBytes is { } bytes ? Format.Bytes((long)bytes) : Format.Dash;
+    public string ClientInventoryText => State?.Devices is null ? "Waiting for the service" : DevicesOnlineText;
+    public string NeighborStatus => State?.Router?.Details?.Neighbors is null ? "Waiting for router readings" : Neighbors.Count == 0 ? "No nearby cells reported" : "Read from the router";
+
+
     public IReadOnlyList<string> Views { get; }
     public ObservableCollection<SimpleNetworkRow> SimpleRows { get; } = new();
     public ObservableCollection<MetricGroup> MetricGroups { get; } = new();
@@ -118,10 +142,11 @@ public sealed class ModemViewModel : PageViewModel
     public string SinrColor { get => _sinrColor; private set => Set(ref _sinrColor, value); }
     public double SinrKnob { get => _sinrKnob; private set => Set(ref _sinrKnob, value); }
 
+    public string Headline => Connected ? $"5G signal is {Verdict.ToLowerInvariant()}" : "Waiting for your router";
     public string BandText => Band;
-    public string AnchorText => Format.Dash;
-    public string PciText => Format.Dash;
-    public string EnodebText => Format.Dash;
+    public string AnchorText => Format.Text(State?.Router?.Details?.Lte?.Band);
+    public string PciText => Format.Text(SelectedCell?.Pci);
+    public string EnodebText => Format.Text(SelectedCell?.CellId);
     public string DevicesOnlineText => $"{Devices.Count(d => d.DotColorHex != ColorUtil.ToHex(ColorUtil.TextTertiary))} online";
     public string ServiceLine => Connected ? $"{Network} · updated every 1 s" : "Router not connected · retrying";
 
@@ -149,9 +174,9 @@ public sealed class ModemViewModel : PageViewModel
         Band = router.Band ?? Format.Dash;
         Score = router.Score ?? double.NaN;
         BarCount = router.Bars ?? 0;
-        Verdict = router.Verdict ?? Format.Dash;
+        Verdict = Format.SignalWord(router) ?? Format.Dash;
         Sentence = router.Sentence ?? string.Empty;
-        VerdictColor = ColorUtil.ToHex(Verdict == "Good" ? ColorUtil.Good : Verdict == "Fair" ? ColorUtil.Fair : Verdict == "Poor" ? ColorUtil.Poor : ColorUtil.TextTertiary);
+        VerdictColor = ColorUtil.ToHex(ColorUtil.ForVerdict(Verdict));
 
         _rsrp5 = router.Rsrp5g ?? double.NaN;
         _sinr5 = router.Sinr5g ?? double.NaN;
@@ -162,9 +187,26 @@ public sealed class ModemViewModel : PageViewModel
         _ping = router.PingMs ?? double.NaN;
         _loss = router.PingLossPercent ?? double.NaN;
 
-        if (double.IsFinite(_rsrp5)) Push(_rsrpHistory, Normalize(_rsrp5, -140, -44));
-        if (double.IsFinite(_sinr5)) Push(_sinrHistory, Normalize(_sinr5, -10, 30));
-        if (double.IsFinite(_ping)) Push(_pingHistory, _ping);
+        if (State?.History is { } radioHistory)
+        {
+            _rsrpHistory.Clear(); _sinrHistory.Clear();
+            foreach (var sample in radioHistory.TakeLast(60))
+            {
+                if (sample.Rsrp5g is { } r && double.IsFinite(r)) Push(_rsrpHistory, Normalize(r, -140, -44));
+                if (sample.Sinr5g is { } n && double.IsFinite(n)) Push(_sinrHistory, Normalize(n, -10, 30));
+            }
+        }
+        else
+        {
+            if (double.IsFinite(_rsrp5)) Push(_rsrpHistory, Normalize(_rsrp5, -140, -44));
+            if (double.IsFinite(_sinr5)) Push(_sinrHistory, Normalize(_sinr5, -10, 30));
+        }
+        if (State?.History is { } history)
+        {
+            _pingHistory.Clear();
+            _pingHistory.AddRange(history.TakeLast(60).Where(s => s.PingMs.HasValue && double.IsFinite(s.PingMs.Value)).Select(s => s.PingMs!.Value));
+        }
+        else if (double.IsFinite(_ping)) Push(_pingHistory, _ping);
 
         BuildBars();
         BuildSimpleRows();
@@ -186,22 +228,17 @@ public sealed class ModemViewModel : PageViewModel
 
     private void BuildBars()
     {
-        Bars.Clear();
-        for (var i = 0; i < 5; i++)
-        {
-            var on = i < BarCount;
-            Bars.Add(new BarItem(8 + i * 5, ColorUtil.ToHex(on ? RatingColorFromVerdict() : Color.FromRgb(0x3A, 0x3A, 0x40))));
-        }
+        Bars.ReplaceWith(Enumerable.Range(0, 5).Select(i => new BarItem(8 + i * 5, ColorUtil.ToHex(i < BarCount ? RatingColorFromVerdict() : Color.FromRgb(0x3A, 0x3A, 0x40)))));
     }
 
     private System.Windows.Media.Color RatingColorFromVerdict() =>
-        Verdict == "Good" ? ColorUtil.Good : Verdict == "Fair" ? ColorUtil.Fair : ColorUtil.Poor;
+        ColorUtil.ForVerdict(Verdict);
 
     private void BuildSimpleRows()
     {
-        SimpleRows.Clear();
-        SimpleRows.Add(new SimpleNetworkRow("5G", MiniBars(BarCount), $"{Format.Dbm(_rsrp5)} · SINR {Format.Db(_sinr5)}"));
-        SimpleRows.Add(new SimpleNetworkRow("4G", MiniBars(Math.Max(1, BarCount - 1)), $"{Format.Dbm(_rsrp4)} · SINR {Format.Db(_sinr4)}"));
+        SimpleRows.ReplaceWith([
+            new SimpleNetworkRow("5G", MiniBars(BarCount), $"{Format.Dbm(_rsrp5)} · SINR {Format.Db(_sinr5)}"),
+            new SimpleNetworkRow("4G", MiniBars(Math.Max(1, BarCount - 1)), $"{Format.Dbm(_rsrp4)} · SINR {Format.Db(_sinr4)}")]);
     }
 
     private IReadOnlyList<BarItem> MiniBars(int filled)
@@ -215,10 +252,10 @@ public sealed class ModemViewModel : PageViewModel
 
     private void BuildMetrics()
     {
-        MetricGroups.Clear();
-        MetricGroups.Add(new MetricGroup("Signal strength", "RSRP", BuildMetricRows("rsrp", _rsrp5, _rsrp4, "dBm")));
-        MetricGroups.Add(new MetricGroup("Signal quality", "SINR", BuildMetricRows("sinr", _sinr5, _sinr4, "dB")));
-        MetricGroups.Add(new MetricGroup("Signal quality", "RSRQ", BuildMetricRows("rsrq", _rsrq5, _rsrq4, "dB")));
+        MetricGroups.ReplaceWith([
+            new MetricGroup("Signal strength", "RSRP", BuildMetricRows("rsrp", _rsrp5, _rsrp4, "dBm")),
+            new MetricGroup("Signal quality", "SINR", BuildMetricRows("sinr", _sinr5, _sinr4, "dB")),
+            new MetricGroup("Signal quality", "RSRQ", BuildMetricRows("rsrq", _rsrq5, _rsrq4, "dB"))]);
     }
 
     private static IReadOnlyList<MetricRow> BuildMetricRows(string kind, double fiveG, double fourG, string unit)
@@ -241,23 +278,22 @@ public sealed class ModemViewModel : PageViewModel
 
     private void BuildLanes()
     {
-        Lanes.Clear();
-        Lanes.Add(new LaneData("RSRP · 5G", Format.Dbm(_rsrp5), ColorUtil.ToHex(ColorUtil.TextPrimary),
-            _rsrpHistory.ToList(), 100));
-        Lanes.Add(new LaneData("SINR · 5G", Format.Db(_sinr5), ColorUtil.ToHex(ColorUtil.Accent),
-            _sinrHistory.ToList(), 100));
+        Lanes.ReplaceWith([
+            new LaneData("RSRP · 5G", Format.Dbm(_rsrp5), ColorUtil.ToHex(ColorUtil.TextPrimary), _rsrpHistory.ToList(), 100),
+            new LaneData("SINR · 5G", Format.Db(_sinr5), ColorUtil.ToHex(ColorUtil.Accent), _sinrHistory.ToList(), 100)]);
     }
 
     private void BuildNeighbors()
     {
-        Neighbors.Clear();
+        Neighbors.ReplaceWith((State?.Router?.Details?.Neighbors ?? []).Select(neighbor =>
+            new NeighborRow(neighbor.Radio + " " + neighbor.Arfcn, Format.Text(neighbor.Pci), Format.Dbm(neighbor.Rsrp), Format.Db(neighbor.Sinr))));
 
     }
 
     private void BuildDevices(RouterState router)
     {
-        Devices.Clear();
-        Devices.Add(new DeviceRow("Device list unavailable", "Not supplied by this service protocol", ColorUtil.ToHex(ColorUtil.TextTertiary), false));
+        Devices.ReplaceWith((State?.Devices?.Where(d => d.Kind == DeviceKind.NetworkDevice && d.Status == DeviceStatus.Ready) ?? [])
+            .Select(device => new DeviceRow(device.Name, device.Ip ?? Format.Dash, "#3DDC84", false)));
     }
 
     private void BuildPlaceholderRows()
@@ -272,29 +308,23 @@ public sealed class ModemViewModel : PageViewModel
 
     private void RefreshPing()
     {
-        Pings.Clear();
-        foreach (var value in _pingHistory)
-        {
-            var color = value < 35 ? ColorUtil.Good : value < 80 ? ColorUtil.Fair : ColorUtil.Poor;
-            var height = Math.Clamp(8 + value / 90.0 * 36, 8, 44);
-            Pings.Add(new PingBar(Math.Round(height), ColorUtil.ToHex(color)));
-        }
+        Pings.ReplaceWith(_pingHistory.Select(value => new PingBar(Math.Round(Math.Clamp(8 + value / 90.0 * 36, 8, 44)),
+            ColorUtil.ToHex(value < 35 ? ColorUtil.Good : value < 80 ? ColorUtil.Fair : ColorUtil.Poor))));
 
         PingNowText = Format.MsValue(_ping);
         PingColor = ColorUtil.ToHex(_ping < 35 ? ColorUtil.Good : _ping < 80 ? ColorUtil.Fair : ColorUtil.Poor);
         var spikes = _pingHistory.Count(p => p > 40);
         SpikeCountText = spikes + (spikes == 1 ? " spike" : " spikes");
 
-        Spikes.Clear();
-        Spikes.Add(new SpikeItem(spikes == 0 ? "No observed spikes" : Format.Ms(_pingHistory.Where(p => p > 40).Max()),
+        Spikes.ReplaceWith([new SpikeItem(spikes == 0 ? "No observed spikes" : Format.Ms(_pingHistory.Where(p => p > 40).Max()),
             spikes == 0 ? "Recent samples" : "Elevated latency",
-            "Ping samples cannot establish a cause. Check signal changes and traffic around the same time.", "#26F5A524", "#F5A524"));
+            "Ping samples cannot establish a cause. Check signal changes and traffic around the same time.", "#26F5A524", "#F5A524")]);
 
-        SpeedStats.Clear();
-        SpeedStats.Add(new SpeedStat("Ping", "ms", Format.MsValue(_ping)));
-        SpeedStats.Add(new SpeedStat("Download", "Mbit/s", Format.Dash));
-        SpeedStats.Add(new SpeedStat("Upload", "Mbit/s", Format.Dash));
-        SpeedStats.Add(new SpeedStat("Jitter", "ms", Format.Dash));
+        SpeedStats.ReplaceWith([
+            new SpeedStat("Ping", "ms", Format.MsValue(_ping)),
+            new SpeedStat("Download", "Mbit/s", Format.Number(download)),
+            new SpeedStat("Upload", "Mbit/s", Format.Number(upload)),
+            new SpeedStat("Jitter", "ms", JitterText)]);
     }
 
     private void RefreshTrend()
@@ -352,8 +382,20 @@ public sealed class ModemViewModel : PageViewModel
         SpeedStatus = "Starting the test through the service…";
         try
         {
-            await RunAsync(() => Client.StartSpeedTestAsync());
-            SpeedStatus = HasError ? LastError! : "Test requested. Result telemetry is unavailable in this service protocol.";
+              await RunAsync(async () =>
+              {
+                  var response = await Client.StartSpeedTestAsync();
+                  if (response.Ok && response.Data is { } data)
+                  {
+                      static double Read(System.Text.Json.JsonElement data, string name) => data.TryGetProperty(name, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetDouble(out var reading) && double.IsFinite(reading) ? reading : double.NaN;
+                      download = Read(data, "down"); upload = Read(data, "up");
+                      SpeedHistory.Insert(0, new SpikeItem(Format.Mbps(download), DateTimeOffset.Now.ToString("g"), "Upload " + Format.Mbps(upload), "#1736D6FF", "#36D6FF"));
+                      while (SpeedHistory.Count > 20) SpeedHistory.RemoveAt(SpeedHistory.Count - 1);
+                      RefreshPing(); NotifyAll();
+                  }
+                  return response;
+              });
+              SpeedStatus = HasError ? LastError! : double.IsFinite(download) ? "Test complete" : "No throughput result reported";
         }
         finally
         {
@@ -373,7 +415,7 @@ public sealed class ModemViewModel : PageViewModel
         return Math.Clamp((value - min) / (max - min) * 100, 0, 100);
     }
 
-    private static double Position(string kind, double value) => kind switch
+    private static double Position(string kind, double value) => !double.IsFinite(value) ? double.NaN : kind switch
     {
         "rsrp" => Normalize(value, -140, -44),
         "sinr" => Normalize(value, -10, 30),

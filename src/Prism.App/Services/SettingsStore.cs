@@ -11,6 +11,11 @@ public sealed class AppSettings
     public bool ShowWidgetsAtStartup { get; set; } = true;
     public bool ReduceAnimations { get; set; }
     public bool CheckForUpdates { get; set; }
+    public string TemperatureUnit { get; set; } = "\u00b0C";
+    public string AccentColor { get; set; } = "#FF4D1A";
+    public bool NotifyRunningHot { get; set; } = true;
+    public bool NotifyCookingFinished { get; set; } = true;
+    public bool NotifyDeviceOffline { get; set; } = true;
     public bool SceneAutoGame { get; set; } = true;
     public bool SceneAutoNight { get; set; } = true;
     public bool SceneAutoLock { get; set; }
@@ -20,6 +25,7 @@ public sealed class AppSettings
     public Dictionary<string, string> SceneLedPresets { get; set; } = new();
     public bool RouterEnabled { get; set; }
     public string? LastPage { get; set; }
+    public List<Prism.App.ViewModels.FryerPreset> FryerPresets { get; set; } = new();
 }
 
 public sealed class SettingsStore
@@ -41,27 +47,24 @@ public sealed class SettingsStore
 
     public string FilePath { get; }
 
-    public AppSettings Load()
+    /// <summary>The file, else its last good copy (a crash can leave the main file empty), else defaults.</summary>
+    public AppSettings Load() => !File.Exists(FilePath) ? new AppSettings() : Read(FilePath) ?? Read(Prism.Core.AtomicFile.Backup(FilePath)) ?? new AppSettings();
+    private static AppSettings? Read(string path)
     {
         try
         {
-            if (!File.Exists(FilePath)) return new AppSettings();
-            var json = File.ReadAllText(FilePath);
-            if (string.IsNullOrWhiteSpace(json)) return new AppSettings();
-            return JsonSerializer.Deserialize<AppSettings>(json, Options) ?? new AppSettings();
+            if (!File.Exists(path)) return null;
+            var json = File.ReadAllText(path);
+            return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<AppSettings>(json, Options);
         }
         catch
         {
-            return new AppSettings();
+            return null;
         }
     }
 
     public void Save(AppSettings settings)
     {
-        var folder = System.IO.Path.GetDirectoryName(FilePath);
-        if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
-        var temporary = FilePath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(settings, Options));
-        File.Move(temporary, FilePath, overwrite: true);
+        Prism.Core.AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(settings, Options));
     }
 }

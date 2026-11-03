@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism v2 — Component kit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080A}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes crit{0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.6)}50%{box-shadow:0 0 0 7px rgba(255,77,79,0)}}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes draw{from{stroke-dashoffset:400}to{stroke-dashoffset:0}}
+@keyframes orb{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.arc{transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1),stroke .5s}
+.fill{position:relative;overflow:hidden;transition:width .8s cubic-bezier(.22,1,.36,1),background .5s,box-shadow .5s}
+.fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2.6s ease-in-out infinite}
+.needle{transition:transform .8s cubic-bezier(.22,1,.36,1)}
+.btn{transition:background .2s,color .2s,box-shadow .2s,transform .15s,border-color .2s}.btn:active{transform:scale(.97)}
+.live{animation:livedot 1.6s ease-in-out infinite}
+.crit{animation:crit 1.2s infinite}
+.spark{stroke-dasharray:400;animation:draw 2.4s cubic-bezier(.22,1,.36,1) both}
+.orb{animation:orb 4s ease-in-out infinite}
+.ring{position:relative;border-radius:18px;padding:1.5px;overflow:hidden}
+.ring::before{content:"";position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent 0 60%,#FF4D1A 75%,#36D6FF 88%,transparent 100%);animation:spin 4s linear infinite}
+.ring > *{position:relative}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 1600px; box-sizing: border-box; padding: 40px 48px; color: #F4F5F7; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse 70% 30% at 50% -5%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%), radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px) 0 0 / 24px 24px, #07080A; display: flex; flex-direction: column; gap: 36px;">
+  <header>
+    <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">PRISM DESIGN SYSTEM · GRAPHITE HUD</p>
+    <h1 style="margin: 6px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 40px; font-weight: 600; letter-spacing: -0.02em;">Component kit</h1>
+    <p style="margin: 8px 0 0; font-size: 14px; color: #A3A6AE; max-width: 760px;">Every page is built only from these parts. Same tokens, same sizes, same motion everywhere. Tap a value to see the status colours change.</p>
+  </header>
+
+  <section aria-label="Colour tokens" style="display: flex; flex-direction: column; gap: 14px;">
+    <h2 style="margin: 0; font-size: 20px; font-weight: 600;">Colour</h2>
+    <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{tokens}}" as="c" hint-placeholder-count="14">
+        <div style="padding: 12px; border-radius: 16px; background: #111216; border: 1px solid rgba(255,255,255,.06);">
+          <span style="{{c.swatch}}"></span>
+          <p style="margin: 10px 0 0; font-size: 13px; font-weight: 600;">{{c.name}}</p>
+          <p style="margin: 2px 0 0; font-size: 11px; color: #7C808A; font-family: 'Space Grotesk', monospace;">{{c.hex}} · {{c.use}}</p>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section aria-label="Type" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 600;">Type</h2>
+      <p style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 40px; font-weight: 600; letter-spacing: -0.02em;">48 °C <span style="font-size: 13px; color: #7C808A; font-family: Inter;">Display 40 · Space Grotesk</span></p>
+      <p style="margin: 0; font-size: 22px; font-weight: 600;">Page title <span style="font-size: 13px; color: #7C808A; font-weight: 400;">Title 22</span></p>
+      <p style="margin: 0; font-size: 15px; font-weight: 600;">Card heading <span style="font-size: 13px; color: #7C808A; font-weight: 400;">Heading 15</span></p>
+      <p style="margin: 0; font-size: 13px; color: #C9CBD1;">Body text explains in plain words. <span style="color: #7C808A;">Body 13</span></p>
+      <p style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7C808A;">MICRO LABEL · CAPTION 11</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 600;">Actions</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+        <button class="btn" type="button" style="min-height: 42px; padding: 0 20px; border-radius: 999px; border: 0; background: #FF4D1A; color: #07080A; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 0 22px rgba(255,77,26,.45);">Primary</button>
+        <button class="btn" type="button" style="min-height: 42px; padding: 0 20px; border-radius: 999px; background: #1E2026; border: 1px solid rgba(255,255,255,.1); color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;">Secondary</button>
+        <button class="btn" type="button" style="min-height: 42px; padding: 0 18px; border-radius: 999px; background: transparent; border: 1px solid rgba(255,255,255,.12); color: #C9CBD1; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;">Ghost</button>
+        <button class="btn" type="button" aria-label="Rename" style="width: 42px; height: 42px; border-radius: 21px; background: #17181D; border: 1px solid rgba(255,255,255,.08); color: #C9CBD1; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+        <button class="btn" type="button" style="min-height: 42px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(255,77,79,.45); background: rgba(255,77,79,.08); color: #FF8A8A; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;">Stop cooking</button>
+      </div>
+      <div role="group" aria-label="Segmented" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07); width: fit-content;">
+        <sc-for list="{{segs}}" as="s" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{s.pick}}" style="{{s.style}}">{{s.label}}</button></sc-for>
+      </div>
+      <div style="display: flex; gap: 18px; align-items: center;">
+        <button class="btn" type="button" role="switch" aria-checked="{{on}}" onClick="{{flip}}" style="{{track}}"><span style="{{knob}}"></span></button>
+        <span style="font-size: 13px; color: #C9CBD1;">Toggle — every on/off in Prism</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Status" style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 600;">Status &amp; data</h2>
+      <div role="group" aria-label="Demo value" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #111216; border: 1px solid rgba(255,255,255,.07);">
+        <sc-for list="{{demo}}" as="d" hint-placeholder-count="4"><button class="btn" type="button" onClick="{{d.pick}}" style="{{d.style}}">{{d.label}}</button></sc-for>
+      </div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="5"><span class="{{c.cls}}" style="{{c.style}}"><span class="live" style="{{c.dot}}"></span>{{c.label}}</span></sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+      <div style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <svg width="150" height="130" viewBox="0 0 128 112" role="img" aria-label="Halo gauge {{v}} percent" style="filter: drop-shadow(0 0 10px {{color}}88);">
+          <path d="M 22 98 A 50 50 0 1 1 106 98" fill="none" stroke="#1E2026" stroke-width="10" stroke-linecap="round"></path>
+          <path d="M 22 98 A 50 50 0 1 1 106 98" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="10" stroke-dasharray="1 7.4"></path>
+          <path class="arc" d="M 22 98 A 50 50 0 1 1 106 98" fill="none" stroke="{{color}}" stroke-width="10" stroke-linecap="round" stroke-dasharray="236" stroke-dashoffset="{{offset}}"></path>
+          <text x="64" y="68" text-anchor="middle" fill="#F4F5F7" font-family="Space Grotesk" font-size="26" font-weight="600">{{v}}</text>
+          <text x="64" y="86" text-anchor="middle" fill="#7C808A" font-family="Inter" font-size="10">%</text>
+        </svg>
+        <span style="font-size: 12px; color: #A3A6AE;">Halo gauge · load, temperature</span>
+      </div>
+      <div style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <svg width="170" height="112" viewBox="0 0 150 100" role="img" aria-label="Speed dial">
+          <path d="M 15 90 A 60 60 0 0 1 135 90" fill="none" stroke="#1E2026" stroke-width="8" stroke-linecap="round"></path>
+          <path class="arc" d="M 15 90 A 60 60 0 0 1 135 90" fill="none" stroke="{{color}}" stroke-width="8" stroke-linecap="round" stroke-dasharray="189" stroke-dashoffset="{{dialOffset}}" style="filter: drop-shadow(0 0 6px {{color}});"></path>
+          <g class="needle" style="transform-origin: 75px 90px; transform: rotate({{angle}}deg);"><line x1="75" y1="90" x2="75" y2="40" stroke="#F4F5F7" stroke-width="3" stroke-linecap="round"></line></g>
+          <circle cx="75" cy="90" r="6" fill="#F4F5F7"></circle>
+        </svg>
+        <span style="font-size: 12px; color: #A3A6AE;">Speed dial · clocks, RPM</span>
+      </div>
+      <div style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 14px; justify-content: center;">
+        <div style="position: relative; height: 8px; border-radius: 4px; background: linear-gradient(90deg, rgba(54,214,255,.3), rgba(61,220,132,.3), rgba(245,165,36,.3), rgba(255,77,79,.3));"><span class="needle" style="{{marker}}"></span></div>
+        <span style="font-size: 12px; color: #A3A6AE;">Thermal rail · temperatures</span>
+        <div style="height: 14px; border-radius: 7px; background: #1E2026; overflow: hidden;"><div class="fill" style="{{bar}}"></div></div>
+        <span style="font-size: 12px; color: #A3A6AE;">Glow bar · brightness, fan duty, progress</span>
+        <div style="display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px;"><sc-for list="{{caps}}" as="k" hint-placeholder-count="16"><span style="{{k.style}}"></span></sc-for></div>
+        <span style="font-size: 12px; color: #A3A6AE;">Capsule meter · RAM, VRAM, disk</span>
+      </div>
+      <div style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px;"><sc-for list="{{heat}}" as="h" hint-placeholder-count="16"><span style="{{h.style}}"></span></sc-for></div>
+        <span style="font-size: 12px; color: #A3A6AE;">Heat grid · per-thread load</span>
+        <svg viewBox="0 0 200 50" style="width: 100%; height: 50px;" role="img" aria-label="Sparkline"><path class="spark" d="M0 38 L20 34 L40 36 L60 22 L80 28 L100 18 L120 24 L140 12 L160 20 L180 14 L200 16" fill="none" stroke="#36D6FF" stroke-width="2.2" style="filter: drop-shadow(0 0 5px #36D6FF);"></path></svg>
+        <span style="font-size: 12px; color: #A3A6AE;">Sparkline · last 60 s trend</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Light controls" style="display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 16px;">
+    <div style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; align-items: center; gap: 12px;">
+      <span class="orb" style="width: 120px; height: 120px; border-radius: 60px; background: radial-gradient(circle at 35% 28%, #FFFFFF, #FF8A3D 42%, rgba(0,0,0,.35)); box-shadow: 0 0 60px #FF8A3D, inset 0 -10px 24px rgba(0,0,0,.3);"></span>
+      <span style="font-size: 12px; color: #A3A6AE;">Orb · a lamp or colour, tap to toggle</span>
+    </div>
+    <div style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; align-items: center; gap: 12px;">
+      <div style="position: relative; width: 140px; height: 140px; border-radius: 70px; background: conic-gradient(#FF4D4F, #F5A524, #FFE34D, #3DDC84, #36D6FF, #4D6BFF, #B26BFF, #FF4DB8, #FF4D4F);">
+        <div style="position: absolute; inset: 18px; border-radius: 52px; background: #0F1014; display: flex; align-items: center; justify-content: center;"><span style="width: 46px; height: 46px; border-radius: 23px; background: #36D6FF; box-shadow: 0 0 28px #36D6FF;"></span></div>
+      </div>
+      <span style="font-size: 12px; color: #A3A6AE;">Hue ring · drag to pick, instant</span>
+    </div>
+    <div style="padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+        <div style="padding: 10px; border-radius: 14px; background: #17181D; border: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 8px;"><span style="height: 34px; border-radius: 9px; background: linear-gradient(90deg, #3DDC84, #36D6FF, #B26BFF);"></span><span style="font-size: 12px; font-weight: 600;">Default</span></div>
+        <div style="padding: 10px; border-radius: 14px; background: #1E2026; border: 1px solid rgba(255,255,255,.16); display: flex; flex-direction: column; gap: 8px; transform: translateY(-2px);"><span style="height: 34px; border-radius: 9px; background: linear-gradient(90deg, #FF4D4F, #F5A524, #FFE34D);"></span><span style="font-size: 12px; font-weight: 600;">Hover</span></div>
+        <div class="ring"><div style="padding: 10px; border-radius: 17px; background: #1E2026; display: flex; flex-direction: column; gap: 8px;"><span style="height: 34px; border-radius: 9px; background: linear-gradient(90deg, #4D6BFF, #36D6FF);"></span><span style="font-size: 12px; font-weight: 600;">Selected</span></div></div>
+      </div>
+      <span style="font-size: 12px; color: #A3A6AE;">Effect tile · selected items get the animated Ember→Ion ring</span>
+    </div>
+  </section>
+
+  <section aria-label="Cards" style="display: flex; flex-direction: column; gap: 14px;">
+    <h2 style="margin: 0; font-size: 20px; font-weight: 600;">Cards &amp; grid</h2>
+    <p style="margin: 0; font-size: 13px; color: #A3A6AE;">12-column grid, 16 px gutters. Heights S 132 · M 208 · L 320 — rows always line up. Every card: icon tile + heading + one line + at most one primary action.</p>
+    <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; align-items: start;">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="3">
+        <div style="{{c.style}}">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="width: 40px; height: 40px; border-radius: 12px; background: rgba(54,214,255,.1); box-shadow: inset 0 0 0 1px rgba(54,214,255,.25); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#36D6FF" stroke-width="1.8" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg></span>
+            <div><p style="margin: 0; font-size: 15px; font-weight: 600;">{{c.title}}</p><p style="margin: 2px 0 0; font-size: 12px; color: #7C808A;">{{c.sub}}</p></div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1600}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { v: 55, seg: 'Balanced', on: true }; }
+  renderVals() {
+    const s = this.state, v = s.v;
+    const level = (x) => x >= 95 ? '#FF4D4F' : x >= 85 ? '#FF4D4F' : x >= 70 ? '#F5A524' : x >= 40 ? '#3DDC84' : '#36D6FF';
+    const c = level(v);
+    const pill = (on) => 'min-height: 36px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #FF4D1A; color: #07080A; box-shadow: 0 0 16px rgba(255,77,26,.45);' : 'background: transparent; color: #A3A6AE;');
+    const tokens = [['Ground', '#07080A', 'page'], ['Glass 1', '#111216', 'cards'], ['Glass 2', '#17181D', 'raised'], ['Glass 3', '#1E2026', 'controls'], ['Text', '#F4F5F7', 'primary'], ['Text 2', '#A3A6AE', 'secondary'], ['Text 3', '#7C808A', 'labels'],
+      ['Ember', '#FF4D1A', 'your actions'], ['Ion', '#36D6FF', 'machine data'], ['Cool', '#36D6FF', 'status'], ['Ok', '#3DDC84', 'status'], ['Warm', '#F5A524', 'status'], ['Hot', '#FF4D4F', 'status'], ['Violet', '#B26BFF', 'memory']];
+    const chip = (label, col, crit) => ({ label, cls: crit ? 'crit' : '', style: 'display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: ' + col + '1A; border: 1px solid ' + col + '55; font-size: 12px;', dot: 'width: 7px; height: 7px; border-radius: 4px; background: ' + col + '; box-shadow: 0 0 8px ' + col + ';' });
+    return {
+      tokens: tokens.map(([name, hex, use]) => ({ name, hex, use, swatch: 'display: block; height: 52px; border-radius: 10px; background: ' + hex + '; border: 1px solid rgba(255,255,255,.08); ' + (['Ember', 'Ion', 'Ok', 'Warm', 'Hot', 'Violet', 'Cool'].includes(name) ? 'box-shadow: 0 0 18px ' + hex + '66;' : '') })),
+      segs: ['Silent', 'Balanced', 'Turbo', 'Full'].map(l => ({ label: l, pick: () => this.setState({ seg: l }), style: pill(s.seg === l) })),
+      on: s.on, flip: () => this.setState({ on: !s.on }),
+      track: 'width: 48px; height: 26px; border-radius: 13px; border: 0; padding: 0; position: relative; cursor: pointer; ' + (s.on ? 'background: #FF4D1A; box-shadow: 0 0 16px rgba(255,77,26,.5);' : 'background: #2A2C33;'),
+      knob: 'position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px; background: #F4F5F7; transition: transform .25s cubic-bezier(.22,1,.36,1); transform: translateX(' + (s.on ? 22 : 0) + 'px);',
+      demo: [['Cool 25', 25], ['Ok 55', 55], ['Warm 80', 80], ['Critical 97', 97]].map(([l, x]) => ({ label: l, pick: () => this.setState({ v: x }), style: pill(v === x) })),
+      chips: [chip('CPU 48° · cool', '#36D6FF'), chip('GPU 62° · ok', '#3DDC84'), chip('Hotspot 92° · warm', '#F5A524'), chip('RAM 61° · hot', '#FF4D4F'), chip('Hotspot 101° · critical', '#FF4D4F', true)],
+      v, color: c, offset: (236 * (1 - v / 100)).toFixed(1), dialOffset: (189 * (1 - v / 100)).toFixed(1), angle: (-90 + 180 * v / 100).toFixed(1),
+      marker: 'position: absolute; top: -5px; left: calc(' + v + '% - 3px); width: 6px; height: 18px; border-radius: 3px; background: ' + c + '; box-shadow: 0 0 10px ' + c + ';',
+      bar: 'height: 14px; border-radius: 7px; width: ' + v + '%; background: linear-gradient(90deg, rgba(255,255,255,.15), ' + c + '); box-shadow: 0 0 14px ' + c + ';',
+      caps: Array.from({ length: 16 }, (_, i) => ({ style: 'height: 14px; border-radius: 3px; background: ' + (i < Math.round(v / 100 * 16) ? '#B26BFF; box-shadow: 0 0 8px #B26BFF66' : '#1E2026') + ';' })),
+      heat: Array.from({ length: 16 }, (_, i) => { const x = Math.max(4, Math.min(100, v + 30 * Math.sin(i * 1.7) - 10)); const col = level(x); return { style: 'height: 22px; border-radius: 6px; background: linear-gradient(0deg, ' + col + ' ' + x.toFixed(0) + '%, #1E2026 ' + x.toFixed(0) + '%);' }; }),
+      cards: [['S · 132', 'span 3', 132, 'Fan RPM, one value'], ['M · 208', 'span 4', 208, 'A gauge pair'], ['L · 320', 'span 5', 320, 'A chart or the case preview']].map(([t, span, h, sub]) => ({ title: t, sub,
+        style: 'grid-column: ' + span + '; height: ' + h + 'px; box-sizing: border-box; padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #14151A, #0F1014); border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 40px rgba(0,0,0,.45);' }))
+    };
+  }
+}
+</script>
+</body>
+</html>
