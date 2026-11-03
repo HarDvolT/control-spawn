@@ -132,7 +132,7 @@ public sealed class WidgetCard : UserControl
     private void BuildFans()
     {
         var modes = new UniformGrid { Rows = 1, Margin = new(0, 0, -6, 12) };
-        foreach (var (label, key) in new[] { ("Silent", "Silent"), ("Balanced", "Standard"), ("Turbo", "Turbo") })
+        foreach (var (label, key) in new[] { ("Silent", "Silent"), ("Standard", "Standard"), ("Turbo", "Turbo") })
         {
             var button = Pill(label); button.Padding = new(2, 0, 2, 0); button.FontSize = 11.5; button.Click += (_, _) => vm.SetFanModeCommand.Execute(key);
             modes.Children.Add(button);
@@ -140,7 +140,7 @@ public sealed class WidgetCard : UserControl
         }
         body.Children.Add(modes);
         var rows = new StackPanel(); body.Children.Add(rows);
-        updates.Add(() => status.Text = vm.FanMode is "Standard" ? "Balanced" : vm.FanMode is "Full" ? "Full speed" : vm.FanMode);
+        updates.Add(() => status.Text = vm.FanMode is "Full" ? "Full speed" : vm.FanMode);
         lists["fans"] = (rows, () => string.Join("|", vm.FanRows.Select(f => f.Name + f.RpmText)), () =>
         {
             foreach (var fan in vm.FanRows)

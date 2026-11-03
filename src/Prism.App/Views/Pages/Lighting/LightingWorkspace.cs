@@ -134,7 +134,7 @@ public sealed class LightingWorkspace : UserControl
         titles.Children.Add(Styled(subtitle, "PageSubtitle"));
         heading.Children.Add(titles); host.Children.Add(heading);
 
-        // Shown only while an ARGB header still has 0 LEDs.
+        // Shown only while every ARGB header still has 0 LEDs (lighting not set up yet).
         var setup = new CaseLightingSetup { Visibility = Visibility.Collapsed };
         var setupRow = new DockPanel();
         var setupButton = new Button { Content = "Set up case lighting", Padding = new(18, 0, 18, 0), MinHeight = 40, Background = new SolidColorBrush(ColorUtil.Fair), Foreground = Brushes.Black };
@@ -443,8 +443,10 @@ public sealed class LightingWorkspace : UserControl
         RefreshDevices(p);
         UpdateHeading();
         if (argbBanner is not null)
-            argbBanner.Visibility = model.State?.Lighting.Devices.Any(dev => dev.Zones?.Any(z => z.MaxLeds > z.MinLeds && z.LedCount == 0 && z.Name.Contains("Addressable", StringComparison.OrdinalIgnoreCase)) == true) == true
-                ? Visibility.Visible : Visibility.Collapsed;
+        {
+            var headers = model.State?.Lighting.Devices.SelectMany(dev => dev.Zones ?? []).Where(z => z.MaxLeds > z.MinLeds && z.Name.Contains("Addressable", StringComparison.OrdinalIgnoreCase)).ToArray() ?? [];
+            argbBanner.Visibility = headers.Length > 0 && headers.All(z => z.LedCount == 0) ? Visibility.Visible : Visibility.Collapsed;
+        }
         suppress = false;
     }
 

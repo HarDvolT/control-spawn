@@ -176,7 +176,8 @@ public sealed class SceneOption : ObservableObject
         }
     }
     public string StateText => IsActive ? "Active" : "Apply";
-    public string Description => Name switch { "Gaming" => "Smart lighting · Turbo fans", "Work" => "Static white · Balanced", "Night" => "Dim breathing · Silent", "Movie" => "Screen ambient · Silent", _ => Name };
+    private string _description = "";
+    public string Description { get => _description; set => Set(ref _description, value); }
 
     public bool IsActive
     {
@@ -369,9 +370,9 @@ public sealed class SceneCardItem : ObservableObject
     public string ButtonLabel => IsActive ? "Active" : "Apply";
 }
 
-public sealed record LampRow(string Id, string Name, string Color, string Status)
+public sealed record LampRow(string Id, string Name, string Color, string Status, bool On = false, bool Connected = true)
 {
     public static IReadOnlyList<LampRow> From(StateMessage state) => (state.Lamps ?? (state.Lamp is { } first ? [first] : []))
         .Select((l, i) => new LampRow(l.Id ?? "unresolved", Controls.CaseIllustration.LampName(state, l, i), l.Connected && l.On ? l.Color : "#3F3F46",
-            !l.Connected ? "Offline" : l.On ? $"{l.Brightness}% \u00b7 {Controls.FriendlyLabelConverter.Label(l.Transport)}" : "Off")).ToArray();
+            !l.Connected ? "Offline" : l.On ? $"{l.Brightness}% \u00b7 {Controls.FriendlyLabelConverter.Label(l.Transport)}" : "Off", l.On, l.Connected)).ToArray();
 }
