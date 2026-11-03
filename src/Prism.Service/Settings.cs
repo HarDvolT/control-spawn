@@ -181,39 +181,50 @@ public sealed class JsonSettingsStore(string? path = null) : ISettingsStore
         if (!File.Exists(path)) return new();
         try
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
-            int version = document.RootElement.TryGetProperty("schemaVersion", out var schema) ? schema.GetInt32() : 0;
-            if (version is < 0 or > ServiceSettings.CurrentSchemaVersion) throw new InvalidDataException("Unsupported settings schema.");
-            // v0 -> v1: existing defaults supply the schema field; retain every other setting.
-            var settings = JsonSerializer.Deserialize<ServiceSettings>(document.RootElement, PipeContract.Json)
-                ?? throw new InvalidDataException("Empty settings.");
-            settings = settings with { SchemaVersion = ServiceSettings.CurrentSchemaVersion };
-            // Scenes added in later versions appear for existing users without touching ones they already have.
-            var defaults = new ServiceSettings().Scenes;
-            if (settings.Scenes is not null && defaults.Keys.Any(k => !settings.Scenes.ContainsKey(k)))
-                settings = settings with { Scenes = settings.Scenes.Concat(defaults.Where(d => !settings.Scenes.ContainsKey(d.Key))).ToDictionary(s => s.Key, s => s.Value) };
-            settings.Validate();
+            var (settings, version) = Parse(File.ReadAllText(path));
             if (version == 0) Save(settings);
             return settings;
         }
-        catch (Exception e) when (e is JsonException or ArgumentException or InvalidDataException or InvalidOperationException or NullReferenceException or FormatException or OverflowException)
+        catch (Exception e) when (Unreadable(e))
         {
             File.Copy(path, path + ".corrupt-" + Guid.NewGuid().ToString("N") + ".bak");
+            // A crash can leave the file empty or zeroed; the copy kept by the last good save is the next best thing.
+            var backup = AtomicFile.Backup(path);
+            try
+            {
+                if (File.Exists(backup))
+                {
+                    var (restored, _) = Parse(File.ReadAllText(backup));
+                    HealthWarning = "Settings were damaged; the last good copy was restored and the damaged file kept as a backup.";
+                    return restored;
+                }
+            }
+            catch (Exception again) when (Unreadable(again)) { }
             HealthWarning = "Settings were invalid; a backup was preserved and defaults were loaded.";
             return new();
         }
     }
+    private static bool Unreadable(Exception e) => e is JsonException or ArgumentException or InvalidDataException or InvalidOperationException or NullReferenceException or FormatException or OverflowException;
+    private static (ServiceSettings Settings, int Version) Parse(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        int version = document.RootElement.TryGetProperty("schemaVersion", out var schema) ? schema.GetInt32() : 0;
+        if (version is < 0 or > ServiceSettings.CurrentSchemaVersion) throw new InvalidDataException("Unsupported settings schema.");
+        // v0 -> v1: existing defaults supply the schema field; retain every other setting.
+        var settings = JsonSerializer.Deserialize<ServiceSettings>(document.RootElement, PipeContract.Json)
+            ?? throw new InvalidDataException("Empty settings.");
+        settings = settings with { SchemaVersion = ServiceSettings.CurrentSchemaVersion };
+        // Scenes added in later versions appear for existing users without touching ones they already have.
+        var defaults = new ServiceSettings().Scenes;
+        if (settings.Scenes is not null && defaults.Keys.Any(k => !settings.Scenes.ContainsKey(k)))
+            settings = settings with { Scenes = settings.Scenes.Concat(defaults.Where(d => !settings.Scenes.ContainsKey(d.Key))).ToDictionary(s => s.Key, s => s.Value) };
+        settings.Validate();
+        return (settings, version);
+    }
     public void Save(ServiceSettings settings)
     {
         settings.Validate();
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(settings, Prism.Core.Ipc.PipeContract.Json));
-            File.Move(temporary, path, true);
-        }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(settings, Prism.Core.Ipc.PipeContract.Json));
     }
 }
 public sealed class MemorySettingsStore : ISettingsStore

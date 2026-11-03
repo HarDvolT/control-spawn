@@ -46,27 +46,24 @@ public sealed class SettingsStore
 
     public string FilePath { get; }
 
-    public AppSettings Load()
+    /// <summary>The file, else its last good copy (a crash can leave the main file empty), else defaults.</summary>
+    public AppSettings Load() => !File.Exists(FilePath) ? new AppSettings() : Read(FilePath) ?? Read(Prism.Core.AtomicFile.Backup(FilePath)) ?? new AppSettings();
+    private static AppSettings? Read(string path)
     {
         try
         {
-            if (!File.Exists(FilePath)) return new AppSettings();
-            var json = File.ReadAllText(FilePath);
-            if (string.IsNullOrWhiteSpace(json)) return new AppSettings();
-            return JsonSerializer.Deserialize<AppSettings>(json, Options) ?? new AppSettings();
+            if (!File.Exists(path)) return null;
+            var json = File.ReadAllText(path);
+            return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<AppSettings>(json, Options);
         }
         catch
         {
-            return new AppSettings();
+            return null;
         }
     }
 
     public void Save(AppSettings settings)
     {
-        var folder = System.IO.Path.GetDirectoryName(FilePath);
-        if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
-        var temporary = FilePath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(settings, Options));
-        File.Move(temporary, FilePath, overwrite: true);
+        Prism.Core.AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(settings, Options));
     }
 }

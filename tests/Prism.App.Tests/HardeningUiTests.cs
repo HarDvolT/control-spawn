@@ -35,4 +35,24 @@ public sealed class HardeningUiTests : IDisposable
         var pump = vm.Fans.SafetyLines.Single(l => l.Title == "Pump");
         Assert.Equal(("Not spinning", Prism.App.Controls.StatusLevel.Critical), (pump.Reading, pump.Level));
     }
+
+    // #7: a crash can leave settings.json or widgets.json empty; the app loads the copy its last save kept.
+    [Theory]
+    [InlineData("")]
+    [InlineData("\0\0\0\0")]
+    public void AppSettingsAndWidgetLayoutFallBackToTheirLastGoodCopy(string damaged)
+    {
+        var settings = new SettingsStore(Path.Combine(folder, "settings.json"));
+        settings.Save(new AppSettings { StartWithWindows = true });
+        settings.Save(new AppSettings { StartWithWindows = false });
+        File.WriteAllText(settings.FilePath, damaged);
+        Assert.True(settings.Load().StartWithWindows);
+
+        var widgets = new WidgetLayoutStore(Path.Combine(folder, "widgets.json"));
+        widgets.Save(new WidgetLayoutFile { Widgets = [new WidgetLayout { Id = "cpu", Kind = WidgetKind.Cpu }] });
+        widgets.Save(new WidgetLayoutFile());
+        File.WriteAllText(widgets.FilePath, damaged);
+        Assert.Equal("cpu", Assert.Single(widgets.Load().Widgets).Id);
+        Assert.Empty(Directory.GetFiles(folder, "*.tmp"));
+    }
 }
