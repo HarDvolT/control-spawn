@@ -87,13 +87,16 @@ public sealed class FanController : IFanController
     {
         lock (gate) return engines.TryGetValue(header, out var engine) ? (engine.Target, engine.Following) : (null, null);
     }
+    /// <summary>The lowest duty a hold may set: Measure's last step. Holds skip the curve minimum, so nothing may hold a fan stopped.</summary>
+    public const double MinimumHold = 15;
     /// <summary>Holds a fan at a fixed duty (null releases it). The pump can't be held and safety full speed still applies.</summary>
     public void Hold(int header, double? percent)
     {
         lock (gate)
         {
             if (header == 7) throw new InvalidOperationException("The AIO pump is fixed at 100%.");
-            if (percent is { } p) overrides[header] = Math.Clamp(p, 0, 100); else overrides.Remove(header);
+            if (percent is { } p && !double.IsFinite(p)) throw new ArgumentOutOfRangeException(nameof(percent));
+            if (percent is { } held) overrides[header] = Math.Clamp(held, MinimumHold, 100); else overrides.Remove(header);
         }
     }
     public void RestoreDefaults()

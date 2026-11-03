@@ -17,6 +17,26 @@ public sealed class FanTests
     public void StandardUsesBiosPointsAndLinearInterpolation(double temperature, double expected) =>
         Assert.Equal(expected, FanCurveEngine.Interpolate(FanCurveEngine.Preset(FanMode.Standard), temperature), 8);
 
+    // Audit #15: a hold skips the curve minimum, so it may never stop a fan; Measure's 15% floor still works and the guard still wins.
+    [Theory]
+    [InlineData(0, 15)] [InlineData(-20, 15)] [InlineData(15, 15)] [InlineData(40, 40)] [InlineData(150, 100)]
+    public void HoldIsClampedToFifteenToOneHundredPercent(double asked, double applied)
+    {
+        var port = new FakeFanControlPort(); using var fans = new FanController(port);
+        fans.Hold(2, asked); fans.Apply(Snapshot(), TimeSpan.FromSeconds(1));
+        Assert.Equal(applied, port.Speeds[2]);
+        Assert.Equal(100, port.Speeds[7]);
+        fans.Apply(Snapshot(cpu: 95), TimeSpan.FromSeconds(1));
+        Assert.Equal(100, port.Speeds[2]);
+    }
+    [Fact]
+    public void HoldRejectsNonFiniteDutyAndThePump()
+    {
+        using var fans = new FanController(new FakeFanControlPort());
+        Assert.Throws<ArgumentOutOfRangeException>(() => fans.Hold(2, double.NaN));
+        Assert.Throws<InvalidOperationException>(() => fans.Hold(7, 50));
+        fans.Hold(2, null);
+    }
     [Fact]
     public void CurveRejectsWrongCountAndUnorderedPoints()
     {
