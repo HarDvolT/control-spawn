@@ -469,7 +469,10 @@ public sealed class ServiceTests
         await writer.WriteLineAsync(JsonSerializer.Serialize(Request(2, Commands.Subscribe), PipeContract.Json));
         Assert.True(JsonSerializer.Deserialize<Response>((await reader.ReadLineAsync(stop.Token))!, PipeContract.Json)!.Ok);
         Assert.True((await processor.HandleAsync(Request(3, Commands.ApplyScene, new { name = "Night" }))).Ok);
-        var state = JsonSerializer.Deserialize<StateMessage>((await reader.ReadLineAsync(stop.Token))!, PipeContract.Json)!;
+        // Subscribing pushes the current state at once, so that push may still be ahead of the one the command caused.
+        StateMessage state;
+        do state = JsonSerializer.Deserialize<StateMessage>((await reader.ReadLineAsync(stop.Token))!, PipeContract.Json)!;
+        while (state.FanMode != FanMode.Silent);
         Assert.Equal(FanMode.Silent, state.FanMode);
         await client.DisposeAsync(); await session;
     }

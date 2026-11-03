@@ -57,10 +57,31 @@ public abstract class HostedModule(string name, Action<bool> health, Func<TimeSp
     }
 }
 
-/// <summary>One state assembly point with immediate command-driven notifications.</summary>
-public sealed class StateHub(Func<Prism.Core.Ipc.StateMessage> assemble)
+/// <summary>
+/// One state assembly point with immediate command-driven notifications. Every connection used to assemble the whole
+/// state itself once a second (up to ~290 ms each, live 2026-11-02), so each extra client, or a local program calling
+/// getState in a loop, cost the service another build. Reads within <see cref="MaxAge"/> share one build; a command
+/// (<see cref="Publish"/>) invalidates it at once, so a client never sees a state older than its own change.
+/// </summary>
+public sealed class StateHub(Func<Prism.Core.Ipc.StateMessage> assemble, Func<TimeSpan>? now = null)
 {
+    public static readonly TimeSpan MaxAge = TimeSpan.FromMilliseconds(250);
+    private readonly Func<TimeSpan> now = now ?? (() => TimeSpan.FromSeconds(System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency));
+    private readonly object building = new();
+    private (TimeSpan At, long Version, Prism.Core.Ipc.StateMessage State)? cached;
+    private long version;
     public event Action? Changed;
-    public Prism.Core.Ipc.StateMessage Read() => assemble();
-    public void Publish() => Changed?.Invoke();
+    public Prism.Core.Ipc.StateMessage Read()
+    {
+        // Readers that arrive while a build runs wait for it and take its result instead of starting their own.
+        lock (building)
+        {
+            long current = Interlocked.Read(ref version); var time = now();
+            if (cached is { } c && c.Version == current && time - c.At < MaxAge) return c.State;
+            var state = assemble();
+            cached = (time, current, state);
+            return state;
+        }
+    }
+    public void Publish() { Interlocked.Increment(ref version); Changed?.Invoke(); }
 }
