@@ -55,4 +55,46 @@ public sealed class HardeningUiTests : IDisposable
         Assert.Equal("cpu", Assert.Single(widgets.Load().Widgets).Id);
         Assert.Empty(Directory.GetFiles(folder, "*.tmp"));
     }
+
+    // #10: the Fans page smoothing demo only listens to the render loop while it is on screen.
+    [Fact]
+    public void SmoothingPreviewStopsRenderingWhenHiddenOrMotionIsReduced() => Sta(() =>
+    {
+        bool reduced = Motion.ReduceAnimations;
+        try
+        {
+            Motion.ReduceAnimations = false;
+            var preview = new Prism.App.Controls.SmoothingPreview();
+            var window = new System.Windows.Window { Content = preview, Width = 400, Height = 300, ShowActivated = false, WindowStyle = System.Windows.WindowStyle.None };
+            window.Show(); Pump();
+            bool systemAllowsMotion = !Motion.ReduceAnimations;   // Windows' own animation setting can turn it off
+            Assert.Equal(systemAllowsMotion, preview.IsAnimating);
+            window.Hide(); Pump();
+            Assert.False(preview.IsAnimating);                     // minimized to the tray: no frames
+            Motion.ReduceAnimations = true;
+            window.Show(); Pump();
+            Assert.False(preview.IsAnimating);                     // reduced motion: a still frame only
+            window.Close(); Pump();
+            Assert.False(preview.IsAnimating);
+        }
+        finally { Motion.ReduceAnimations = reduced; }
+    });
+
+    private static void Pump()
+    {
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, () => frame.Continue = false);
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+    }
+    private static void Sta(Action body)
+    {
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo? failure = null;
+        var thread = new Thread(() =>
+        {
+            try { body(); } catch (Exception e) { failure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e); }
+            finally { System.Windows.Threading.Dispatcher.CurrentDispatcher.InvokeShutdown(); }
+        });
+        thread.SetApartmentState(ApartmentState.STA); thread.Start(); thread.Join();
+        failure?.Throw();
+    }
 }
