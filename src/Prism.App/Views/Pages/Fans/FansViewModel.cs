@@ -239,7 +239,28 @@ public sealed class FansViewModel : PageViewModel
     public IReadOnlyList<string> ControllableFanNames => Fans.Where(f => !f.IsPump).Select(f => f.Name).ToArray();
     public string SelectedCurveFan { get => SelectedFanName; set { if (value != SelectedFanName && Fans.FirstOrDefault(f => !f.IsPump && f.Name == value) is { } fan) { SelectFan(fan); OnPropertyChanged(); } } }
     public IReadOnlyList<string> PrimarySources { get; } = ["CPU", "GPU", "Hottest"];
-    public string SelectedPrimarySource { get => SourceName == "Highest" ? "Hottest" : SourceName; set { if (PrimarySources.Contains(value)) SourceName = value == "Hottest" ? "Highest" : value; } }
+    public string SelectedPrimarySource { get => SourceName == "Highest" ? "Hottest" : SourceName; set { if (PrimarySources.Contains(value)) _ = ApplySourceAsync(value == "Hottest" ? "Highest" : value); } }
+
+    /// <summary>
+    /// Follows applies at once, like Reacts and Wait beside it. It used to only mark the curve unsaved, so without Save the
+    /// next refresh quietly put the old source back (live, 2026-11-03).
+    /// </summary>
+    private async Task ApplySourceAsync(string name)
+    {
+        if (name == _sourceName || IsPumpSelected || SelectedConfiguration is not { } config) return;
+        _sourceName = name; UpdateNow();
+        OnPropertiesChanged(nameof(SourceName), nameof(SelectedPrimarySource), nameof(UsageLow), nameof(UsageHigh), nameof(EditStatus));
+        var source = ToSource(name);
+        await RunAsync(() => Client.SendAsync(Commands.SetFanMode, new { group = SelectedFanGroup, mode = _mode.ToString(), source = source.ToString() }));
+        if (HasError) { _sourceName = SourceText(config.Source); UpdateNow(); OnPropertiesChanged(nameof(SourceName), nameof(SelectedPrimarySource)); }
+    }
+    private static TemperatureSource ToSource(string name) => name switch
+    {
+        "Motherboard" => TemperatureSource.Motherboard,
+        "GPU" => TemperatureSource.Gpu,
+        "Highest" => TemperatureSource.Maximum,
+        _ => TemperatureSource.Cpu
+    };
     public IReadOnlyList<string> Modes { get; } = ["Silent", "Standard", "Turbo", "Full speed", "Custom"];
     public IReadOnlyList<string> Sources { get; } = ["CPU", "Motherboard", "GPU", "Highest"];
 
@@ -595,13 +616,7 @@ public sealed class FansViewModel : PageViewModel
     {
         if (Curve.Count != 8 || !CanEditCurve) return;
         SaveCurve();
-        var source = SourceName switch
-        {
-            "Motherboard" => TemperatureSource.Motherboard,
-            "GPU" => TemperatureSource.Gpu,
-            "Highest" => TemperatureSource.Maximum,
-            _ => TemperatureSource.Cpu
-        };
+        var source = ToSource(SourceName);
         var points = Curve.Select(p => new FanPoint(p.Temperature, Math.Clamp(p.Percent, MinSpeed, 100))).ToList();
         if (IsProfileMode)
         {

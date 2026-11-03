@@ -57,7 +57,7 @@ public sealed class DeviceFramePacer
         return since >= KeepAliveFor(kind) || (kind is "GPU" or "RAM" ? !Same(last.Colors, colors) : !Identical(last.Colors, colors));
     }
 
-    private static bool Identical(RgbColor[] a, IReadOnlyList<RgbColor> b)
+    public static bool Identical(RgbColor[] a, IReadOnlyList<RgbColor> b)
     {
         if (a.Length != b.Count) return false;
         for (int i = 0; i < a.Length; i++) if (!a[i].Equals(b[i])) return false;

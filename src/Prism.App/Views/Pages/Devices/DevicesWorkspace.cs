@@ -16,6 +16,7 @@ public sealed class DevicesWorkspace : UserControl
     private readonly StackPanel list = new();
     private readonly TextBlock banner = new() { FontSize = 32, Foreground = Brushes.WhiteSmoke, Margin = new(0, 4, 0, 12) };
     private readonly TokenImportPanel importer = new();
+    private readonly AddDevicePanel adder = new();
     private readonly StackPanel discoveries = new();
     private DevicesViewModel? model;
     private readonly Dictionary<string, (DeviceNameEditor Name, TextBlock Info, WrapPanel Buttons, TextBlock Status, TextBlock Reading, Border Swatch)> cards = new();
@@ -27,17 +28,23 @@ public sealed class DevicesWorkspace : UserControl
         var heading = new DockPanel(); root.Children.Add(heading);
         var row = new WrapPanel();
         var find = new Button { Content = "Scan again", Margin = new(0, 4, 12, 12) }; find.SetBinding(Button.CommandProperty, new Binding("FindCommand"));
-        var import = new Button { Content = "Import tokens", Margin = new(0, 4, 0, 12) }; import.Click += (_, _) => importer.Visibility = Visibility.Visible;
+        var import = new Button { Content = "Add a device", Margin = new(0, 4, 0, 12) }; import.SetResourceReference(StyleProperty, "PrimaryButton"); import.Click += (_, _) => { importer.Visibility = Visibility.Collapsed; adder.Open(); };
         row.Children.Add(find); row.Children.Add(import); DockPanel.SetDock(row, Dock.Right); heading.Children.Add(row); heading.Children.Add(banner);
         root.Children.Add(discoveries);
         var error = new TextBlock { Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap }; error.SetBinding(TextBlock.TextProperty, new Binding("LastError")); root.Children.Add(error);
-        root.Children.Add(importer); root.Children.Add(list); Content = root;
-        DataContextChanged += (_, _) => { if (model is not null) model.PropertyChanged -= Update; model = DataContext as DevicesViewModel; if (model is not null) { model.PropertyChanged += Update; importer.Client = model.Client; } Rebuild(); };
-        Unloaded += (_, _) => importer.Clear();
+        adder.TokenEntryRequested += (_, id) => importer.Open(id);
+        importer.KnownDevices = () => model?.State?.Devices ?? [];
+        adder.OpenPageRequested += (_, key) => model?.OpenPage(key);
+        adder.KnownDevices = () => model?.State?.Devices ?? [];
+        root.Children.Add(adder); root.Children.Add(importer); root.Children.Add(list); Content = root;
+        DataContextChanged += (_, _) => { if (model is not null) model.PropertyChanged -= Update; model = DataContext as DevicesViewModel; if (model is not null) { model.PropertyChanged += Update; importer.Client = model.Client; adder.Client = model.Client; } Rebuild(); };
+        // Same as the other pages: a view left behind by navigation stops listening.
+        Unloaded += (_, _) => { importer.Clear(); if (model is not null) model.PropertyChanged -= Update; };
+        Loaded += (_, _) => { if (model is not null) { model.PropertyChanged -= Update; model.PropertyChanged += Update; } Rebuild(); };
     }
     private string signature = "";
     private void Update(object? sender, PropertyChangedEventArgs e) => Rebuild();
-    public void ShowImport() => importer.Visibility = Visibility.Visible;
+    public void ShowImport() => adder.Open();
     private void Rebuild()
     {
         if (model is null) return;
@@ -51,7 +58,7 @@ public sealed class DevicesWorkspace : UserControl
             var body = new DockPanel();
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             var setup = new Button { Content = "Set up", Margin = new(0, 0, 16, 0) }; setup.SetResourceReference(StyleProperty, "PrimaryButton");
-            setup.Click += async (_, _) => { if (found.Status == DeviceStatus.NeedsToken) { importer.TargetDevice = found; importer.Visibility = Visibility.Visible; importer.FocusImport(); } else await model.SetupAsync(found); };
+            setup.Click += async (_, _) => { if (found.Status == DeviceStatus.NeedsToken) adder.Open(found.DeviceId); else await model.SetupAsync(found); };
             var dismiss = new Button { Content = "Not now" }; dismiss.Click += async (_, _) => await model.DismissAsync(found.Id);
             actions.Children.Add(setup); actions.Children.Add(dismiss); DockPanel.SetDock(actions, Dock.Right); body.Children.Add(actions);
             var icon = new Border { Width = 52, Height = 52, CornerRadius = new(16), Background = new SolidColorBrush(Color.FromRgb(30, 32, 38)), Margin = new(0, 0, 16, 0), Child = new DeviceIcon { Kind = Icon(found), Width = 24, Height = 24, Color = ColorUtil.Accent } };
@@ -62,7 +69,7 @@ public sealed class DevicesWorkspace : UserControl
             body.Children.Add(copy);
             discoveries.Children.Add(new Border { Child = body, CornerRadius = new(20), Padding = new(20, 16, 20, 16), Margin = new(0, 6, 0, 0), BorderThickness = new(1), BorderBrush = new SolidColorBrush(Color.FromArgb(100, 255, 77, 26)), Background = new LinearGradientBrush(Color.FromArgb(40, 255, 77, 26), Color.FromArgb(6, 255, 77, 26), 0) });
         }
-        if (model.ImportRequested) importer.Visibility = Visibility.Visible;
+        if (model.TakeImportRequest()) adder.Open();
         var next = string.Join(";", model.Groups.SelectMany(g => g.Devices).Select(d => $"{d.Id}:{d.Kind}")) + "|" + string.Join(",", pendingIds);
         if (next == signature) { UpdateCards(); return; } signature = next; list.Children.Clear(); cards.Clear();
         foreach (var group in model.Groups)
@@ -86,7 +93,7 @@ public sealed class DevicesWorkspace : UserControl
                 var info = new TextBlock { Foreground = new SolidColorBrush(ColorUtil.TextTertiary), FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new(0, 4, 0, 10) }; card.Children.Add(info);
                 var buttons = new WrapPanel();
                 { var setup = new Button { Content = "Set up", Margin = new(0, 0, 12, 0) }; var dismiss = new Button { Content = "Dismiss" };
-                    setup.Click += async (_, _) => { var current = model.State?.Devices?.FirstOrDefault(d => d.Id == device.Id) ?? device; if (current.Status == DeviceStatus.NeedsToken) { importer.TargetDevice = current; importer.Visibility = Visibility.Visible; importer.FocusImport(); } else await model.SetupAsync(current); };
+                    setup.Click += async (_, _) => { var current = model.State?.Devices?.FirstOrDefault(d => d.Id == device.Id) ?? device; if (current.Status == DeviceStatus.NeedsToken) adder.Open(current.DeviceId); else await model.SetupAsync(current); };
                     dismiss.Click += async (_, _) => await model.DismissAsync(device.Id);
                     buttons.Children.Add(setup); buttons.Children.Add(dismiss); card.Children.Add(buttons);
                 }
@@ -116,7 +123,8 @@ public sealed class DevicesWorkspace : UserControl
                 card.Swatch.Visibility = lamp is not null || rgb is not null ? Visibility.Visible : Visibility.Collapsed;
                 card.Swatch.Background = new SolidColorBrush(ColorUtil.Parse(lamp?.Color ?? model?.State?.Lighting.Color, Colors.Transparent));
                 card.Info.Text = device.Model ?? device.DetectedName ?? (model?.State?.Lighting.Devices.FirstOrDefault(d => d.Id == device.Id) is { } rgbInfo ? $"{rgbInfo.Kind} \u00b7 {rgbInfo.LedCount} LEDs" : device.Ip ?? FriendlyLabelConverter.Label(device.Source));
-                card.Buttons.Visibility = device.Configured || device.Dismissed || IsRgb(device) || device.Kind == DeviceKind.NetworkDevice ? Visibility.Collapsed : Visibility.Visible;
+                // A dismissed device still waiting for a token keeps its Set up: dismissing the fryer once left no way back.
+                card.Buttons.Visibility = device.Configured || (device.Dismissed && device.Status != DeviceStatus.NeedsToken) || IsRgb(device) || device.Kind == DeviceKind.NetworkDevice ? Visibility.Collapsed : Visibility.Visible;
             }
     }
     private bool IsRgb(DeviceState d) => model?.State?.Lighting.Devices.Any(r => r.Id == d.Id) == true;

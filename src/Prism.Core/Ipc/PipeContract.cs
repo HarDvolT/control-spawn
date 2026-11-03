@@ -29,6 +29,7 @@ public static class Commands
     public const string SetupDevice = "setupDevice";
     public const string RenameDevice = "renameDevice";
     public const string ImportTokens = "importTokens";
+    public const string AddToken = "addToken";           // args: { "token": "<32 hex>", "id"?: registry id, "ip"?: string }; checked on the device before saving
     public const string SetDiscoveryOptions = "setDiscoveryOptions";
     public const string ApplianceProperties = "applianceProperties";
     public const string PrepareApplianceStart = "prepareApplianceStart";
@@ -159,7 +160,8 @@ public sealed record RgbDeviceState(string Id, string Name, string Kind, bool Co
 public sealed record RgbZoneState(string Name, string Type, int FirstLed, int LedCount, int MinLeds, int MaxLeds,
     IReadOnlyList<string>? LedNames = null,
     int MatrixWidth = 0, int MatrixHeight = 0, IReadOnlyList<int>? Matrix = null); // Matrix: LED index per cell, -1 = empty
-public sealed record LampState(string Model, bool Connected, bool On, int Brightness, string Color, string Follow, string Transport, string? Id = null, string? Name = null, uint? DeviceId = null, string? Host = null, string? Error = null);
+public sealed record LampState(string Model, bool Connected, bool On, int Brightness, string Color, string Follow, string Transport, string? Id = null, string? Name = null, uint? DeviceId = null, string? Host = null, string? Error = null,
+    int? Kelvin = null, bool HandedOff = false);
 public sealed record RouterState(
     bool Connected, string? Network, string? Band, int? Score, int? Bars, string? Verdict, string? Sentence,
     double? Rsrp5g, double? Sinr5g, double? Rsrq5g, double? Rsrp4g, double? Sinr4g, double? Rsrq4g,

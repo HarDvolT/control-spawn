@@ -13,7 +13,10 @@ $stateRoot = 'HKLM:\SOFTWARE\Prism\Installer'
 $data = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'Prism'
 $serviceRoot = 'HKLM:\SYSTEM\CurrentControlSet\Services'
 $runKey = 'Software\Microsoft\Windows\CurrentVersion\Run'
-$startupCommand = '"' + (Join-Path $InstallDir 'Prism.App.exe') + '" --tray'
+# The app and the service live in their own folders: they ship different builds of the same runtime DLLs.
+$appDir = Join-Path $InstallDir 'app'
+$serviceDir = Join-Path $InstallDir 'service'
+$startupCommand = '"' + (Join-Path $appDir 'Prism.App.exe') + '" --tray'
 if ($Mode -eq 'UserStartup') {
     # Inno runs this in the original unelevated user's context, even with alternate UAC credentials.
     $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($runKey)
@@ -46,7 +49,9 @@ function Stop-BundledOpenRgb {
 function Assert-OwnedService([string]$Name, [string]$Executable) {
     if (Test-Path "$serviceRoot/$Name") {
         $image = (Get-ItemProperty "$serviceRoot/$Name").ImagePath
-        if ($image -ne ('"' + (Join-Path $InstallDir $Executable) + '"')) { throw "Refusing to modify unrelated service $Name ($image)." }
+        # Builds before the split ran the service from $InstallDir itself; that is still ours and gets moved.
+        $ours = @(('"' + (Join-Path $serviceDir $Executable) + '"'), ('"' + (Join-Path $InstallDir $Executable) + '"'))
+        if ($image -notin $ours) { throw "Refusing to modify unrelated service $Name ($image)." }
     }
 }
 function Restore-Conflicts {
@@ -70,10 +75,10 @@ function Restore-Conflicts {
 }
 function Register-PrismService([string]$Name, [string]$Executable) {
     Assert-OwnedService $Name $Executable
-    $binary = '"' + (Join-Path $InstallDir $Executable) + '"'
+    $binary = '"' + (Join-Path $serviceDir $Executable) + '"'
     if (!(Get-Service $Name -ErrorAction SilentlyContinue)) {
         New-Service -Name $Name -BinaryPathName $binary -DisplayName $Name -StartupType Automatic | Out-Null
-    }
+    } else { Invoke-Sc @('config',$Name,'binPath=',$binary) }
     if ($Name -eq 'Prism') {
         Invoke-Sc @('config',$Name,'DisplayName=','Control Spawn')
         Invoke-Sc @('description',$Name,'Control Spawn: fans, lighting, lamps and router in the background')
@@ -92,7 +97,7 @@ try {
         exit 0
     }
     if ($Mode -eq 'Install') {
-        foreach ($required in @('Prism.Service.exe','Prism.App.exe','openrgb/OpenRGB.exe','dependencies/PawnIO_setup.exe')) {
+        foreach ($required in @('service/Prism.Service.exe','app/Prism.App.exe','openrgb/OpenRGB.exe','dependencies/PawnIO_setup.exe')) {
             if (!(Test-Path -LiteralPath (Join-Path $InstallDir $required))) { throw "Missing payload: $required" }
         }
         New-Item -ItemType Directory -Force -Path $data | Out-Null
@@ -157,15 +162,15 @@ try {
         $identity = Join-Path $data 'install'
         New-Item -ItemType Directory -Force -Path $identity | Out-Null
         $hashes = @{}
-        foreach ($name in @('Prism.App.exe', 'Prism.App.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $InstallDir $name) -Algorithm SHA256).Hash }
+        foreach ($name in @('Prism.App.exe', 'Prism.App.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $appDir $name) -Algorithm SHA256).Hash }
         $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $identity 'app-hashes.json') -Encoding UTF8
         if (-not [Diagnostics.EventLog]::SourceExists('Prism')) { New-EventLog -LogName Application -Source Prism }
         Register-PrismService 'Prism' 'Prism.Service.exe'
-        if (Test-Path "$InstallDir/Prism.FanGuard.exe") { Register-PrismService 'Prism.FanGuard' 'Prism.FanGuard.exe' }
+        if (Test-Path "$serviceDir/Prism.FanGuard.exe") { Register-PrismService 'Prism.FanGuard' 'Prism.FanGuard.exe' }
         if (!$reboot) {
             Start-Service 'Prism'
             (Get-Service 'Prism').WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
-            if (Test-Path "$InstallDir/Prism.FanGuard.exe") { Start-Service 'Prism.FanGuard' }
+            if (Test-Path "$serviceDir/Prism.FanGuard.exe") { Start-Service 'Prism.FanGuard' }
         }
         if ($reboot) { exit 3010 }
     }
@@ -180,7 +185,8 @@ try {
         # Remove matching Run entries in loaded user hives, including an alternate original user.
         foreach ($sid in [Microsoft.Win32.Registry]::Users.GetSubKeyNames()) {
             $key = [Microsoft.Win32.Registry]::Users.OpenSubKey("$sid\$runKey", $true)
-            if ($key) { try { if ($key.GetValue('Prism') -eq $startupCommand) { $key.DeleteValue('Prism') } } finally { $key.Dispose() } }
+            $legacy = '"' + (Join-Path $InstallDir 'Prism.App.exe') + '" --tray'
+            if ($key) { try { if ($key.GetValue('Prism') -in $startupCommand, $legacy) { $key.DeleteValue('Prism') } } finally { $key.Dispose() } }
         }
         if ($RemoveSettings -and (Test-Path -LiteralPath $data)) {
             $expected = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'Prism'))

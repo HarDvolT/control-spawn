@@ -52,6 +52,7 @@ public sealed class MiioLampClient : ILampClient
         SendAsync("set_ct_abx", new object[] {kelvin is >= 1700 and <= 6500 ? kelvin : throw new ArgumentOutOfRangeException(nameof(kelvin)), "smooth", 500}, cancellationToken);
     public Task<JsonElement> GetPropertiesAsync(CancellationToken cancellationToken = default) =>
         SendAsync("get_prop", new object[] {"power", "bright", "rgb", "ct", "color_mode"}, cancellationToken);
+    public async Task<LampReading?> ReadAsync(CancellationToken cancellationToken = default) => LampReading.Parse(await GetPropertiesAsync(cancellationToken));
 
     private async Task<byte[]> ExchangeAsync(byte[] packet, CancellationToken token)
     {

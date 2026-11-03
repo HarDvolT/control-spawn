@@ -211,4 +211,13 @@ public sealed class HardeningTests
         }
         finally { Directory.Delete(root, true); }
     }
+
+    [Fact]
+    public void AnInstalledServiceLooksForTheAppInTheAppFolderBesideIt()
+    {
+        var root = Path.Combine("C:" + Path.DirectorySeparatorChar, "Program Files", "Prism");
+        var expected = Path.GetFullPath(Path.Combine(root, "app"));
+        Assert.Equal(expected, PipeClientVerifier.InstalledAppDirectory(Path.Combine(root, "service")));
+        Assert.Equal(expected, PipeClientVerifier.InstalledAppDirectory(Path.Combine(root, "service") + Path.DirectorySeparatorChar));
+    }
 }

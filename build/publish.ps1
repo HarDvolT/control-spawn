@@ -40,7 +40,8 @@ function Sign-File([string]$path) {
 if (!$IsccPath) {
     $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
     if ($command) { $IsccPath = $command.Source }
-    foreach ($candidate in @("${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe", "$env:ProgramFiles/Inno Setup 6/ISCC.exe")) {
+    # winget installs Inno Setup per user (LocalAppData) when run without admin.
+    foreach ($candidate in @("${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe", "$env:ProgramFiles/Inno Setup 6/ISCC.exe", "$env:LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe")) {
         if (!$IsccPath -and (Test-Path -LiteralPath $candidate)) { $IsccPath = $candidate }
     }
 }
@@ -90,11 +91,14 @@ try {
     $env:NUGET_PLUGINS_CACHE_PATH = $oldNugetPlugins
 }
 New-Item -ItemType Directory -Force -Path $out | Out-Null
-# Merge with byte-for-byte collision checks: never silently replace a shared runtime/DLL.
+# The app (WPF) and the service ship different builds of the same runtime DLLs (WindowsBase, System.CodeDom...), so each
+# gets its own folder. The fan guard runs from the service's folder and must agree with it byte for byte.
+$folders = @{ 'Prism.App' = 'app'; 'Prism.Service' = 'service'; 'Prism.FanGuard' = 'service' }
 Get-ChildItem "$work/publish" -Directory | ForEach-Object {
     $publishDirectory = $_.FullName
+    $folder = Join-Path $out $folders[$_.Name]
     Get-ChildItem $publishDirectory -Recurse -File | ForEach-Object {
-        $target = Join-Path $out $_.FullName.Substring($publishDirectory.Length + 1)
+        $target = Join-Path $folder $_.FullName.Substring($publishDirectory.Length + 1)
         if (Test-Path -LiteralPath $target) {
             if ((Get-FileHash -LiteralPath $target).Hash -ne (Get-FileHash -LiteralPath $_.FullName).Hash) {
                 throw "Conflicting publish outputs: $target"
@@ -115,7 +119,7 @@ Copy-Item -LiteralPath $pawnioExe -Destination "$out/dependencies/PawnIO_setup.e
 Copy-Item -LiteralPath "$root/installer/Configure-Prism.ps1" -Destination "$out/installer"
 Copy-Item -LiteralPath "$PSScriptRoot/dependencies.json" -Destination "$out/dependencies"
 Copy-Item -LiteralPath "$root/installer/THIRD-PARTY-NOTICES.txt" -Destination $out
-Get-ChildItem $out -File | Where-Object { $_.Name -match '^Prism\..*\.(exe|dll)$' } | ForEach-Object { Sign-File $_.FullName }
+Get-ChildItem "$out/app", "$out/service" -File | Where-Object { $_.Name -match '^Prism\..*\.(exe|dll)$' } | ForEach-Object { Sign-File $_.FullName }
 Sign-File "$out/installer/Configure-Prism.ps1"
 $manifest = [ordered]@{ schema = 1; rid = 'win-x64'; configuration = 'Release'; selfContained = $true; readyToRun = $true; trimmed = $false; openrgbVersion = $pins.openrgb.version; pawnioVersion = $pins.pawnio.version; files = @() }
 $manifest.files = @(Get-ChildItem $out -Recurse -File | ForEach-Object {

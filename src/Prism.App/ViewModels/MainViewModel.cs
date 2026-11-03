@@ -78,7 +78,7 @@ public sealed class MainViewModel : ObservableObject
         Fans = new FansViewModel(client);
         Lamp = new LampViewModel(client);
         Devices = new DevicesViewModel(client);
-        Appliances = new AppliancesViewModel(client);
+        Appliances = new AppliancesViewModel(client, settings, settingsStore);
         Scenes = new ScenesViewModel(client, settings, settingsStore);
         Modem = new ModemViewModel(client);
         Settings = new SettingsViewModel(client, settingsStore, startup, settings, () => { if (_lastState is { } state) ApplyState(state); });
@@ -101,7 +101,10 @@ public sealed class MainViewModel : ObservableObject
         _currentPage = Dashboard;
 
         foreach (var page in _pages.Values)
+        {
             page.NavigateRequested += (_, key) => Navigate(key);
+            page.AddDeviceRequested += (_, _) => { Navigate(PageKey.Devices); Devices.RequestImport(); };
+        }
 
         NavigationGroups = new ObservableCollection<NavGroupViewModel>(
             Navigation.Pages.Groups.Select(group => new NavGroupViewModel(group,

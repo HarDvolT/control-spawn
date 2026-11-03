@@ -28,8 +28,31 @@ public sealed partial class ServiceRuntime
         finally { CryptographicOperations.ZeroMemory(secret); }
     }
     public Task<string> PrepareApplianceAsync(DeviceState device, int siid, int aiid, CancellationToken token) => Task.FromResult(appliances.Prepare(device, siid, aiid));
-    public Task SetApplianceAsync(DeviceState device, System.Text.Json.JsonElement values, CancellationToken token) => Observe ? Task.FromException(new InvalidOperationException("Observe mode.")) : appliances.SetAsync(device, values, token);
-    public Task ActApplianceAsync(DeviceState device, int siid, int aiid, string? nonce, CancellationToken token) => Observe ? Task.FromException(new InvalidOperationException("Observe mode.")) : appliances.ActAsync(device, siid, aiid, nonce, token);
+    public async Task SetApplianceAsync(DeviceState device, System.Text.Json.JsonElement values, CancellationToken token)
+    {
+        if (Observe) throw new InvalidOperationException("Observe mode.");
+        await appliances.SetAsync(device, values, token); RefreshAppliancesSoon();
+    }
+    public async Task ActApplianceAsync(DeviceState device, int siid, int aiid, string? nonce, CancellationToken token)
+    {
+        if (Observe) throw new InvalidOperationException("Observe mode.");
+        await appliances.ActAsync(device, siid, aiid, nonce, token); RefreshAppliancesSoon();
+    }
+    // The regular poll runs every 5 seconds; read the fryer again right after a command so pause or a new time shows at once.
+    // The fryer can take a moment to switch state, so a few quick reads follow.
+    // Quick taps restart the follow-up instead of stacking reads that would hold the fryer while the next tap waits.
+    private CancellationTokenSource? applianceRefresh;
+    private void RefreshAppliancesSoon()
+    {
+        var next = new CancellationTokenSource();
+        Interlocked.Exchange(ref applianceRefresh, next)?.Cancel();
+        _ = Task.Run(async () =>
+        {
+            try { foreach (var wait in new[] { 250, 750, 1500 }) { await Task.Delay(wait, next.Token); await appliances.PollAsync(Volatile.Read(ref settings).Devices, next.Token, quick: true); } }
+            catch (Exception e) when (e is IOException or InvalidOperationException or ObjectDisposedException or OperationCanceledException) { }
+            finally { Interlocked.CompareExchange(ref applianceRefresh, null, next); next.Dispose(); }
+        });
+    }
     public Task<IReadOnlyList<DeviceState>> FindDevicesAsync(CancellationToken token) => ScanDevicesAsync(token, true);
     private async Task<IReadOnlyList<DeviceState>> ScanDevicesAsync(CancellationToken token, bool demand)
     {

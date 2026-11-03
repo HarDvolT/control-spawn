@@ -36,6 +36,9 @@
 
                   </StackPanel>
                 </DockPanel>
+                <Border Visibility="{Binding HandedOff, Converter={StaticResource BoolToVisibility}}" Background="#1E2026" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,8,0,0">
+                  <DockPanel><Button DockPanel.Dock="Right" Content="Take over" Command="{Binding TakeOverCommand}" MinHeight="28" Padding="12,0" Margin="10,0,0,0"/><TextBlock Text="Changed in Mi Home, so Control Spawn is leaving it as it is. Change anything here to take it back." TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#C9CBD1" FontSize="12"/></DockPanel>
+                </Border>
                 <DockPanel Margin="0,8,0,8">
                   <Button Command="{Binding ToggleCommand}" Style="{StaticResource TextAction}" HorizontalAlignment="Left" Margin="0,0,16,0">
                     <Grid Width="174" Height="174"><c:LampOrb ColorHex="{Binding ColorEntry}"/><TextBlock Text="{Binding PowerText}" Foreground="#AA07080A" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/></Grid>
@@ -64,7 +67,14 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <UniformGrid Columns="3" Margin="0,0,0,14"><Button Content="Warm white" Command="{Binding SelectColorCommand}" CommandParameter="#FFD5A8" MinHeight="34" Margin="0,0,8,0"/><Button Content="Neutral" Command="{Binding SelectColorCommand}" CommandParameter="#FFF1DF" MinHeight="34" Margin="0,0,8,0"/><Button Content="Cool white" Command="{Binding SelectColorCommand}" CommandParameter="#DCEEFF" MinHeight="34"/></UniformGrid>
+                <!-- Whites use the bulb's own white LEDs, as Mi Home does: far brighter than a white mixed from colours. -->
+                <DockPanel Margin="0,0,0,10"><TextBlock DockPanel.Dock="Right" Text="{Binding WhiteText}" Style="{StaticResource SmallMuted}"/><TextBlock Text="WHITE" Style="{StaticResource SectionLabel}"/></DockPanel>
+                <c:ThickSlider WhiteSpectrum="True" Minimum="1700" Maximum="6500" Step="100" Height="20" Value="{Binding WhiteKelvin, Mode=TwoWay}" AutomationProperties.Name="White temperature" Margin="0,0,0,10"/>
+                <UniformGrid Columns="3" Margin="0,0,0,14">
+                  <c:ChoiceButton Choice="2700" Selection="{Binding Kelvin}" Content="Warm" Command="{Binding SetWhiteCommand}" CommandParameter="2700" Margin="0,0,8,0"/>
+                  <c:ChoiceButton Choice="4000" Selection="{Binding Kelvin}" Content="Neutral" Command="{Binding SetWhiteCommand}" CommandParameter="4000" Margin="0,0,8,0"/>
+                  <c:ChoiceButton Choice="6500" Selection="{Binding Kelvin}" Content="Daylight" Command="{Binding SetWhiteCommand}" CommandParameter="6500"/>
+                </UniformGrid>
                 <TextBlock Text="FOLLOWS" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
                 <c:SegmentedControl ItemsSource="{Binding PrimaryFollowModes}" SelectedItem="{Binding Follow, Mode=TwoWay}" ItemContainerStyle="{StaticResource LampFollowItem}" Margin="0,8,0,0" FontSize="11">
                   <c:SegmentedControl.ItemTemplate>

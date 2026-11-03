@@ -17,6 +17,9 @@ public sealed class DevicesViewModel : PageViewModel
     public AsyncRelayCommand FindCommand { get; }
     public bool ImportRequested { get; private set; }
     public void RequestImport() { ImportRequested = true; OnPropertyChanged(nameof(ImportRequested)); }
+    /// <summary>Read once by the page, so a later refresh doesn't reopen the add steps on top of the user's work.</summary>
+    public bool TakeImportRequest() { bool requested = ImportRequested; ImportRequested = false; return requested; }
+    public void OpenPage(Navigation.PageKey key) => RequestNavigate(key);
     public Task DismissAsync(string id) => RunAsync(() => Client.SendAsync(Commands.DismissDevice, new { id }));
     public async Task SetupAsync(DeviceState device)
     {
