@@ -62,6 +62,7 @@ public sealed partial class MockPrismClient : PrismClientBase
     private int _lampBrightness = 70;
     private string _lampFollow = "pc";
     private string _lampColor = "#FF4D1A";
+    private int? _lampKelvin;
 
     public MockPrismClient()
     {
@@ -188,7 +189,7 @@ public sealed partial class MockPrismClient : PrismClientBase
 
         system = system with { Disks = system.Disks.Select(d => d with { ActivityPercent = 50 + 40 * Math.Sin(t) }).ToArray(), GpuMemoryJunction = 65 + 10 * Math.Sin(t * 0.3) };
         var lighting = new LightingState(_effect, _lightColor, _brightness, _speed, devices, _parameters, _map, _events, Bindings: new Dictionary<string, SensorBinding>(_bindings), PartLooks: new Dictionary<string, PartLook>(_partLooks), IdentifyingZones: identifyUntil > now ? [new("board", 1, _stripSize, _stripSize == 0 ? 0 : (int)(now.TimeOfDay.TotalSeconds * 6) % _stripSize + 1)] : []);
-        var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "miio", "lamp:470875761", firstLampName, 470875761, "192.0.2.1");
+        var lamp = new LampState("yeelink.light.color5", true, _lampOn, _lampBrightness, _lampColor, _lampFollow, "miio", "lamp:470875761", firstLampName, 470875761, "192.0.2.1", Kelvin: _lampFollow == "own" ? _lampKelvin : null);
 
         var rsrp5 = Math.Round(-97 + Math.Sin(t * 0.11) * 3);
         var rsrp4 = Math.Round(-92 + Math.Sin(t * 0.09) * 3);
@@ -254,6 +255,7 @@ public sealed partial class MockPrismClient : PrismClientBase
                 case Commands.DismissDevice:
                 case Commands.SetupDevice:
                 case Commands.ImportTokens:
+                case Commands.AddToken:
                 case Commands.SetDiscoveryOptions:
                 case Commands.ApplianceProperties:
                 case Commands.PrepareApplianceStart:
@@ -488,6 +490,7 @@ public sealed partial class MockPrismClient : PrismClientBase
                             Brightness = TryNumber(element, "brightness", out var level) ? (int)Math.Clamp(level, 1, 100) : current.Brightness,
                             Color = TryString(element, "color", out var colour) ? colour : current.Color,
                             Follow = TryString(element, "follow", out var followed) ? followed : current.Follow,
+                            Kelvin = TryNumber(element, "kelvin", out var white) ? (int)white : TryString(element, "color", out _) ? null : current.Kelvin,
                             Name = TryString(element, "name", out var renamed) ? renamed : current.Name };
                         publish = BuildState(); response = new(0, true); break;
                     }
@@ -495,7 +498,8 @@ public sealed partial class MockPrismClient : PrismClientBase
                     if (TryBool(element, "on", out var on)) _lampOn = on;
                     if (TryNumber(element, "brightness", out var lampBrightness)) _lampBrightness = (int)Math.Clamp(lampBrightness, 1, 100);
                     if (TryString(element, "follow", out var follow)) _lampFollow = follow;
-                    if (TryString(element, "color", out var lampColor)) _lampColor = lampColor;
+                    if (TryString(element, "color", out var lampColor)) { _lampColor = lampColor; _lampKelvin = null; }
+                    if (TryNumber(element, "kelvin", out var lampKelvin)) _lampKelvin = (int)lampKelvin;
                     publish = BuildState();
                     response = new Response(0, true);
                     break;

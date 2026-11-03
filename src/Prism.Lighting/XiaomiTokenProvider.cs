@@ -9,9 +9,12 @@ namespace Prism.Lighting;
 /// <summary>Optional, user-initiated cloud session. No files, logs, stored credentials or startup requests.</summary>
 public sealed class XiaomiTokenProvider(Func<CookieContainer, HttpMessageHandler>? handlerFactory = null) : IXiaomiTokenProvider
 {
+    /// <summary>Devices live on the server of the region picked in Mi Home, which few people remember; "auto" tries each.</summary>
+    public const string AutoRegion = "auto";
+    private static readonly string[] Regions = ["de", "sg", "us", "cn", "ru", "in", "tw", "i2"];
     public async Task<XiaomiSignInResult> SignInAsync(string username, string password, string region, CancellationToken token)
     {
-        if (!new[] { "cn", "de", "us", "ru", "sg", "tw", "in", "i2" }.Contains(region)) throw new ArgumentException("Invalid region.");
+        if (region != AutoRegion && !Regions.Contains(region)) throw new ArgumentException("Invalid region.");
         var cookies = new CookieContainer();
         string device = Convert.ToHexString(RandomNumberGenerator.GetBytes(6)).ToLowerInvariant();
         foreach (var host in new[] { ".mi.com", ".xiaomi.com" })
@@ -37,8 +40,8 @@ public sealed class XiaomiTokenProvider(Func<CookieContainer, HttpMessageHandler
         if (location.Scheme != "https" || !(location.Host.EndsWith(".mi.com", StringComparison.Ordinal) || location.Host.EndsWith(".xiaomi.com", StringComparison.Ordinal))) throw new IOException("Invalid sign-in redirect.");
         using var session = await http.GetAsync(location, token); session.EnsureSuccessStatusCode();
         string serviceToken = cookies.GetCookies(location)["serviceToken"]?.Value ?? throw new IOException("Cloud session unavailable.");
-        string hostName = (region == "cn" ? "" : region + ".") + "api.io.mi.com";
-        foreach (var pair in new[] { ("userId", userId), ("serviceToken", serviceToken), ("yetAnotherServiceToken", serviceToken), ("locale", "en_GB") }) cookies.Add(new Cookie(pair.Item1, pair.Item2, "/", hostName));
+        string hostName = "";
+        var call = token;
         async Task<JsonDocument> Query(string path, object data)
         {
             byte[] nonceBytes = RandomNumberGenerator.GetBytes(12); BinaryPrimitives.WriteInt32BigEndian(nonceBytes.AsSpan(8), (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60));
@@ -53,24 +56,40 @@ public sealed class XiaomiTokenProvider(Func<CookieContainer, HttpMessageHandler
                 string signature = Signature(); fields["signature"] = signature; fields["ssecurity"] = security; fields["_nonce"] = nonce;
                 using var request = new HttpRequestMessage(HttpMethod.Post, $"https://{hostName}/app{path}") { Content = new FormUrlEncodedContent(fields) };
                 request.Headers.Add("MIOT-ENCRYPT-ALGORITHM", "ENCRYPT-RC4"); request.Headers.Add("x-xiaomi-protocal-flag-cli", "PROTOCAL-HTTP2");
-                using var response = await http.SendAsync(request, token); response.EnsureSuccessStatusCode();
-                var decrypted = Rc4(key, Convert.FromBase64String(await response.Content.ReadAsStringAsync(token)));
+                using var response = await http.SendAsync(request, call); response.EnsureSuccessStatusCode();
+                var decrypted = Rc4(key, Convert.FromBase64String(await response.Content.ReadAsStringAsync(call)));
                 // JsonDocument can retain a byte buffer; copy into its owned representation before wiping ours.
                 try { return JsonDocument.Parse(Encoding.UTF8.GetString(decrypted)); } finally { CryptographicOperations.ZeroMemory(decrypted); }
             }
             finally { CryptographicOperations.ZeroMemory(key); }
         }
-        using var homes = await Query("/v2/homeroom/gethome", new { fg = true, fetch_share = true, fetch_share_dev = true, limit = 300, app_ver = 7 });
         var records = new List<ExtractedToken>();
-        foreach (var home in homes.RootElement.GetProperty("result").GetProperty("homelist").EnumerateArray())
+        foreach (var server in region == AutoRegion ? Regions : [region])
         {
-            using var devices = await Query("/v2/home/home_device_list", new { home_owner = home.GetProperty("uid"), home_id = home.GetProperty("id"), limit = 200, get_split_device = true, support_smart_home = true });
-            // Feed through the same strict fixture-tested parser; BLE/non-miIO records have no 32-hex token.
-            var list = devices.RootElement.GetProperty("result").GetProperty("device_info").EnumerateArray()
-                .Where(d => d.TryGetProperty("token", out var t) && t.GetString() is { Length: 32 } && d.TryGetProperty("did", out var id) && uint.TryParse(id.ToString(), out _)).ToArray();
-            records.AddRange(TokenExtractorParser.Parse(JsonSerializer.Serialize(list)));
+            hostName = (server == "cn" ? "" : server + ".") + "api.io.mi.com";
+            foreach (var pair in new[] { ("userId", userId), ("serviceToken", serviceToken), ("yetAnotherServiceToken", serviceToken), ("locale", "en_GB") }) cookies.Add(new Cookie(pair.Item1, pair.Item2, "/", hostName));
+            // Searching every server: one that is slow or down is skipped after a while instead of failing the whole search.
+            using var limit = CancellationTokenSource.CreateLinkedTokenSource(token);
+            if (region == AutoRegion) limit.CancelAfter(TimeSpan.FromSeconds(12));
+            call = limit.Token;
+            try { await CollectAsync(); }
+            catch (Exception e) when (region == AutoRegion && !token.IsCancellationRequested && e is HttpRequestException or JsonException or ArgumentException or KeyNotFoundException or InvalidOperationException or FormatException or OperationCanceledException) { continue; }
+            if (records.Count > 0) break;
         }
         return new(records.GroupBy(r => r.DeviceId).Select(g => g.Last()).ToArray());
+        async Task CollectAsync()
+        {
+            using var homes = await Query("/v2/homeroom/gethome", new { fg = true, fetch_share = true, fetch_share_dev = true, limit = 300, app_ver = 7 });
+            if (!homes.RootElement.TryGetProperty("result", out var result) || !result.TryGetProperty("homelist", out var homelist)) return;
+            foreach (var home in homelist.EnumerateArray())
+            {
+                using var devices = await Query("/v2/home/home_device_list", new { home_owner = home.GetProperty("uid"), home_id = home.GetProperty("id"), limit = 200, get_split_device = true, support_smart_home = true });
+                // Feed through the same strict fixture-tested parser; BLE/non-miIO records have no 32-hex token.
+                var list = devices.RootElement.GetProperty("result").GetProperty("device_info").EnumerateArray()
+                    .Where(d => d.TryGetProperty("token", out var t) && t.GetString() is { Length: 32 } && d.TryGetProperty("did", out var id) && uint.TryParse(id.ToString(), out _)).ToArray();
+                records.AddRange(TokenExtractorParser.Parse(JsonSerializer.Serialize(list)));
+            }
+        }
     }
     public static JsonDocument Parse(string response) => JsonDocument.Parse(response.StartsWith("&&&START&&&", StringComparison.Ordinal) ? response[11..] : response);
     public static byte[] Rc4(byte[] key, byte[] bytes)

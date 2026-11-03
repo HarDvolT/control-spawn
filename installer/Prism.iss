@@ -23,7 +23,7 @@ OutputBaseFilename=ControlSpawnSetup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\Prism.App.exe
+UninstallDisplayIcon={app}\app\Prism.App.exe
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
@@ -36,11 +36,11 @@ Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Source: "Configure-Prism.ps1"; Flags: dontcopy
 
 [Icons]
-Name: "{commonprograms}\Control Spawn"; Filename: "{app}\Prism.App.exe"; WorkingDir: "{app}"
+Name: "{commonprograms}\Control Spawn"; Filename: "{app}\app\Prism.App.exe"; WorkingDir: "{app}\app"
 
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\installer\Configure-Prism.ps1"" -Mode UserStartup -InstallDir ""{app}"""; Tasks: startup; Flags: runhidden runasoriginaluser
-Filename: "{app}\Prism.App.exe"; Description: "Launch Control Spawn"; WorkingDir: "{app}"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchApp
+Filename: "{app}\app\Prism.App.exe"; Description: "Launch Control Spawn"; WorkingDir: "{app}\app"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchApp
 
 [Code]
 var
@@ -49,6 +49,13 @@ var
   RebootRequired: Boolean;
   RemoveSettings: Boolean;
 
+// OpenRGB's release ZIP leaves out the Visual C++ runtime; games install it on most PCs, but a fresh Windows may lack it.
+function HasVcRuntime: Boolean;
+var Installed: Cardinal;
+begin
+  Result := RegQueryDWordValue(HKLM64, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) and (Installed = 1);
+end;
+
 function InitializeSetup: Boolean;
 var Version: TWindowsVersion;
 begin
@@ -56,7 +63,11 @@ begin
   Result := (Version.Major = 10) and (Version.Build >= 22000) and
     (Version.ProductType = VER_NT_WORKSTATION);
   if not Result then
-    SuppressibleMsgBox('Control Spawn requires Windows 11 x64 (a desktop edition).', mbCriticalError, MB_OK, IDOK);
+    SuppressibleMsgBox('Control Spawn requires Windows 11 x64 (a desktop edition).', mbCriticalError, MB_OK, IDOK)
+  else if not HasVcRuntime then
+    SuppressibleMsgBox('The bundled OpenRGB needs the Microsoft Visual C++ Runtime (x64), which is not installed.' + #13#10#13#10 +
+      'Control Spawn will install and run, but case lighting stays off until you install it from:' + #13#10 +
+      'https://aka.ms/vs/17/release/vc_redist.x64.exe', mbInformation, MB_OK, IDOK);
 end;
 
 function RunHelper(const Script, Mode, Extra: String; var Code: Integer): Boolean;

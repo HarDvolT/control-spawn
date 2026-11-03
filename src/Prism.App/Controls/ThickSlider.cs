@@ -14,6 +14,8 @@ public class ThickSlider : FrameworkElement
 {
     public bool UseGradient { get; set; }
     public Color GradientStart { get; set; } = Color.FromRgb(58, 60, 68);
+    /// <summary>A white-temperature slider: the whole track runs candle to daylight and a ring marks the value.</summary>
+    public bool WhiteSpectrum { get; set; }
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(
         nameof(Value), typeof(double), typeof(ThickSlider),
         new FrameworkPropertyMetadata(50d,
@@ -222,7 +224,16 @@ public class ThickSlider : FrameworkElement
         var span = high - low;
         var ratio = span <= 0 ? 0 : Math.Clamp((Value - low) / span, 0, 1);
         var fillWidth = width * ratio;
-        if (fillWidth > 0)
+        if (WhiteSpectrum)
+        {
+            // Stops at 1700, 3000, 5000 and 6500 K across the bulbs' 1700-6500 K range.
+            var stops = new GradientStopCollection { new(Color.FromRgb(255, 121, 0), 0), new(Color.FromRgb(255, 177, 110), 0.27), new(Color.FromRgb(255, 228, 206), 0.69), new(Color.FromRgb(214, 232, 255), 1) };
+            dc.DrawRoundedRectangle(new LinearGradientBrush(stops, 0), null, new Rect(0, 0, width, height), radius, radius);
+            var x = Math.Clamp(fillWidth, radius, Math.Max(radius, width - radius));
+            dc.DrawEllipse(null, new Pen(ColorUtil.Brush(Color.FromRgb(16, 17, 20)), 2.5), new Point(x, radius), radius - 2, radius - 2);
+            dc.DrawEllipse(null, new Pen(Brushes.White, 1.5), new Point(x, radius), radius - 2, radius - 2);
+        }
+        else if (fillWidth > 0)
         {
             var rect = new Rect(0, 0, fillWidth, height);
             var geometry = new RectangleGeometry(rect, radius, radius);

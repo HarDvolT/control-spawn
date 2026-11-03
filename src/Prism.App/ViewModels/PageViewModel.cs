@@ -17,7 +17,8 @@ public abstract class PageViewModel : ObservableObject
         Client = client;
         OpenPageCommand = new RelayCommand<string>(key =>
         {
-            if (Enum.TryParse<PageKey>(key, ignoreCase: true, out var page)) RequestNavigate(page);
+            if (key == "AddDevice") AddDeviceRequested?.Invoke(this, EventArgs.Empty);
+            else if (Enum.TryParse<PageKey>(key, ignoreCase: true, out var page)) RequestNavigate(page);
         });
     }
 
@@ -29,6 +30,8 @@ public abstract class PageViewModel : ObservableObject
 
     /// <summary>Cross-page links ("Curves", "5G modem", …) are routed by the shell.</summary>
     public event EventHandler<PageKey>? NavigateRequested;
+    /// <summary>"Add your air fryer" and the like open the add steps on the Devices page.</summary>
+    public event EventHandler? AddDeviceRequested;
 
     public RelayCommand<string> OpenPageCommand { get; }
 

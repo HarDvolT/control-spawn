@@ -263,6 +263,39 @@
         <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
     </Style>
 
+    <!-- Air fryer presets: Tag="on" marks the preset that matches the fryer's temperature and time. -->
+    <Style x:Key="PresetButton" TargetType="{x:Type Button}" BasedOn="{StaticResource BaseButton}">
+        <Setter Property="Background" Value="#17181D" />
+        <Setter Property="BorderBrush" Value="#0DFFFFFF" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="14" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+                        </Trigger>
+                        <Trigger Property="Tag" Value="on">
+                            <Setter TargetName="Chrome" Property="Background" Value="#1FFF4D1A" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="#99FF4D1A" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.78" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="DangerButton" TargetType="{x:Type Button}" BasedOn="{StaticResource BaseButton}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="#59FF4D4F" />
@@ -715,7 +748,7 @@
     <Style x:Key="PageSubtitle" TargetType="TextBlock" BasedOn="{StaticResource Muted}"><Setter Property="Margin" Value="0,6,0,0"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
     <Style x:Key="Placeholder" TargetType="TextBlock" BasedOn="{StaticResource SmallMuted}"><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="Margin" Value="0,10"/></Style>
     <!-- Lamps page lists and follow tiles. App-wide so the lazily built "Add or fix a lamp" panel can find them. -->
-    <Style x:Key="LampFollowItem" TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Tile" CornerRadius="10" Padding="10,12" Margin="2" BorderThickness="1" BorderBrush="Transparent"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Tile" Property="Background" Value="#1E2026"/><Setter TargetName="Tile" Property="BorderBrush" Value="#FF4D1A"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+    <Style x:Key="LampFollowItem" TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Tile" Background="Transparent" CornerRadius="10" Padding="10,12" Margin="2" BorderThickness="1" BorderBrush="Transparent"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Tile" Property="Background" Value="#1E2026"/><Setter TargetName="Tile" Property="BorderBrush" Value="#FF4D1A"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
     <Style x:Key="LampListStyle" TargetType="ListBox">
       <Setter Property="Background" Value="#18181B" />
       <Setter Property="Foreground" Value="#F4F4F5" />

@@ -30,6 +30,12 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
         var app = Path.Combine(project.Parent.FullName, "Prism.App", "bin", configuration.Name, framework.Name, "Prism.App.exe");
         return File.Exists(app) ? app : null;
     }
+    /// <summary>
+    /// Installed layout: Prism\service\ and Prism\app\ side by side, because the two ship different builds of the same
+    /// runtime DLLs. Both sit under Program Files, so only administrators can change what is there.
+    /// </summary>
+    public static string InstalledAppDirectory(string serviceDirectory) =>
+        Path.GetFullPath(Path.Combine(serviceDirectory.TrimEnd(Path.DirectorySeparatorChar), "..", "app"));
     public static string ManifestPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "install", "app-hashes.json");
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -43,10 +49,11 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
             using var process = Process.GetProcessById(checked((int)pid));
             var image = process.MainModule?.FileName;
             if (devApp is not null) return new(image is not null && Path.GetFullPath(image).Equals(Path.GetFullPath(devApp), StringComparison.OrdinalIgnoreCase) && !process.HasExited, key);
-            var expected = Path.Combine(AppContext.BaseDirectory, "Prism.App.exe");
-            if (image is null || !Path.GetFullPath(image).Equals(Path.GetFullPath(expected), StringComparison.OrdinalIgnoreCase)) return new(false, key);
+            var appDirectory = InstalledAppDirectory(AppContext.BaseDirectory);
+            var expected = Path.Combine(appDirectory, "Prism.App.exe");
+            if (image is null || !Path.GetFullPath(image).Equals(expected, StringComparison.OrdinalIgnoreCase)) return new(false, key);
             var hashes = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ManifestPath));
-            bool valid = MatchesInstallation(AppContext.BaseDirectory, hashes);
+            bool valid = MatchesInstallation(appDirectory, hashes);
             return new(valid && !process.HasExited, key);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or ArgumentException or JsonException or OverflowException)

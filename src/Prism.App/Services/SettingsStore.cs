@@ -25,6 +25,7 @@ public sealed class AppSettings
     public Dictionary<string, string> SceneLedPresets { get; set; } = new();
     public bool RouterEnabled { get; set; }
     public string? LastPage { get; set; }
+    public List<Prism.App.ViewModels.FryerPreset> FryerPresets { get; set; } = new();
 }
 
 public sealed class SettingsStore

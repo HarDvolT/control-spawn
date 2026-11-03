@@ -23,6 +23,11 @@ public interface IServiceRuntime
     void SetLampResolutionHandler(Func<string, MiioDevice, Task> handler) { }
     void CredentialsChanged(bool lamp) { }
     void LampCredentialsChanged(string id) => CredentialsChanged(true);
+    /// <summary>Asks the Mi Home device at <paramref name="ip"/> who it is, using <paramref name="token"/>: its id and model.</summary>
+    Task<(uint DeviceId, string Model)> IdentifyMiioAsync(string ip, byte[] token, CancellationToken cancellationToken) =>
+        Task.FromException<(uint, string)>(new TokenProblem("Checking tokens is unavailable."));
+    /// <summary>The user changed this lamp here, so a bulb handed off to Mi Home is driven again.</summary>
+    void TakeOverLamp(string id) { }
     void TriggerLightingEvent(LightingEventKind kind) { }
     Task<SpeedTestResult?> StartSpeedTestAsync(CancellationToken cancellationToken);
     void MeasureFan(int header) => throw new InvalidOperationException("Fan measuring is unavailable.");
@@ -163,6 +168,8 @@ public sealed partial class CommandProcessor
                 }
                 case Commands.ImportTokens:
                     next = Import(a); break;
+                case Commands.AddToken:
+                    next = await AddTokenAsync(a); break;
                 case Commands.SetDiscoveryOptions:
                     next = Settings with { Discovery = a.GetProperty("options").Deserialize<DiscoveryOptions>(PipeContract.Json) ?? throw new ArgumentException("Missing options.") }; break;
                 case Commands.PrepareApplianceStart:
@@ -424,7 +431,9 @@ public sealed partial class CommandProcessor
                     lamps[index] = current with { On = a.TryGetProperty("on", out var on) ? on.GetBoolean() : current.On,
                         Brightness = a.TryGetProperty("brightness", out var brightness) ? brightness.GetInt32() : current.Brightness,
                         Follow = a.TryGetProperty("follow", out var follow) ? follow.GetString()! : current.Follow,
-                        Color = a.TryGetProperty("color", out var color) ? color.GetString()! : current.Color, Kelvin = a.TryGetProperty("color", out _) ? null : current.Kelvin,
+                        Color = a.TryGetProperty("color", out var color) ? color.GetString()! : current.Color,
+                        // A white is a colour temperature; picking a colour without one clears it.
+                        Kelvin = a.TryGetProperty("kelvin", out var kelvin) && kelvin.ValueKind == JsonValueKind.Number ? kelvin.GetInt32() : a.TryGetProperty("color", out _) ? null : current.Kelvin,
                         Name = a.TryGetProperty("name", out var name) ? name.GetString()! : current.Name };
                     next = Settings with { Lamps = lamps, Lamp = lamps[0] }; break;
                 }
@@ -477,8 +486,15 @@ public sealed partial class CommandProcessor
             if (removedToken is { } removed) removeDeviceToken(removed);
             if (removedLegacyToken) lampTokens.DeleteLegacy();
             if (request.Command == Commands.ApplyScene) runtime.TriggerLightingEvent(LightingEventKind.SceneChange);
+            // Saved, so a bulb handed off to Mi Home follows this change; a refused one leaves it be.
+            if (request.Command == Commands.SetLamp) runtime.TakeOverLamp(a.TryGetProperty("lamp", out var takenLamp) ? takenLamp.GetString() ?? next.Lamp.Id : next.Lamp.Id);
             return new(request.Id, true);
         }
+        catch (TokenProblem e) { return new(request.Id, false, e.Message); }
+        // A fryer that times out or refuses is not a settings problem; say what happened to the fryer.
+        catch (Exception e) when (request.Command is Commands.ApplianceAction or Commands.ApplianceProperties or Commands.ConfirmApplianceStart
+            && e is IOException or System.Net.Sockets.SocketException or OperationCanceledException && !cancellationToken.IsCancellationRequested)
+        { return new(request.Id, false, e.Message.StartsWith("Device rejected", StringComparison.Ordinal) ? "The fryer refused that. It may not allow it right now." : "The fryer didn't answer. Check it is on and try again."); }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or KeyNotFoundException or JsonException or FormatException or OverflowException)
         { return new(request.Id, false, request.Command is Commands.SetLampToken or Commands.SetRouterPassword or Commands.ImportTokens ? "Credential command failed." : e.Message); }
         catch (System.Security.Cryptography.CryptographicException) { return new(request.Id, false, "Credentials could not be protected."); }
