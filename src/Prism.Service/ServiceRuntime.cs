@@ -256,6 +256,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         var stats = new Dictionary<string, (int Frames, double MaxGapMs, double MaxWriteMs, TimeSpan Last)>();
         var tickGap = 0d; var renderMax = 0d; var lastTick = TimeSpan.Zero; var statsDue = TimeSpan.FromSeconds(10); int gcs = GC.CollectionCount(2);
         var directModes = new HashSet<string>();
+        var frames = new FrameGuard();
         static (RgbDeviceState[] Devices, Dictionary<string, uint> Indices) Identify(OpenRgbClient client)
         {
             var identities = new Dictionary<string, int>(); var indices = new Dictionary<string, uint>();
@@ -335,12 +336,14 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                 }
                 foreach (var device in current.Where(d => identification.TryGetValue(d.Id, out var identifying) && clock.Elapsed < identifying.Until || (failsafe && value.Events.FanFailsafe) || value.Bindings.Keys.Any(k => k == d.Id || k.StartsWith(d.Id + "/", StringComparison.Ordinal)) || value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb)))
                 {
+                    // A device the last refresh dropped has no index yet; it rejoins after the next refresh instead of throwing.
+                    if (!rgbIndices.TryGetValue(device.Id, out var index)) continue;
                     // A device switched off under "Applies to" still gets frames: Render sends it black. Skipping it left the
                     // LEDs frozen on whatever they showed last.
                     if (!mock && !directModes.Contains(device.Id))
-                    { using var directTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); directTimeout.CancelAfter(TimeSpan.FromSeconds(2)); await ((OpenRgbClient)rgb).SetDirectModeAsync(rgbIndices[device.Id], directTimeout.Token); directModes.Add(device.Id); }
+                    { using var directTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); directTimeout.CancelAfter(TimeSpan.FromSeconds(2)); await ((OpenRgbClient)rgb).SetDirectModeAsync(index, directTimeout.Token); directModes.Add(device.Id); }
                     var now = clock.Elapsed;
-                    var colors = RenderDevice(value, device, current, DeviceFramePacer.FrameTime(device.Kind, now.TotalSeconds));
+                    if (!frames.TryRun(device.Id, () => RenderDevice(value, device, current, DeviceFramePacer.FrameTime(device.Kind, now.TotalSeconds)), now, out var colors)) continue;
                     renderMax = Math.Max(renderMax, (clock.Elapsed - now).TotalMilliseconds);
                     if (!pacer.ShouldSend(device.Id, device.Kind, colors, now)) continue;
                     // GPU and RAM lighting share a bus with sensor reads: wait for our turn. Retried next tick.
@@ -355,14 +358,14 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                         foreach (var z in changed)
                         {
                             var zone = gpuZones[z];
-                            await zoned.SetZoneColorsAsync(rgbIndices[device.Id], z, colors.Skip(zone.FirstLed).Take(zone.LedCount).ToArray(), timeout.Token);
+                            await zoned.SetZoneColorsAsync(index, z, colors.Skip(zone.FirstLed).Take(zone.LedCount).ToArray(), timeout.Token);
                             for (int i = zone.FirstLed; i < zone.FirstLed + zone.LedCount; i++) merged[i] = colors[i];
                         }
                         pacer.Sent(device.Id, merged, now);
                         continue;
                     }
                     var writeStart = clock.Elapsed;
-                    await rgb.SetColorsAsync(rgbIndices[device.Id], colors, timeout.Token);
+                    await rgb.SetColorsAsync(index, colors, timeout.Token);
                     pacer.Sent(device.Id, colors, now);
                     var seen = stats.GetValueOrDefault(device.Id);
                     stats[device.Id] = (seen.Frames + 1, seen.Last == TimeSpan.Zero ? 0 : Math.Max(seen.MaxGapMs, (now - seen.Last).TotalMilliseconds),
