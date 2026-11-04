@@ -11,6 +11,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AssemblyName>Prism.App</AssemblyName>
+    <AssemblyTitle>Control Spawn</AssemblyTitle>
     <RootNamespace>Prism.App</RootNamespace>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationManifest>app.manifest</ApplicationManifest>
