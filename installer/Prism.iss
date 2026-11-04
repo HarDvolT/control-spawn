@@ -8,7 +8,7 @@
 [Setup]
 AppId={{C72C2E1F-2F54-4A63-BD51-93FE11BC64A2}
 AppName=Control Spawn
-AppVersion=1.0.1
+AppVersion=1.0.2
 AppPublisher=Control Spawn
 SetupIconFile=..\src\Prism.App\Assets\ControlSpawn.ico
 DefaultDirName={autopf}\Prism
