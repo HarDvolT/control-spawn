@@ -7,6 +7,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
     <Product>Control Spawn</Product>
+    <Version>1.0.2</Version>
   </PropertyGroup>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Core' Or '$(MSBuildProjectName)' == 'Prism.Hardware' Or '$(MSBuildProjectName)' == 'Prism.Lighting' Or '$(MSBuildProjectName)' == 'Prism.Router' Or '$(MSBuildProjectName)' == 'Prism.Service'">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

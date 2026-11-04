@@ -26,6 +26,19 @@ public sealed class AppBehaviorTests : IDisposable
     }
 
     [Fact]
+    public void Startup_shortcut_is_created_and_removed()
+    {
+        var folder = Directory.CreateTempSubdirectory().FullName;
+        var startup = new ShortcutStartup(() => Environment.ProcessPath!, folder, @"Software\Prism.Tests\NoSuchKey");
+        Assert.False(startup.IsEnabled);
+        startup.SetEnabled(true, minimizedToTray: true);
+        Assert.True(startup.IsEnabled);
+        startup.SetEnabled(false, minimizedToTray: true);
+        Assert.False(startup.IsEnabled);
+        Directory.Delete(folder, true);
+    }
+
+    [Fact]
     public void Preferences_round_trip_and_startup_only_calls_the_injected_fake()
     {
         var fake = new InMemoryStartupRegistry();

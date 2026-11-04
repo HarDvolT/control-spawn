@@ -13,14 +13,22 @@ $stateRoot = 'HKLM:\SOFTWARE\Prism\Installer'
 $data = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'Prism'
 $serviceRoot = 'HKLM:\SYSTEM\CurrentControlSet\Services'
 $runKey = 'Software\Microsoft\Windows\CurrentVersion\Run'
+$shortcutName = 'Control Spawn.lnk'
+$approvedKey = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
 # The app and the service live in their own folders: they ship different builds of the same runtime DLLs.
 $appDir = Join-Path $InstallDir 'app'
 $serviceDir = Join-Path $InstallDir 'service'
 $startupCommand = '"' + (Join-Path $appDir 'Prism.App.exe') + '" --tray'
 if ($Mode -eq 'UserStartup') {
     # Inno runs this in the original unelevated user's context, even with alternate UAC credentials.
-    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($runKey)
-    try { $key.SetValue('Prism', $startupCommand, [Microsoft.Win32.RegistryValueKind]::String) } finally { $key.Dispose() }
+    # A Startup shortcut, not the Run key: Windows 25H2 never ran that entry on the owner's PC (see ShortcutStartup).
+    $link = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path ([Environment]::GetFolderPath('Startup')) $shortcutName))
+    $link.TargetPath = Join-Path $appDir 'Prism.App.exe'
+    $link.Arguments = '--tray'
+    $link.WorkingDirectory = $appDir
+    $link.Save()
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($runKey, $true)
+    if ($key) { try { $key.DeleteValue('Prism', $false) } finally { $key.Dispose() } }
     exit 0
 }
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Installer helper requires administrator privileges.' }
@@ -50,7 +58,9 @@ function Assert-OwnedService([string]$Name, [string]$Executable) {
     if (Test-Path "$serviceRoot/$Name") {
         $image = (Get-ItemProperty "$serviceRoot/$Name").ImagePath
         # Builds before the split ran the service from $InstallDir itself; that is still ours and gets moved.
-        $ours = @(('"' + (Join-Path $serviceDir $Executable) + '"'), ('"' + (Join-Path $InstallDir $Executable) + '"'))
+        # 1.0.0 lost the quotes when reinstalling (see Register-PrismService): accept that form so this setup can repair it.
+        $unquoted = @((Join-Path $serviceDir $Executable), (Join-Path $InstallDir $Executable))
+        $ours = @($unquoted | ForEach-Object { '"' + $_ + '"' }) + $unquoted
         if ($image -notin $ours) { throw "Refusing to modify unrelated service $Name ($image)." }
     }
 }
@@ -78,12 +88,17 @@ function Register-PrismService([string]$Name, [string]$Executable) {
     $binary = '"' + (Join-Path $serviceDir $Executable) + '"'
     if (!(Get-Service $Name -ErrorAction SilentlyContinue)) {
         New-Service -Name $Name -BinaryPathName $binary -DisplayName $Name -StartupType Automatic | Out-Null
-    } else { Invoke-Sc @('config',$Name,'binPath=',$binary) }
+    } else {
+        # Not through sc.exe: Windows PowerShell drops the quotes inside an argument, leaving a path with spaces unquoted.
+        Set-ItemProperty "$serviceRoot/$Name" -Name ImagePath -Value $binary
+    }
     if ($Name -eq 'Prism') {
         Invoke-Sc @('config',$Name,'DisplayName=','Control Spawn')
         Invoke-Sc @('description',$Name,'Control Spawn: fans, lighting, lamps and router in the background')
     }
-    Invoke-Sc @('config',$Name,'start=','delayed-auto','obj=','LocalSystem')
+    # Plain automatic: delayed start left fans and lighting untouched for over 2 minutes after every boot.
+    Invoke-Sc @('config',$Name,'start=','auto','obj=','LocalSystem')
+    Set-ItemProperty "$serviceRoot/$Name" -Name DelayedAutoStart -Value 0
     Invoke-Sc @('failure',$Name,'reset=','86400','actions=','restart/5000/restart/15000/none/0')
     Invoke-Sc @('failureflag',$Name,'1')
 }
@@ -187,6 +202,13 @@ try {
             $key = [Microsoft.Win32.Registry]::Users.OpenSubKey("$sid\$runKey", $true)
             $legacy = '"' + (Join-Path $InstallDir 'Prism.App.exe') + '" --tray'
             if ($key) { try { if ($key.GetValue('Prism') -in $startupCommand, $legacy) { $key.DeleteValue('Prism') } } finally { $key.Dispose() } }
+            $approved = [Microsoft.Win32.Registry]::Users.OpenSubKey("$sid\$approvedKey", $true)
+            if ($approved) { try { $approved.DeleteValue('Prism', $false) } finally { $approved.Dispose() } }
+        }
+        foreach ($profile in Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList') {
+            $folder = (Get-ItemProperty $profile.PSPath).ProfileImagePath
+            $link = Join-Path $folder "AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\$shortcutName"
+            if (Test-Path -LiteralPath $link) { Remove-Item -LiteralPath $link }
         }
         if ($RemoveSettings -and (Test-Path -LiteralPath $data)) {
             $expected = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'Prism'))

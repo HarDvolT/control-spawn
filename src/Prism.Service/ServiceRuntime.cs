@@ -186,6 +186,13 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     public Task ApplyAsync(ServiceSettings value, CancellationToken cancellationToken)
     { cancellationToken.ThrowIfCancellationRequested(); Volatile.Write(ref settings, value); pace.Wake(); CheckOpenRgbPath(value); return Task.CompletedTask; }
 
+    /// <summary>Zones whose saved size OpenRGB no longer has. Only these get resized: every resize re-initialises the controller.</summary>
+    public static IReadOnlyList<(int Zone, int Size)> ForgottenZones(RgbDeviceState device, IReadOnlyDictionary<string, Dictionary<int, int>> saved)
+    {
+        if (device.Zones is not { } zones || !saved.TryGetValue(device.Id, out var sizes)) return Array.Empty<(int, int)>();
+        return sizes.Where(s => s.Key < zones.Count && s.Value >= zones[s.Key].MinLeds && s.Value <= zones[s.Key].MaxLeds && zones[s.Key].LedCount != s.Value)
+            .Select(s => (s.Key, s.Value)).ToArray();
+    }
     private string? warnedOpenRgbPath;
     /// <summary>
     /// A path saved before the folder rule stays in the settings untouched; it just isn't started, and the owner is told
@@ -308,6 +315,18 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             }).ToArray();
             return (found, indices);
         }
+        static async Task<bool> RestoreZoneSizesAsync(OpenRgbClient client, RgbDeviceState[] found, Dictionary<string, uint> indices, ServiceSettings value, CancellationToken token)
+        {
+            bool resized = false;
+            foreach (var d in found)
+                foreach (var (zone, size) in ForgottenZones(d, value.ZoneSizes))
+                {
+                    await client.ResizeZoneAsync(indices[d.Id], zone, size, token);
+                    await client.RefreshAsync(token);
+                    resized = true;
+                }
+            return resized;
+        }
         // 60 ticks a second: at full speed a rainbow moves far enough between 30 fps frames to show steps (live, 2026-11-02).
         // The pacer still holds the RAM and GPU buses to their own slower rates.
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1d / 60));
@@ -331,19 +350,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     await client.ConnectAsync(cancellationToken: timeout.Token);
                     directModes.Clear();
                     var (discovered, indices) = Identify(client);
-                    foreach (var d in discovered)
-                    {
-                        if (!value.ZoneSizes.TryGetValue(d.Id, out var sizes)) continue;
-                        foreach (var size in sizes)
-                        {
-                            if (d.Zones is null || size.Key >= d.Zones.Count) continue;
-                            var z = d.Zones[size.Key];
-                            // Only resize when OpenRGB forgot the size: every resize re-initialises the controller.
-                            if (size.Value < z.MinLeds || size.Value > z.MaxLeds || z.LedCount == size.Value) continue;
-                            await client.ResizeZoneAsync(indices[d.Id], size.Key, size.Value, timeout.Token);
-                            await client.RefreshAsync(timeout.Token);
-                        }
-                    }
+                    await RestoreZoneSizesAsync(client, discovered, indices, value, timeout.Token);
                     discovered = discovered.Select(d => LedLayers.Project(d.Id, client.Controllers[(int)indices[d.Id]])).ToArray();
                     foreach (var d in discovered.Where(d => value.SyncedDevices.GetValueOrDefault(d.Id, value.Discovery.AutoJoinNewRgb))) { await client.SetDirectModeAsync(indices[d.Id], timeout.Token); directModes.Add(d.Id); }
                     lock (stateGate) { devices = discovered; rgbIndices = indices; }
@@ -361,6 +368,8 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
                     using var refreshTimeout = CancellationTokenSource.CreateLinkedTokenSource(token); refreshTimeout.CancelAfter(TimeSpan.FromSeconds(2));
                     await live.RefreshAsync(refreshTimeout.Token);
                     var (found, idx) = Identify(live);
+                    // A service-started OpenRGB answers while it is still detecting, so the board can arrive after the connect above.
+                    if (await RestoreZoneSizesAsync(live, found, idx, value, refreshTimeout.Token)) (found, idx) = Identify(live);
                     RgbDeviceState[] before; lock (stateGate) before = devices;
                     foreach (var added in found.Where(f => before.All(b => b.Id != f.Id) && value.SyncedDevices.GetValueOrDefault(f.Id, value.Discovery.AutoJoinNewRgb)))
                     { await live.SetDirectModeAsync(idx[added.Id], refreshTimeout.Token); directModes.Add(added.Id); }

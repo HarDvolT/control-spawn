@@ -42,7 +42,12 @@ internal sealed class ScmLifetime : ServiceBase, IHostLifetime
         // Keep SCM in stop-pending until the host has restored fans and drained workers.
         while (!applicationStopped.Wait(TimeSpan.FromSeconds(1))) RequestAdditionalTime(5000);
     }
-    protected override void OnShutdown() => OnStop();
+    // Windows doesn't put the service in stop-pending for a shutdown, so RequestAdditionalTime would throw and crash us here.
+    protected override void OnShutdown()
+    {
+        lifetime.StopApplication();
+        applicationStopped.Wait(TimeSpan.FromSeconds(10));
+    }
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         // OnStop only signals cancellation. Host cleanup finishes before reporting stopped to SCM.
