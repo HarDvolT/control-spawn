@@ -35,7 +35,7 @@ internal static class Program
         PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(new StringWriter(errors)));
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         foreach (var file in new[] { "Themes/Prism.xaml", "Views/Pages/Devices/Devices.xaml", "Views/Pages/AirFryer/AirFryer.xaml", "Views/Pages/Dashboard/Dashboard.xaml", "Views/Pages/Monitor/Monitor.xaml", "Views/Pages/Lighting/Lighting.xaml", "Views/Pages/Fans/Fans.xaml", "Views/Pages/Lamp/Lamp.xaml", "Views/Pages/Scenes/Scenes.xaml", "Views/Pages/Modem/Modem.xaml", "Views/Pages/Settings/Settings.xaml", "Views/Pages/Widgets/Widgets.xaml" })
-            app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/Prism.App;component/" + file, UriKind.Relative) });
+            app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/ControlSpawn;component/" + file, UriKind.Relative) });
         if (args.Contains("--sensor"))
         {
             var sensorClient = new MockPrismClient();

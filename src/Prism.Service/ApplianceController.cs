@@ -95,7 +95,7 @@ public sealed class ApplianceController(Func<DeviceState, CancellationToken, Tas
         var parsed = values.EnumerateArray().Select(v => {
             var p = spec.Properties.FirstOrDefault(p => p.Siid == v.GetProperty("siid").GetInt32() && p.Piid == v.GetProperty("piid").GetInt32()) ?? throw new ArgumentException("Unknown property.");
             // Only allow settings known not to trigger heating. Never expose writable status/reservation/recipe-sync.
-            if (p.Name is not ("target-temperature" or "target-time" or "mode" or "preheat" or "auto-keep-warm" or "turn-pot-config" or "texture" or "cooking-weight" or "target-cooking-measure")) throw new ArgumentException("Property is read-only in Prism.");
+            if (p.Name is not ("target-temperature" or "target-time" or "mode" or "preheat" or "auto-keep-warm" or "turn-pot-config" or "texture" or "cooking-weight" or "target-cooking-measure")) throw new ArgumentException("Property is read-only in Control Spawn.");
             return (p, p.Clamp(v.GetProperty("value")));
         }).ToArray();
         await gate.WaitAsync(token);

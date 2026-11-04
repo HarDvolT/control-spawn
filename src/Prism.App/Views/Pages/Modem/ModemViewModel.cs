@@ -356,7 +356,7 @@ public sealed class ModemViewModel : PageViewModel
 
     private void CopyDiagnostics()
     {
-        var text = $"Prism modem diagnostics{Environment.NewLine}" +
+        var text = $"Control Spawn modem diagnostics{Environment.NewLine}" +
                    $"Network: {Network}{Environment.NewLine}Band: {Band}{Environment.NewLine}" +
                    $"Verdict: {Verdict} ({ScoreText}/100){Environment.NewLine}" +
                    $"RSRP 5G: {Format.Dbm(_rsrp5)} · SINR {Format.Db(_sinr5)} · RSRQ {Format.Db(_rsrq5)}{Environment.NewLine}" +

@@ -34,7 +34,7 @@ public static class StateAssembler
             Pick(SensorCategory.Gpu, "Load", "Core"), Pick(SensorCategory.Gpu, "Temperature", "Core"), Pick(SensorCategory.Gpu, "Temperature", "Hot"),
             Pick(SensorCategory.Gpu, "Clock", "Core"), Pick(SensorCategory.Gpu, "Power", "Package") ?? Pick(SensorCategory.Gpu, "Power", "Total"), Pick(SensorCategory.Gpu, "Fan", ""),
             Pick(SensorCategory.Gpu, "SmallData", "Memory Used") / 1024, Pick(SensorCategory.Gpu, "SmallData", "Memory Total") / 1024,
-            Id("/ram/data/0"), Id("prism/ram/total"), sensors.Where(IsDimmTemp).Select(s => s.Value).ToArray(),
+            Id("/ram/data/0"), Id("controlspawn/ram/total"), sensors.Where(IsDimmTemp).Select(s => s.Value).ToArray(),
             snapshot.Temperature(SensorCategory.Motherboard),
             sensors.Where(s => s.Category == SensorCategory.Storage).GroupBy(s => DeviceId(s.Id)).Select(g => new DiskState(
                 g.First().Name.Split(':')[0], g.FirstOrDefault(s => s.Kind == "Temperature")?.Value,

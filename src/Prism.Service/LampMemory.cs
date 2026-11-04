@@ -14,7 +14,7 @@ public sealed record LeftLamp(LampReading Reading, bool Moving);
 /// </summary>
 public sealed class LampMemory(string? path)
 {
-    public static string DefaultPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "lamps-left.json");
+    public static string DefaultPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Prism.Core.ProductNames.DataFolder, "lamps-left.json");
     private readonly object gate = new();
     private Dictionary<string, LeftLamp>? left;
 

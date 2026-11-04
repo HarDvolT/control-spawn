@@ -10,7 +10,7 @@ namespace Prism.Service;
 /// </summary>
 public sealed class CookingHistory(string? path = null)
 {
-    public static string DefaultPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "cooks.json");
+    public static string DefaultPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Prism.Core.ProductNames.DataFolder, "cooks.json");
     private const int Kept = 20;
     private readonly Dictionary<string, (DateTimeOffset Since, double? Temperature, double? Minutes, double? Left)> active = new();
     private Dictionary<string, List<CookRecord>>? recent;

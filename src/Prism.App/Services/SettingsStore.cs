@@ -43,7 +43,7 @@ public sealed class SettingsStore
     }
 
     public static string DefaultPath => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Prism", "settings.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Prism.Core.ProductNames.DataFolder, "settings.json");
 
     public string FilePath { get; }
 

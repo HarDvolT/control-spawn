@@ -8,10 +8,12 @@
 [Setup]
 AppId={{C72C2E1F-2F54-4A63-BD51-93FE11BC64A2}
 AppName=Control Spawn
-AppVersion=1.0.2
+AppVersion=1.0.3
 AppPublisher=Control Spawn
 SetupIconFile=..\src\Prism.App\Assets\ControlSpawn.ico
-DefaultDirName={autopf}\Prism
+DefaultDirName={autopf}\Control Spawn
+; Older versions used Program Files\Prism. Without this Inno reuses that folder; the helper removes it after the move.
+UsePreviousAppDir=no
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
@@ -23,7 +25,7 @@ OutputBaseFilename=ControlSpawnSetup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\app\Prism.App.exe
+UninstallDisplayIcon={app}\app\ControlSpawn.exe
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
@@ -33,14 +35,14 @@ Name: startup; Description: "Open Control Spawn in the system tray when I sign i
 
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "Configure-Prism.ps1"; Flags: dontcopy
+Source: "Configure-ControlSpawn.ps1"; Flags: dontcopy
 
 [Icons]
-Name: "{commonprograms}\Control Spawn"; Filename: "{app}\app\Prism.App.exe"; WorkingDir: "{app}\app"
+Name: "{commonprograms}\Control Spawn"; Filename: "{app}\app\ControlSpawn.exe"; WorkingDir: "{app}\app"
 
 [Run]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\installer\Configure-Prism.ps1"" -Mode UserStartup -InstallDir ""{app}"""; Tasks: startup; Flags: runhidden runasoriginaluser
-Filename: "{app}\app\Prism.App.exe"; Description: "Launch Control Spawn"; WorkingDir: "{app}\app"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchApp
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\installer\Configure-ControlSpawn.ps1"" -Mode UserStartup -InstallDir ""{app}"""; Tasks: startup; Flags: runhidden runasoriginaluser
+Filename: "{app}\app\ControlSpawn.exe"; Description: "Launch Control Spawn"; WorkingDir: "{app}\app"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchApp
 
 [Code]
 var
@@ -117,11 +119,11 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var Code: Integer;
 begin
   Result := '';
-  ExtractTemporaryFile('Configure-Prism.ps1');
-  if not RunHelper(ExpandConstant('{tmp}\Configure-Prism.ps1'), 'Prepare', '', Code) then
-    Result := 'Could not run the Prism preparation helper.'
+  ExtractTemporaryFile('Configure-ControlSpawn.ps1');
+  if not RunHelper(ExpandConstant('{tmp}\Configure-ControlSpawn.ps1'), 'Prepare', '', Code) then
+    Result := 'Could not run the Control Spawn preparation helper.'
   else if Code <> 0 then
-    Result := 'Could not gracefully stop existing Prism services. No service was force-killed. See setup log.';
+    Result := 'Could not gracefully stop the existing Control Spawn service. No service was force-killed. See setup log.';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -134,11 +136,11 @@ begin
         if Selected <> '' then Selected := Selected + ',';
         Selected := Selected + ConflictNames[I];
       end;
-    if not RunHelper(ExpandConstant('{app}\installer\Configure-Prism.ps1'), 'Install',
+    if not RunHelper(ExpandConstant('{app}\installer\Configure-ControlSpawn.ps1'), 'Install',
       '-DisableServices "' + Selected + '"', Code) then
-      RaiseException('Could not run the Prism configuration helper.');
+      RaiseException('Could not run the Control Spawn configuration helper.');
     if (Code <> 0) and (Code <> 3010) then
-      RaiseException('Prism configuration failed. Conflict restoration was attempted. See setup log and uninstall Prism before retrying.');
+      RaiseException('Control Spawn configuration failed. Conflict restoration was attempted. See ControlSpawn-setup-helper.log in your temp folder.');
     RebootRequired := Code = 3010;
   end;
 end;
@@ -182,7 +184,7 @@ begin
     RemoveSettingsBox := TNewCheckBox.Create(Form);
     RemoveSettingsBox.Parent := Form;
     RemoveSettingsBox.SetBounds(ScaleX(16), ScaleY(16), ScaleX(448), ScaleY(48));
-    RemoveSettingsBox.Caption := 'Remove settings from %ProgramData%\Prism (cannot be undone)';
+    RemoveSettingsBox.Caption := 'Remove settings from %ProgramData%\Control Spawn (cannot be undone)';
     RemoveSettingsBox.Checked := False;
     ContinueButton := TNewButton.Create(Form);
     ContinueButton.Parent := Form;
@@ -209,9 +211,9 @@ begin
   if CurUninstallStep = usUninstall then begin
     Extra := '';
     if RemoveSettings then Extra := '-RemoveSettings';
-    if not RunHelper(ExpandConstant('{app}\installer\Configure-Prism.ps1'), 'Uninstall', Extra, Code) then
-      RaiseException('Could not run Prism uninstall helper; files have been retained.');
+    if not RunHelper(ExpandConstant('{app}\installer\Configure-ControlSpawn.ps1'), 'Uninstall', Extra, Code) then
+      RaiseException('Could not run the Control Spawn uninstall helper; files have been retained.');
     if Code <> 0 then
-      RaiseException('Prism services could not be removed/restored safely; files have been retained. See uninstall log.');
+      RaiseException('Control Spawn services could not be removed/restored safely; files have been retained. See uninstall log.');
   end;
 end;

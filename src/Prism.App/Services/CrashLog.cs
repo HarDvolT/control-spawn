@@ -10,7 +10,7 @@ namespace Prism.App.Services;
 /// </summary>
 public static class CrashLog
 {
-    private static readonly string Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Prism");
+    private static readonly string Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Prism.Core.ProductNames.DataFolder);
     public static string FilePath => Path.Combine(Folder, "app.log");
     private static readonly Queue<DateTime> Recent = new();
 

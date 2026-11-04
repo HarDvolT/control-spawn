@@ -7,14 +7,20 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
     <Product>Control Spawn</Product>
-    <Version>1.0.2</Version>
+    <!-- Task Manager shows FileDescription (AssemblyTitle) and CompanyName; without these .NET falls back to the assembly name. -->
+    <Company>Control Spawn</Company>
+    <Version>1.0.3</Version>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Core' Or '$(MSBuildProjectName)' == 'Prism.Hardware' Or '$(MSBuildProjectName)' == 'Prism.Lighting' Or '$(MSBuildProjectName)' == 'Prism.Router' Or '$(MSBuildProjectName)' == 'Prism.Service'">
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Core' Or '$(MSBuildProjectName)' == 'Prism.Hardware' Or '$(MSBuildProjectName)' == 'Prism.Lighting' Or '$(MSBuildProjectName)' == 'Prism.Router' Or '$(MSBuildProjectName)' == 'Prism.Service' Or '$(MSBuildProjectName)' == 'Prism.FanGuard'">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>8.0</AnalysisLevel>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Service'">
+  <!-- These DLLs ship in the install folder. The projects and namespaces keep the code name. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Core' Or '$(MSBuildProjectName)' == 'Prism.Hardware' Or '$(MSBuildProjectName)' == 'Prism.Lighting' Or '$(MSBuildProjectName)' == 'Prism.Router'">
+    <AssemblyName>$(MSBuildProjectName.Replace('Prism.', 'ControlSpawn.'))</AssemblyName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Service' Or '$(MSBuildProjectName)' == 'Prism.FanGuard'">
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 </Project>

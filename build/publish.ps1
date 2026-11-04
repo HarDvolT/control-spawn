@@ -74,9 +74,9 @@ try {
     $env:NUGET_PACKAGES = Join-Path $PSScriptRoot 'cache/nuget'
     $env:NUGET_HTTP_CACHE_PATH = Join-Path $PSScriptRoot 'cache/nuget-http'
     $env:NUGET_PLUGINS_CACHE_PATH = Join-Path $PSScriptRoot 'cache/nuget-plugins'
+    # The fan guard (ControlSpawn.FanGuard.exe) is required: the service starts it as a child process before any fan write.
     foreach ($project in @('Prism.Service', 'Prism.App', 'Prism.FanGuard')) {
         $csproj = "$snapshot/src/$project/$project.csproj"
-        if ($project -eq 'Prism.FanGuard' -and !(Test-Path $csproj)) { continue }
         $destination = Join-Path $work "publish/$project"
         & dotnet publish $csproj -c Release -r win-x64 --self-contained true -o $destination `
             -p:PublishReadyToRun=true -p:PublishTrimmed=false -p:PublishSingleFile=false `
@@ -116,11 +116,11 @@ if ($executables.Count -ne 1) { throw 'OpenRGB archive must contain exactly one 
 New-Item -ItemType Directory -Force -Path "$out/openrgb", "$out/dependencies", "$out/installer" | Out-Null
 Copy-Item -Path "$($executables[0].Directory.FullName)/*" -Destination "$out/openrgb" -Recurse
 Copy-Item -LiteralPath $pawnioExe -Destination "$out/dependencies/PawnIO_setup.exe"
-Copy-Item -LiteralPath "$root/installer/Configure-Prism.ps1" -Destination "$out/installer"
+Copy-Item -LiteralPath "$root/installer/Configure-ControlSpawn.ps1" -Destination "$out/installer"
 Copy-Item -LiteralPath "$PSScriptRoot/dependencies.json" -Destination "$out/dependencies"
 Copy-Item -LiteralPath "$root/installer/THIRD-PARTY-NOTICES.txt" -Destination $out
-Get-ChildItem "$out/app", "$out/service" -File | Where-Object { $_.Name -match '^Prism\..*\.(exe|dll)$' } | ForEach-Object { Sign-File $_.FullName }
-Sign-File "$out/installer/Configure-Prism.ps1"
+Get-ChildItem "$out/app", "$out/service" -File | Where-Object { $_.Name -match '^(Prism|ControlSpawn)(\..+)?\.(exe|dll)$' } | ForEach-Object { Sign-File $_.FullName }
+Sign-File "$out/installer/Configure-ControlSpawn.ps1"
 $manifest = [ordered]@{ schema = 1; rid = 'win-x64'; configuration = 'Release'; selfContained = $true; readyToRun = $true; trimmed = $false; openrgbVersion = $pins.openrgb.version; pawnioVersion = $pins.pawnio.version; files = @() }
 $manifest.files = @(Get-ChildItem $out -Recurse -File | ForEach-Object {
     [ordered]@{ path = $_.FullName.Substring($out.Length + 1).Replace('\','/'); sha256 = (Get-FileHash -LiteralPath $_.FullName).Hash; bytes = $_.Length; version = $_.VersionInfo.FileVersion }

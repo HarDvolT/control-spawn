@@ -2,13 +2,16 @@
 param([Parameter(Mandatory)][string]$Executable)
 $ErrorActionPreference = 'Stop'
 $resolvedExecutable = (Resolve-Path -LiteralPath $Executable).Path
-if ([IO.Path]::GetFileName($resolvedExecutable) -ne 'Prism.Service.exe') { throw 'Expected Prism.Service.exe.' }
+if ([IO.Path]::GetFileName($resolvedExecutable) -ne 'ControlSpawn.Service.exe') { throw 'Expected ControlSpawn.Service.exe.' }
+# 1.0.3 names; Setup (installer/Configure-ControlSpawn.ps1) is the supported install.
+$serviceName = 'ControlSpawn'
+$displayName = 'Control Spawn Hardware Service'
 $installDirectory = Split-Path -Parent $resolvedExecutable
 if ((Split-Path -Leaf $installDirectory) -ne 'Prism') { throw 'Use a dedicated installation directory named Prism.' }
 for ($ancestor = [IO.DirectoryInfo]$installDirectory; $null -ne $ancestor; $ancestor = $ancestor.Parent) {
     if ($ancestor.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Installation path cannot contain a reparse point.' }
 }
-foreach ($name in @('Prism.App.exe', 'Prism.App.dll')) {
+foreach ($name in @('ControlSpawn.exe', 'ControlSpawn.dll', 'ControlSpawn.FanGuard.exe')) {
     if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $name))) { throw "Missing installed app file: $name" }
 }
 function Set-PrismDirectoryAcl([string]$Path, [bool]$AllowRead) {
@@ -32,9 +35,11 @@ function Get-PrismChildren([string]$Path) {
         if ($entry.PSIsContainer) { Get-PrismChildren $entry.FullName }
     }
 }
-if ($PSCmdlet.ShouldProcess('Prism', 'Secure installation, record app hashes, and create delayed automatic service with recovery')) {
-    $existingService = Get-Service -Name Prism -ErrorAction SilentlyContinue
-    if ($null -ne $existingService -and $existingService.Status -ne 'Stopped') { throw 'Stop Prism before updating its installation.' }
+if ($PSCmdlet.ShouldProcess($serviceName, 'Secure installation, record app hashes, and create automatic service with recovery')) {
+    # Two keys would fight over the pipe and the fans. Remove the 1.0.0-1.0.2 key first (uninstall-service.ps1 does both).
+    if (Get-Service -Name Prism -ErrorAction SilentlyContinue) { throw 'The old Prism service is still installed. Run scripts/uninstall-service.ps1 first.' }
+    $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($null -ne $existingService -and $existingService.Status -ne 'Stopped') { throw "Stop $serviceName before updating its installation." }
     # Install into a dedicated directory: regular users must never be able to replace trusted binaries or dependencies.
     Set-PrismDirectoryAcl $installDirectory $true
     Get-PrismChildren $installDirectory | ForEach-Object {
@@ -44,7 +49,7 @@ if ($PSCmdlet.ShouldProcess('Prism', 'Secure installation, record app hashes, an
         foreach ($rule in @($acl.Access | Where-Object { -not $_.IsInherited })) { $acl.RemoveAccessRuleSpecific($rule) }
         Set-Acl -LiteralPath $_.FullName -AclObject $acl
     }
-    $prismData = Join-Path $env:ProgramData 'Prism'
+    $prismData = Join-Path $env:ProgramData 'Control Spawn'
     Set-PrismDirectoryAcl $prismData $false
     # Remove any explicit grants left on data files by older installations before recording trust.
     Get-PrismChildren $prismData | ForEach-Object {
@@ -59,21 +64,25 @@ if ($PSCmdlet.ShouldProcess('Prism', 'Secure installation, record app hashes, an
     Set-PrismDirectoryAcl (Join-Path $prismData 'secrets') $false
     Set-PrismDirectoryAcl (Join-Path $prismData 'logs') $false
     $hashes = @{}
-    foreach ($name in @('Prism.App.exe', 'Prism.App.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $installDirectory $name) -Algorithm SHA256).Hash }
+    foreach ($name in @('ControlSpawn.exe', 'ControlSpawn.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $installDirectory $name) -Algorithm SHA256).Hash }
     $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $identityDirectory 'app-hashes.json') -Encoding UTF8
-    if (-not [Diagnostics.EventLog]::SourceExists('Prism')) { New-EventLog -LogName Application -Source Prism }
+    if (-not [Diagnostics.EventLog]::SourceExists('Control Spawn')) { New-EventLog -LogName Application -Source 'Control Spawn' }
 
-    if ($null -eq $existingService) {
-        & sc.exe create Prism binPath= ('"' + $resolvedExecutable + '"') start= delayed-auto obj= LocalSystem DisplayName= 'Prism'
-    } else {
-        & sc.exe config Prism binPath= ('"' + $resolvedExecutable + '"') start= delayed-auto obj= LocalSystem DisplayName= 'Prism'
-    }
-    if ($LASTEXITCODE -ne 0) { throw "sc.exe create/config failed: $LASTEXITCODE" }
-    & sc.exe description Prism 'Prism hardware, lighting and router background host'
+    # The path goes in through New-Service or the registry, never sc.exe: Windows PowerShell 5.1 drops the quotes inside an
+    # argument, leaving a path with spaces unquoted (that broke reinstall and uninstall in 1.0.0 and 1.0.1).
+    $binary = '"' + $resolvedExecutable + '"'
+    if ($null -eq $existingService) { New-Service -Name $serviceName -BinaryPathName $binary -DisplayName $displayName -StartupType Automatic | Out-Null }
+    else { Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName" -Name ImagePath -Value $binary }
+    # Plain automatic, as setup does: delayed start left fans and lighting untouched for over 2 minutes after every boot.
+    & sc.exe config $serviceName start= auto obj= LocalSystem DisplayName= $displayName
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe config failed: $LASTEXITCODE" }
+    Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName" -Name DelayedAutoStart -Value 0
+    & sc.exe description $serviceName 'Control Spawn: fans, lighting, lamps and router in the background'
     if ($LASTEXITCODE -ne 0) { throw "sc.exe description failed: $LASTEXITCODE" }
-    & sc.exe failure Prism reset= 86400 actions= restart/5000/restart/5000/run/0 command= ('"' + $env:SystemRoot + '\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -Command "Write-EventLog -LogName Application -Source Prism -EntryType Error -EventId 1001 -Message ''Prism stopped after two recovery restarts; operator intervention required.''"')
+    # Same recovery as setup. No run-command action: its quoted command line would go through sc.exe and lose its quotes.
+    & sc.exe failure $serviceName reset= 86400 actions= restart/5000/restart/15000/none/0
     if ($LASTEXITCODE -ne 0) { throw "sc.exe failure failed: $LASTEXITCODE" }
-    & sc.exe failureflag Prism 1
+    & sc.exe failureflag $serviceName 1
     if ($LASTEXITCODE -ne 0) { throw "sc.exe failureflag failed: $LASTEXITCODE" }
 }
 # Deliberately does not start the service. Review configuration/ownership before a real deployment.

@@ -18,7 +18,7 @@ public sealed partial class ServiceRuntime
     private readonly StallWatch stalls = new();
     public const string PumpWarning = "The AIO pump has stopped spinning. Check the pump cable and power now: the CPU will overheat without it.";
     private DateTimeOffset? lastFailsafe; private string? lastFailsafeReason;
-    private string FanRpmPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "fan-rpm.json");
+    private string FanRpmPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Prism.Core.ProductNames.DataFolder, "fan-rpm.json");
 
     private void LoadFanRpm()
     {

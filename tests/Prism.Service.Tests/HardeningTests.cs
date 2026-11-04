@@ -78,7 +78,7 @@ public sealed class HardeningTests
     [Fact]
     public void ConsoleMigrationIncludesDisabledDevicesAndRouterSession()
     {
-        using var box = new Sandbox(); var old = box.File("Prism"); Directory.CreateDirectory(Path.Combine(old, "router"));
+        using var box = new Sandbox(); var old = box.File(Prism.Core.ProductNames.DataFolder); Directory.CreateDirectory(Path.Combine(old, "router"));
         foreach (var name in new[] { "lamp.json", "lamp.json.123", "router/credentials.json", "router/session.json" })
             File.WriteAllText(Path.Combine(old, name), "{\"dpapi\":\"AQID\"}");
         var store = Store(box.File("machine")); Assert.True(SecretMigration.Run(box.Directory, store));
@@ -109,6 +109,18 @@ public sealed class HardeningTests
         Assert.True(watch.Check(TimeSpan.FromSeconds(9))); Assert.Equal(1, calls);
     }
     [Fact]
+    public void FanGuardServesOnlyTheServiceInItsOwnFolder()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "Control Spawn", "service");
+        var guard = Path.Combine(folder, "ControlSpawn.FanGuard.exe");
+        Assert.True(ProductNames.IsServiceBeside(Path.Combine(folder, "ControlSpawn.Service.exe"), guard));
+        Assert.True(ProductNames.IsServiceBeside(Path.Combine(folder, "CONTROLSPAWN.SERVICE.EXE"), guard));
+        Assert.False(ProductNames.IsServiceBeside(null, guard));
+        Assert.False(ProductNames.IsServiceBeside(Path.Combine(folder, "Prism.Service.exe"), guard));          // the 1.0.2 exe
+        Assert.False(ProductNames.IsServiceBeside(Path.Combine(folder, "ControlSpawn.FanGuard.exe"), guard));  // itself or another guard
+        Assert.False(ProductNames.IsServiceBeside(Path.Combine(Path.GetTempPath(), "elsewhere", "ControlSpawn.Service.exe"), guard));
+    }
+    [Fact]
     public void RateBudgetIsSharedForAProcessAndRenewsWithTime()
     {
         var now = TimeSpan.Zero; var limiter = new ClientCommandLimiter(() => now);
@@ -120,11 +132,11 @@ public sealed class HardeningTests
     public void AppVerificationRejectsMissingManifestAndEitherChangedFile()
     {
         using var box = new Sandbox(); var hashes = new Dictionary<string, string>();
-        foreach (var name in new[] { "Prism.App.exe", "Prism.App.dll" })
+        foreach (var name in new[] { "ControlSpawn.exe", "ControlSpawn.dll" })
         { File.WriteAllText(box.File(name), name); hashes[name] = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(box.File(name)))); }
         Assert.False(PipeClientVerifier.MatchesInstallation(box.Directory, null));
         Assert.True(PipeClientVerifier.MatchesInstallation(box.Directory, hashes));
-        File.AppendAllText(box.File("Prism.App.dll"), "changed"); Assert.False(PipeClientVerifier.MatchesInstallation(box.Directory, hashes));
+        File.AppendAllText(box.File("ControlSpawn.dll"), "changed"); Assert.False(PipeClientVerifier.MatchesInstallation(box.Directory, hashes));
     }
     [Theory]
     [InlineData("{")]
@@ -183,17 +195,17 @@ public sealed class HardeningTests
     public void LogsRollRetainSevenDaysCapSizeAndOmitExceptionText()
     {
         using var box = new Sandbox(); var now = new DateTimeOffset(2026, 10, 29, 12, 0, 0, TimeSpan.Zero);
-        File.WriteAllText(box.File("prism-2026-10-22.jsonl"), "expired");
-        File.WriteAllText(box.File("prism-2026-10-23.jsonl"), "retained");
+        File.WriteAllText(box.File("controlspawn-2026-10-22.jsonl"), "expired");
+        File.WriteAllText(box.File("controlspawn-2026-10-23.jsonl"), "retained");
         var errors = new List<string>(); using var provider = new RollingLogProvider(box.Directory, () => now, errors.Add);
         var logger = provider.CreateLogger("fans"); using var scope = logger.BeginScope("fans");
         logger.LogError(new IOException("fixture-secret"), "BIOS handoff failed");
-        var path = box.File("prism-2026-10-29.jsonl"); var text = File.ReadAllText(path);
+        var path = box.File("controlspawn-2026-10-29.jsonl"); var text = File.ReadAllText(path);
         Assert.Contains("fans", text); Assert.DoesNotContain("fixture-secret", text); Assert.Single(errors);
-        Assert.False(File.Exists(box.File("prism-2026-10-22.jsonl"))); Assert.True(File.Exists(box.File("prism-2026-10-23.jsonl")));
+        Assert.False(File.Exists(box.File("controlspawn-2026-10-22.jsonl"))); Assert.True(File.Exists(box.File("controlspawn-2026-10-23.jsonl")));
         using (var file = File.OpenWrite(path)) file.SetLength(10 * 1024 * 1024);
         logger.LogInformation("At cap"); Assert.Equal(10 * 1024 * 1024, new FileInfo(path).Length);
-        now = now.AddDays(1); logger.LogInformation("Next day"); Assert.True(File.Exists(box.File("prism-2026-10-30.jsonl")));
+        now = now.AddDays(1); logger.LogInformation("Next day"); Assert.True(File.Exists(box.File("controlspawn-2026-10-30.jsonl")));
     }
 
     [Fact]
@@ -205,9 +217,11 @@ public sealed class HardeningTests
             var service = Directory.CreateDirectory(Path.Combine(root, "src", "Prism.Service", "bin", "Release", "net8.0-windows")).FullName;
             Assert.Null(PipeClientVerifier.DevAppBesideBuild(service));   // nothing built beside it yet
             var appDir = Directory.CreateDirectory(Path.Combine(root, "src", "Prism.App", "bin", "Release", "net8.0-windows")).FullName;
-            File.WriteAllText(Path.Combine(appDir, "Prism.App.exe"), "");
-            Assert.Equal(Path.Combine(appDir, "Prism.App.exe"), PipeClientVerifier.DevAppBesideBuild(service + Path.DirectorySeparatorChar));
-            Assert.Null(PipeClientVerifier.DevAppBesideBuild(Directory.CreateDirectory(Path.Combine(root, "Program Files", "Prism")).FullName));   // installed
+            File.WriteAllText(Path.Combine(appDir, "Prism.App.exe"), "");   // a stale pre-1.0.3 build is not trusted
+            Assert.Null(PipeClientVerifier.DevAppBesideBuild(service));
+            File.WriteAllText(Path.Combine(appDir, "ControlSpawn.exe"), "");
+            Assert.Equal(Path.Combine(appDir, "ControlSpawn.exe"), PipeClientVerifier.DevAppBesideBuild(service + Path.DirectorySeparatorChar));
+            Assert.Null(PipeClientVerifier.DevAppBesideBuild(Directory.CreateDirectory(Path.Combine(root, "Program Files", "Control Spawn")).FullName));   // installed
         }
         finally { Directory.Delete(root, true); }
     }
@@ -215,7 +229,7 @@ public sealed class HardeningTests
     [Fact]
     public void AnInstalledServiceLooksForTheAppInTheAppFolderBesideIt()
     {
-        var root = Path.Combine("C:" + Path.DirectorySeparatorChar, "Program Files", "Prism");
+        var root = Path.Combine("C:" + Path.DirectorySeparatorChar, "Program Files", "Control Spawn");
         var expected = Path.GetFullPath(Path.Combine(root, "app"));
         Assert.Equal(expected, PipeClientVerifier.InstalledAppDirectory(Path.Combine(root, "service")));
         Assert.Equal(expected, PipeClientVerifier.InstalledAppDirectory(Path.Combine(root, "service") + Path.DirectorySeparatorChar));
