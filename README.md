@@ -112,7 +112,7 @@ What Windows shows:
 | Fan watchdog, started by the service | Control Spawn Fan Guard | `ControlSpawn.FanGuard.exe` | |
 | Case RGB server | OpenRGB | `OpenRGB.exe` (bundled, unmodified) | |
 
-Versions before 1.0.3 used the Prism name for their exes, service key and folders. Setup moves those installs to `C:Program FilesControl Spawn` and `C:ProgramDataControl Spawn`, keeps your settings and removes the old folders.
+Versions before 1.0.3 used the Prism name for their exes, service key and folders. Setup moves those installs to `C:\Program Files\Control Spawn` and `C:\ProgramData\Control Spawn`, keeps your settings and removes the old folders.
 
 ## Safety
 
