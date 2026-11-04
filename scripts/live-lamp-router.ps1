@@ -11,7 +11,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $out = Join-Path $root 'docs\live-lamp-router.txt'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\Prism.Service.exe'
+$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\ControlSpawn.Service.exe'
 "Lamp + router test $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 function Plain($secure) { $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure); try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) } }

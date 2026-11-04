@@ -11,7 +11,7 @@ public sealed class SegmentHitTests
     [Fact]
     public void AFollowsTileTakesAClickAnywhereInsideIt() => Sta(() =>
     {
-        var theme = (ResourceDictionary)Application.LoadComponent(new Uri("/Prism.App;component/Themes/Prism.xaml", UriKind.Relative));
+        var theme = (ResourceDictionary)Application.LoadComponent(new Uri("/ControlSpawn;component/Themes/Prism.xaml", UriKind.Relative));
         var control = new SegmentedControl { ItemsSource = new[] { "own", "pc", "average" }, ItemContainerStyle = (Style)theme["LampFollowItem"] };
         control.Resources.MergedDictionaries.Add(theme);
         control.Measure(new Size(600, 80)); control.Arrange(new Rect(0, 0, 600, 80)); control.UpdateLayout();

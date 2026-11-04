@@ -109,6 +109,18 @@ public sealed class HardeningTests
         Assert.True(watch.Check(TimeSpan.FromSeconds(9))); Assert.Equal(1, calls);
     }
     [Fact]
+    public void FanGuardServesOnlyTheServiceInItsOwnFolder()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "Control Spawn", "service");
+        var guard = Path.Combine(folder, "ControlSpawn.FanGuard.exe");
+        Assert.True(ProductNames.IsServiceBeside(Path.Combine(folder, "ControlSpawn.Service.exe"), guard));
+        Assert.True(ProductNames.IsServiceBeside(Path.Combine(folder, "CONTROLSPAWN.SERVICE.EXE"), guard));
+        Assert.False(ProductNames.IsServiceBeside(null, guard));
+        Assert.False(ProductNames.IsServiceBeside(Path.Combine(folder, "Prism.Service.exe"), guard));          // the 1.0.2 exe
+        Assert.False(ProductNames.IsServiceBeside(Path.Combine(folder, "ControlSpawn.FanGuard.exe"), guard));  // itself or another guard
+        Assert.False(ProductNames.IsServiceBeside(Path.Combine(Path.GetTempPath(), "elsewhere", "ControlSpawn.Service.exe"), guard));
+    }
+    [Fact]
     public void RateBudgetIsSharedForAProcessAndRenewsWithTime()
     {
         var now = TimeSpan.Zero; var limiter = new ClientCommandLimiter(() => now);
@@ -120,11 +132,11 @@ public sealed class HardeningTests
     public void AppVerificationRejectsMissingManifestAndEitherChangedFile()
     {
         using var box = new Sandbox(); var hashes = new Dictionary<string, string>();
-        foreach (var name in new[] { "Prism.App.exe", "Prism.App.dll" })
+        foreach (var name in new[] { "ControlSpawn.exe", "ControlSpawn.dll" })
         { File.WriteAllText(box.File(name), name); hashes[name] = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(box.File(name)))); }
         Assert.False(PipeClientVerifier.MatchesInstallation(box.Directory, null));
         Assert.True(PipeClientVerifier.MatchesInstallation(box.Directory, hashes));
-        File.AppendAllText(box.File("Prism.App.dll"), "changed"); Assert.False(PipeClientVerifier.MatchesInstallation(box.Directory, hashes));
+        File.AppendAllText(box.File("ControlSpawn.dll"), "changed"); Assert.False(PipeClientVerifier.MatchesInstallation(box.Directory, hashes));
     }
     [Theory]
     [InlineData("{")]
@@ -205,8 +217,10 @@ public sealed class HardeningTests
             var service = Directory.CreateDirectory(Path.Combine(root, "src", "Prism.Service", "bin", "Release", "net8.0-windows")).FullName;
             Assert.Null(PipeClientVerifier.DevAppBesideBuild(service));   // nothing built beside it yet
             var appDir = Directory.CreateDirectory(Path.Combine(root, "src", "Prism.App", "bin", "Release", "net8.0-windows")).FullName;
-            File.WriteAllText(Path.Combine(appDir, "Prism.App.exe"), "");
-            Assert.Equal(Path.Combine(appDir, "Prism.App.exe"), PipeClientVerifier.DevAppBesideBuild(service + Path.DirectorySeparatorChar));
+            File.WriteAllText(Path.Combine(appDir, "Prism.App.exe"), "");   // a stale pre-1.0.3 build is not trusted
+            Assert.Null(PipeClientVerifier.DevAppBesideBuild(service));
+            File.WriteAllText(Path.Combine(appDir, "ControlSpawn.exe"), "");
+            Assert.Equal(Path.Combine(appDir, "ControlSpawn.exe"), PipeClientVerifier.DevAppBesideBuild(service + Path.DirectorySeparatorChar));
             Assert.Null(PipeClientVerifier.DevAppBesideBuild(Directory.CreateDirectory(Path.Combine(root, "Program Files", "Prism")).FullName));   // installed
         }
         finally { Directory.Delete(root, true); }

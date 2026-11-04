@@ -23,7 +23,7 @@ OutputBaseFilename=ControlSpawnSetup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\app\Prism.App.exe
+UninstallDisplayIcon={app}\app\ControlSpawn.exe
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
@@ -31,16 +31,28 @@ SetupLogging=yes
 [Tasks]
 Name: startup; Description: "Open Control Spawn in the system tray when I sign in (the service always starts with Windows)"
 
+; 1.0.3 renamed the exes; Inno never removes files a new version no longer ships. PrepareToInstall has already stopped the
+; old "Prism" service gracefully, and Restart Manager closes the old app (it holds DLLs this setup replaces).
+[InstallDelete]
+Type: files; Name: "{app}\app\Prism.App.exe"
+Type: files; Name: "{app}\app\Prism.App.dll"
+Type: files; Name: "{app}\app\Prism.App.deps.json"
+Type: files; Name: "{app}\app\Prism.App.runtimeconfig.json"
+Type: files; Name: "{app}\service\Prism.Service.exe"
+Type: files; Name: "{app}\service\Prism.Service.dll"
+Type: files; Name: "{app}\service\Prism.Service.deps.json"
+Type: files; Name: "{app}\service\Prism.Service.runtimeconfig.json"
+
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "Configure-Prism.ps1"; Flags: dontcopy
 
 [Icons]
-Name: "{commonprograms}\Control Spawn"; Filename: "{app}\app\Prism.App.exe"; WorkingDir: "{app}\app"
+Name: "{commonprograms}\Control Spawn"; Filename: "{app}\app\ControlSpawn.exe"; WorkingDir: "{app}\app"
 
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\installer\Configure-Prism.ps1"" -Mode UserStartup -InstallDir ""{app}"""; Tasks: startup; Flags: runhidden runasoriginaluser
-Filename: "{app}\app\Prism.App.exe"; Description: "Launch Control Spawn"; WorkingDir: "{app}\app"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchApp
+Filename: "{app}\app\ControlSpawn.exe"; Description: "Launch Control Spawn"; WorkingDir: "{app}\app"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchApp
 
 [Code]
 var

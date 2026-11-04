@@ -2,7 +2,7 @@
 # 1. Temporarily stops the two programs that fight over the lights: ASUS "LightingService" and Corsair
 #    "CorsairDeviceControlService" (iCUE). They are started again at the end.
 # 2. Starts OpenRGB 1.1 as a local server (127.0.0.1:6742), the same one tested earlier.
-# 3. Runs Prism.Service for 105 s: fans on Silent, 12 new effects for 6 s each, then per-LED colours on the RAM and GPU.
+# 3. Runs the service (ControlSpawn.Service.exe) for 105 s: fans on Silent, 12 new effects for 6 s each, then per-LED colours on the RAM and GPU.
 # 4. Stops everything; fans go back to the BIOS, the ASUS/Corsair services are restarted.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -11,7 +11,7 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\Prism.Service.exe'
+$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\ControlSpawn.Service.exe'
 "GPU flicker check $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 

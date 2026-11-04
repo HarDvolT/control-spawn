@@ -9,10 +9,12 @@ $out = Join-Path $root 'docs\live-automations.txt'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 
-$service = Join-Path $root 'src\Prism.Service\bin\Release\net8.0-windows\Prism.Service.exe'
-$app = Join-Path $root 'src\Prism.App\bin\Release\net8.0-windows\Prism.App.exe'
+$service = Join-Path $root 'src\Prism.Service\bin\Release\net8.0-windows\ControlSpawn.Service.exe'
+$app = Join-Path $root 'src\Prism.App\bin\Release\net8.0-windows\ControlSpawn.exe'
+# 1.0.3 renamed the exes; the old names catch a copy left running from an older build.
+$processNames = 'ControlSpawn', 'ControlSpawn.Service', 'Prism.App', 'Prism.Service'
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'
-Get-Process Prism.App, Prism.Service -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process $processNames -ErrorAction SilentlyContinue | Stop-Process -Force
 # Always run the latest code: build the service and app first.
 Write-Host 'Building the latest Prism...' -ForegroundColor Cyan
 dotnet build (Join-Path $root 'Prism.sln') -c Release -v q --nologo | Out-Null
@@ -21,7 +23,7 @@ foreach ($f in $service, $app) { if (-not (Test-Path $f)) { Write-Host "Missing 
 "Live run $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { "$(Get-Date -Format HH:mm:ss)  $m" | Out-File $out -Append -Encoding utf8; Write-Host "$(Get-Date -Format HH:mm:ss)  $m" }
 
-Get-Process Prism.App, Prism.Service -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process $processNames -ErrorAction SilentlyContinue | Stop-Process -Force
 $stopped = @()
 foreach ($name in 'LightingService', 'CorsairDeviceControlService') {
   $svc = Get-Service $name -ErrorAction SilentlyContinue
@@ -77,7 +79,7 @@ try {
   }
   $c.Dispose()
 } finally {
-  Get-Process Prism.App -ErrorAction SilentlyContinue | Stop-Process -Force
+  Get-Process ControlSpawn, Prism.App -ErrorAction SilentlyContinue | Stop-Process -Force
   if ($svcProc -and -not $svcProc.HasExited) {
     # Ask for a clean stop so the service hands the fans back to the BIOS; force only if it hangs.
     New-Item -ItemType File -Path $stopFile -Force | Out-Null

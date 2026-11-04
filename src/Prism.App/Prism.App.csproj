@@ -10,7 +10,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <AssemblyName>Prism.App</AssemblyName>
+    <AssemblyName>ControlSpawn</AssemblyName>
     <AssemblyTitle>Control Spawn</AssemblyTitle>
     <RootNamespace>Prism.App</RootNamespace>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

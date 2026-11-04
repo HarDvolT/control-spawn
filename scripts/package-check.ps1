@@ -93,7 +93,7 @@ foreach ($file in $files | Where-Object { $_.Extension -in '.dll','.exe' -and $_
 # All at once: one per run made every gap a separate rebuild.
 if ($missing.Count) { throw "Native dependencies not bundled or Windows inbox:`n  " + (($missing | Sort-Object -Unique) -join "`n  ") }
 if (@($files | Where-Object { $_.Extension -in '.pdb','.dbg','.ilk','.exp','.lib' -or $_.Name -match '\.vshost\.|\.Tests\.' }).Count) { throw 'Debug/build/test files found in package.' }
-foreach ($required in @('service/Prism.Service.exe','service/Prism.Service.dll','service/Prism.Core.dll','service/Prism.Hardware.dll','service/Prism.Lighting.dll','service/Prism.Router.dll','service/LibreHardwareMonitorLib.dll','service/System.ServiceProcess.ServiceController.dll','service/Microsoft.AspNetCore.dll','service/coreclr.dll','service/hostfxr.dll','service/hostpolicy.dll','service/System.Private.CoreLib.dll','app/Prism.App.exe','app/Prism.App.dll','app/Prism.Core.dll','app/PresentationFramework.dll','app/wpfgfx_cor3.dll','app/System.Windows.Forms.dll','app/coreclr.dll','app/hostfxr.dll','app/hostpolicy.dll','app/System.Private.CoreLib.dll','openrgb/OpenRGB.exe','dependencies/PawnIO_setup.exe','installer/Configure-Prism.ps1','THIRD-PARTY-NOTICES.txt')) {
+foreach ($required in @('service/ControlSpawn.Service.exe','service/ControlSpawn.Service.dll','service/ControlSpawn.FanGuard.exe','service/ControlSpawn.FanGuard.dll','service/Prism.Core.dll','service/Prism.Hardware.dll','service/Prism.Lighting.dll','service/Prism.Router.dll','service/LibreHardwareMonitorLib.dll','service/System.ServiceProcess.ServiceController.dll','service/Microsoft.AspNetCore.dll','service/coreclr.dll','service/hostfxr.dll','service/hostpolicy.dll','service/System.Private.CoreLib.dll','app/ControlSpawn.exe','app/ControlSpawn.dll','app/Prism.Core.dll','app/PresentationFramework.dll','app/wpfgfx_cor3.dll','app/System.Windows.Forms.dll','app/coreclr.dll','app/hostfxr.dll','app/hostpolicy.dll','app/System.Private.CoreLib.dll','openrgb/OpenRGB.exe','dependencies/PawnIO_setup.exe','installer/Configure-Prism.ps1','THIRD-PARTY-NOTICES.txt')) {
     if (!(Test-Path -LiteralPath (Join-Path $OutputPath $required) -PathType Leaf)) { throw "Missing required file: $required" }
 }
 $recorded = @{}
@@ -109,7 +109,11 @@ foreach ($file in $files) {
     $relative = $file.FullName.Substring($OutputPath.Length + 1).Replace('\','/')
     if ($relative -ne 'package-manifest.json' -and !$recorded.ContainsKey($relative)) { throw "Unrecorded file: $relative" }
 }
-foreach ($pair in @(@('Prism.Service','service'), @('Prism.App','app'))) {
+# 1.0.3 renamed the exes; a package that still carries an old one was built from stale output.
+foreach ($stale in @('service/Prism.Service.exe','service/Prism.FanGuard.exe','app/Prism.App.exe')) {
+    if (Test-Path -LiteralPath (Join-Path $OutputPath $stale)) { throw "Stale pre-1.0.3 file in package: $stale" }
+}
+foreach ($pair in @(@('ControlSpawn.Service','service'), @('ControlSpawn.FanGuard','service'), @('ControlSpawn','app'))) {
     $name = $pair[0]; $folder = Join-Path $OutputPath $pair[1]
     $runtime = Get-Content "$folder/$name.runtimeconfig.json" -Raw | ConvertFrom-Json
     if (!$runtime.runtimeOptions.PSObject.Properties['includedFrameworks'] -or $runtime.runtimeOptions.PSObject.Properties['framework']) { throw "$name is not self-contained." }

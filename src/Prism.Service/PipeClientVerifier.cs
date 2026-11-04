@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Win32.SafeHandles;
+using Prism.Core;
 
 namespace Prism.Service;
 
@@ -27,7 +28,7 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
         var framework = new DirectoryInfo(serviceDirectory.TrimEnd(Path.DirectorySeparatorChar));
         var configuration = framework.Parent; var bin = configuration?.Parent; var project = bin?.Parent;
         if (configuration is null || bin?.Name != "bin" || project?.Name != "Prism.Service" || project.Parent is null) return null;
-        var app = Path.Combine(project.Parent.FullName, "Prism.App", "bin", configuration.Name, framework.Name, "Prism.App.exe");
+        var app = Path.Combine(project.Parent.FullName, "Prism.App", "bin", configuration.Name, framework.Name, ProductNames.AppExe);
         return File.Exists(app) ? app : null;
     }
     /// <summary>
@@ -50,7 +51,7 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
             var image = process.MainModule?.FileName;
             if (devApp is not null) return new(image is not null && Path.GetFullPath(image).Equals(Path.GetFullPath(devApp), StringComparison.OrdinalIgnoreCase) && !process.HasExited, key);
             var appDirectory = InstalledAppDirectory(AppContext.BaseDirectory);
-            var expected = Path.Combine(appDirectory, "Prism.App.exe");
+            var expected = Path.Combine(appDirectory, ProductNames.AppExe);
             if (image is null || !Path.GetFullPath(image).Equals(expected, StringComparison.OrdinalIgnoreCase)) return new(false, key);
             var hashes = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ManifestPath));
             bool valid = MatchesInstallation(appDirectory, hashes);
@@ -62,7 +63,7 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
     public static bool MatchesInstallation(string directory, IReadOnlyDictionary<string, string>? hashes)
     {
         if (hashes is null) return false;
-        foreach (var name in new[] { "Prism.App.exe", "Prism.App.dll" })
+        foreach (var name in new[] { ProductNames.AppExe, ProductNames.AppDll })
         {
             if (!hashes.TryGetValue(name, out var hash)) return false;
             using var file = File.OpenRead(Path.Combine(directory, name));

@@ -18,12 +18,21 @@ $approvedKey = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApprov
 # The app and the service live in their own folders: they ship different builds of the same runtime DLLs.
 $appDir = Join-Path $InstallDir 'app'
 $serviceDir = Join-Path $InstallDir 'service'
-$startupCommand = '"' + (Join-Path $appDir 'Prism.App.exe') + '" --tray'
+# 1.0.3 renamed what Windows shows. The old names stay listed so setup can move 1.0.0-1.0.2 installs over and still
+# uninstall them. The data folders and the pipe keep the Prism code name on purpose.
+$serviceName = 'ControlSpawn'
+$serviceDisplayName = 'Control Spawn Hardware Service'
+$serviceExe = 'ControlSpawn.Service.exe'
+$appExe = 'ControlSpawn.exe'
+$legacyServiceName = 'Prism'
+$legacyServiceExe = 'Prism.Service.exe'
+$legacyAppExe = 'Prism.App.exe'
+$startupCommand = '"' + (Join-Path $appDir $appExe) + '" --tray'
 if ($Mode -eq 'UserStartup') {
     # Inno runs this in the original unelevated user's context, even with alternate UAC credentials.
     # A Startup shortcut, not the Run key: Windows 25H2 never ran that entry on the owner's PC (see ShortcutStartup).
     $link = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path ([Environment]::GetFolderPath('Startup')) $shortcutName))
-    $link.TargetPath = Join-Path $appDir 'Prism.App.exe'
+    $link.TargetPath = Join-Path $appDir $appExe
     $link.Arguments = '--tray'
     $link.WorkingDirectory = $appDir
     $link.Save()
@@ -54,12 +63,13 @@ function Stop-BundledOpenRgb {
         }
     }
 }
-function Assert-OwnedService([string]$Name, [string]$Executable) {
+function Assert-OwnedService([string]$Name) {
     if (Test-Path "$serviceRoot/$Name") {
         $image = (Get-ItemProperty "$serviceRoot/$Name").ImagePath
         # Builds before the split ran the service from $InstallDir itself; that is still ours and gets moved.
         # 1.0.0 lost the quotes when reinstalling (see Register-PrismService): accept that form so this setup can repair it.
-        $unquoted = @((Join-Path $serviceDir $Executable), (Join-Path $InstallDir $Executable))
+        # Either key may point at either exe name: 1.0.0-1.0.2 installed Prism.Service.exe, 1.0.3 ControlSpawn.Service.exe.
+        $unquoted = @(foreach ($executable in $serviceExe, $legacyServiceExe) { (Join-Path $serviceDir $executable); (Join-Path $InstallDir $executable) })
         $ours = @($unquoted | ForEach-Object { '"' + $_ + '"' }) + $unquoted
         if ($image -notin $ours) { throw "Refusing to modify unrelated service $Name ($image)." }
     }
@@ -83,36 +93,66 @@ function Restore-Conflicts {
         Remove-Item -LiteralPath $record.PSPath
     }
 }
-function Register-PrismService([string]$Name, [string]$Executable) {
-    Assert-OwnedService $Name $Executable
-    $binary = '"' + (Join-Path $serviceDir $Executable) + '"'
-    if (!(Get-Service $Name -ErrorAction SilentlyContinue)) {
-        New-Service -Name $Name -BinaryPathName $binary -DisplayName $Name -StartupType Automatic | Out-Null
+function Remove-PrismService([string]$Name) {
+    # Graceful stop first (the BIOS fan handoff), then delete. Never kill the service.
+    Stop-PrismService $Name
+    if (!(Get-Service $Name -ErrorAction SilentlyContinue)) { return }
+    & "$env:SystemRoot/System32/sc.exe" delete $Name | Out-Host
+    # 1072: already marked for deletion (an open Services window holds it); Windows removes it once that closes.
+    if ($LASTEXITCODE -notin 0,1072) { throw "sc.exe delete $Name failed ($LASTEXITCODE)." }
+}
+function Register-PrismService {
+    Assert-OwnedService $serviceName
+    $binary = '"' + (Join-Path $serviceDir $serviceExe) + '"'
+    if (!(Get-Service $serviceName -ErrorAction SilentlyContinue)) {
+        New-Service -Name $serviceName -BinaryPathName $binary -DisplayName $serviceDisplayName -StartupType Automatic | Out-Null
     } else {
         # Not through sc.exe: Windows PowerShell drops the quotes inside an argument, leaving a path with spaces unquoted.
-        Set-ItemProperty "$serviceRoot/$Name" -Name ImagePath -Value $binary
+        Set-ItemProperty "$serviceRoot/$serviceName" -Name ImagePath -Value $binary
     }
-    if ($Name -eq 'Prism') {
-        Invoke-Sc @('config',$Name,'DisplayName=','Control Spawn')
-        Invoke-Sc @('description',$Name,'Control Spawn: fans, lighting, lamps and router in the background')
-    }
+    Invoke-Sc @('config',$serviceName,'DisplayName=',$serviceDisplayName)
+    Invoke-Sc @('description',$serviceName,'Control Spawn: fans, lighting, lamps and router in the background')
     # Plain automatic: delayed start left fans and lighting untouched for over 2 minutes after every boot.
-    Invoke-Sc @('config',$Name,'start=','auto','obj=','LocalSystem')
-    Set-ItemProperty "$serviceRoot/$Name" -Name DelayedAutoStart -Value 0
-    Invoke-Sc @('failure',$Name,'reset=','86400','actions=','restart/5000/restart/15000/none/0')
-    Invoke-Sc @('failureflag',$Name,'1')
+    Invoke-Sc @('config',$serviceName,'start=','auto','obj=','LocalSystem')
+    Set-ItemProperty "$serviceRoot/$serviceName" -Name DelayedAutoStart -Value 0
+    Invoke-Sc @('failure',$serviceName,'reset=','86400','actions=','restart/5000/restart/15000/none/0')
+    Invoke-Sc @('failureflag',$serviceName,'1')
+}
+function Update-StartupShortcuts {
+    # 1.0.0-1.0.2 left "Control Spawn.lnk" pointing at app\Prism.App.exe, which [InstallDelete] removes. The app counts any
+    # existing shortcut as "start with Windows", and UserStartup only runs when the tray option is ticked, so repoint it
+    # here for every profile; remove it if it can't be rewritten. Only our own shortcut name pointing at our old exe.
+    $old = @((Join-Path $appDir $legacyAppExe), (Join-Path $InstallDir $legacyAppExe))
+    $shell = New-Object -ComObject WScript.Shell
+    foreach ($entry in Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList') {
+        $folder = (Get-ItemProperty $entry.PSPath).ProfileImagePath
+        if (!$folder) { continue }
+        $path = Join-Path $folder "AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\$shortcutName"
+        if (!(Test-Path -LiteralPath $path)) { continue }
+        try {
+            $link = $shell.CreateShortcut($path)
+            if ($link.TargetPath -notin $old) { continue }
+            $link.TargetPath = Join-Path $appDir $appExe
+            $link.WorkingDirectory = $appDir
+            $link.Save()
+        } catch {
+            Write-Warning "Could not repoint $path ($_); removing it."
+            Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue
+        }
+    }
 }
 try {
-    Assert-OwnedService 'Prism' 'Prism.Service.exe'
-    Assert-OwnedService 'Prism.FanGuard' 'Prism.FanGuard.exe'
+    Assert-OwnedService $legacyServiceName
+    Assert-OwnedService $serviceName
     if ($Mode -eq 'Prepare') {
-        Stop-PrismService 'Prism.FanGuard'
-        Stop-PrismService 'Prism'
+        # Both keys: an upgrade from 1.0.0-1.0.2 still runs as "Prism". The graceful stop is what hands the fans back.
+        Stop-PrismService $serviceName
+        Stop-PrismService $legacyServiceName
         Stop-BundledOpenRgb
         exit 0
     }
     if ($Mode -eq 'Install') {
-        foreach ($required in @('service/Prism.Service.exe','app/Prism.App.exe','openrgb/OpenRGB.exe','dependencies/PawnIO_setup.exe')) {
+        foreach ($required in @("service/$serviceExe",'service/ControlSpawn.FanGuard.exe',"app/$appExe",'openrgb/OpenRGB.exe','dependencies/PawnIO_setup.exe')) {
             if (!(Test-Path -LiteralPath (Join-Path $InstallDir $required))) { throw "Missing payload: $required" }
         }
         New-Item -ItemType Directory -Force -Path $data | Out-Null
@@ -177,31 +217,32 @@ try {
         $identity = Join-Path $data 'install'
         New-Item -ItemType Directory -Force -Path $identity | Out-Null
         $hashes = @{}
-        foreach ($name in @('Prism.App.exe', 'Prism.App.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $appDir $name) -Algorithm SHA256).Hash }
+        foreach ($name in @($appExe, 'ControlSpawn.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $appDir $name) -Algorithm SHA256).Hash }
         $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $identity 'app-hashes.json') -Encoding UTF8
         if (-not [Diagnostics.EventLog]::SourceExists('Prism')) { New-EventLog -LogName Application -Source Prism }
-        Register-PrismService 'Prism' 'Prism.Service.exe'
-        if (Test-Path "$serviceDir/Prism.FanGuard.exe") { Register-PrismService 'Prism.FanGuard' 'Prism.FanGuard.exe' }
+        # Move a 1.0.0-1.0.2 install to the new key. Prepare already stopped it gracefully; this stops it again if needed.
+        Remove-PrismService $legacyServiceName
+        # The fan guard is not a service: the service starts ControlSpawn.FanGuard.exe itself before any fan write.
+        Register-PrismService
+        Update-StartupShortcuts
         if (!$reboot) {
-            Start-Service 'Prism'
-            (Get-Service 'Prism').WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
-            if (Test-Path "$serviceDir/Prism.FanGuard.exe") { Start-Service 'Prism.FanGuard' }
+            Start-Service $serviceName
+            (Get-Service $serviceName).WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
         }
         if ($reboot) { exit 3010 }
     }
     if ($Mode -eq 'Uninstall') {
-        Stop-PrismService 'Prism.FanGuard'
-        Stop-PrismService 'Prism'
+        Stop-PrismService $serviceName
+        Stop-PrismService $legacyServiceName
         Stop-BundledOpenRgb
-        foreach ($name in @('Prism.FanGuard','Prism')) {
-            if (Get-Service $name -ErrorAction SilentlyContinue) { Invoke-Sc @('delete',$name) }
-        }
+        Remove-PrismService $serviceName
+        Remove-PrismService $legacyServiceName
         Restore-Conflicts
         # Remove matching Run entries in loaded user hives, including an alternate original user.
         foreach ($sid in [Microsoft.Win32.Registry]::Users.GetSubKeyNames()) {
             $key = [Microsoft.Win32.Registry]::Users.OpenSubKey("$sid\$runKey", $true)
-            $legacy = '"' + (Join-Path $InstallDir 'Prism.App.exe') + '" --tray'
-            if ($key) { try { if ($key.GetValue('Prism') -in $startupCommand, $legacy) { $key.DeleteValue('Prism') } } finally { $key.Dispose() } }
+            $legacy = @(('"' + (Join-Path $InstallDir $legacyAppExe) + '" --tray'), ('"' + (Join-Path $appDir $legacyAppExe) + '" --tray'))
+            if ($key) { try { if ($key.GetValue('Prism') -in @($startupCommand) + $legacy) { $key.DeleteValue('Prism') } } finally { $key.Dispose() } }
             $approved = [Microsoft.Win32.Registry]::Users.OpenSubKey("$sid\$approvedKey", $true)
             if ($approved) { try { $approved.DeleteValue('Prism', $false) } finally { $approved.Dispose() } }
         }
@@ -222,7 +263,7 @@ try {
 } catch {
     Write-Error -ErrorRecord $_ -ErrorAction Continue
     if ($Mode -eq 'Install') {
-        try { Stop-PrismService 'Prism.FanGuard'; Stop-PrismService 'Prism'; Stop-BundledOpenRgb; Restore-Conflicts } catch { Write-Warning "Recovery needs attention: $_" }
+        try { Stop-PrismService $serviceName; Stop-PrismService $legacyServiceName; Stop-BundledOpenRgb; Restore-Conflicts } catch { Write-Warning "Recovery needs attention: $_" }
     }
     exit 1
 }

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.ServiceProcess;
+using Prism.Core;
 
 namespace Prism.Service;
 
@@ -21,7 +22,7 @@ internal sealed class ScmLifetime : ServiceBase, IHostLifetime
     private readonly ManualResetEventSlim applicationStopped = new(false);
     public ScmLifetime(IHostApplicationLifetime lifetime)
     {
-        this.lifetime = lifetime; ServiceName = "Prism"; CanStop = true; CanShutdown = true; AutoLog = false;
+        this.lifetime = lifetime; ServiceName = ProductNames.ServiceKey; CanStop = true; CanShutdown = true; AutoLog = false;
         lifetime.ApplicationStopped.Register(() => applicationStopped.Set());
     }
     public Task WaitForStartAsync(CancellationToken cancellationToken)

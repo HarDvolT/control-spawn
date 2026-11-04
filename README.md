@@ -91,7 +91,7 @@ To uninstall, use **Settings → Apps → Installed apps → Control Spawn**.
 
 ```
  ┌──────────────────────────┐        named pipe         ┌───────────────────────────┐
- │  Control Spawn app       │  ◄── state, 1 per sec ──  │  Prism service            │
+ │  Control Spawn app       │  ◄── state, 1 per sec ──  │  Hardware service         │
  │  window, tray, widgets   │  ── commands ──────────►  │  runs at boot, as admin   │
  │  (per user, no admin)    │        \\.\pipe\prism     │                           │
  └──────────────────────────┘                           │  fans, sensors   ─ LibreHardwareMonitor + PawnIO
@@ -103,12 +103,23 @@ To uninstall, use **Settings → Apps → Installed apps → Control Spawn**.
 
 Only the service talks to hardware, so admin rights live in one place. The app and widgets just show what the service sends and pass your clicks back. Fans, lighting and automations keep running when the window is closed or nobody is signed in.
 
+What Windows shows:
+
+| Part | Task Manager name | File | Services tab |
+|---|---|---|---|
+| App | Control Spawn | `ControlSpawn.exe` | |
+| Background service | Control Spawn Hardware Service | `ControlSpawn.Service.exe` | `ControlSpawn` (Control Spawn Hardware Service) |
+| Fan watchdog, started by the service | Control Spawn Fan Guard | `ControlSpawn.FanGuard.exe` | |
+| Case RGB server | OpenRGB | `OpenRGB.exe` (bundled, unmodified) | |
+
+Versions before 1.0.3 used `Prism.App.exe`, `Prism.Service.exe` and the service key `Prism`. Setup moves those installs over and keeps your settings.
+
 ## Safety
 
 - The AIO pump always runs at 100%. It can't be changed from the app.
 - If the CPU or GPU reaches 90 °C, or the sensors fail three times in a row, every fan goes to 100%.
 - No fan setting goes below its minimum.
-- If the service stops or crashes, fan control goes back to the BIOS.
+- If the service stops or crashes, fan control goes back to the BIOS. The Fan Guard, a separate small process, does this even if the service hangs or is killed.
 - The air fryer asks before it starts or resumes, and won't start while it's offline or already cooking.
 - The router is only read, never changed. Passwords and tokens are stored with Windows DPAPI.
 
@@ -124,7 +135,7 @@ dotnet test Prism.sln -c Debug
 Run the service with fake hardware, then start the app and it connects to it:
 
 ```powershell
-src\Prism.Service\bin\Debug\net8.0-windows\Prism.Service.exe --mock --console
+src\Prism.Service\bin\Debug\net8.0-windows\ControlSpawn.Service.exe --mock --console
 ```
 
 Build the installer (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php)). It downloads OpenRGB and PawnIO, checks their hashes against `build/dependencies.json`, and writes `build/out/ControlSpawnSetup.exe`:
@@ -143,8 +154,9 @@ The product is called Control Spawn. The code still uses its working name, **Pri
 | `src/Prism.Hardware` | Sensors and fan control (LibreHardwareMonitor) |
 | `src/Prism.Lighting` | OpenRGB client, effects, sensor lighting, Mi Home and Yeelight |
 | `src/Prism.Router` | ZLT 5G router client |
-| `src/Prism.Service` | Background service, lighting loop, automations, air fryer |
-| `src/Prism.App` | WPF app, tray and desktop widgets |
+| `src/Prism.Service` | Background service, lighting loop, automations, air fryer (`ControlSpawn.Service.exe`) |
+| `src/Prism.FanGuard` | Fan watchdog the service starts as a child process; hands the fans to the BIOS if the service dies (`ControlSpawn.FanGuard.exe`) |
+| `src/Prism.App` | WPF app, tray and desktop widgets (`ControlSpawn.exe`) |
 | `tests/` | xUnit tests, plus an offscreen renderer for app pages |
 | `installer/`, `build/` | Inno Setup installer and the publish script |
 | `docs/` | Design language, hardware notes, architecture |
