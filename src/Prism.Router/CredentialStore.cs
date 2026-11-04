@@ -30,7 +30,7 @@ public sealed class DpapiSecretProtector : ISecretProtector
 /// </summary>
 public sealed class CredentialStore
 {
-    public const string AppFolder = "Prism";
+    public const string AppFolder = ProductNames.DataFolder;
     public const string SubFolder = "router";
     public const string CredentialsFile = "credentials.json";
     public const string SessionFile = "session.json";

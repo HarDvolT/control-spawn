@@ -11,7 +11,7 @@ public static class SecretMigration
     public static bool Run(string appData, SecretStore store)
     {
         bool success = true;
-        var prism = Path.Combine(appData, "Prism");
+        var prism = Path.Combine(appData, ProductNames.DataFolder);
         void Migrate(string key, string path)
         {
             try

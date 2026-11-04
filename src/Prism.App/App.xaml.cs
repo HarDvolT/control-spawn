@@ -15,7 +15,7 @@ public partial class App : Application
         base.OnStartup(e);
         CrashLog.Install(this);
         var options = LaunchOptions.Parse(e.Args);
-        _instance = new SingleInstance(options.Mock ? "Prism.App.Mock" : "Prism.App", () => Dispatcher.BeginInvoke(OpenMain));
+        _instance = new SingleInstance(options.Mock ? "ControlSpawn.App.Mock" : "ControlSpawn.App", () => Dispatcher.BeginInvoke(OpenMain));
         if (!_instance.IsPrimary) { Shutdown(); return; }
         var store = new SettingsStore();
         var settings = store.Load();

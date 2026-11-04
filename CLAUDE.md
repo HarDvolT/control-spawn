@@ -1,6 +1,6 @@
 # Control Spawn (code name Prism)
 
-One Windows control centre for a gaming PC and its room: fans, case RGB, Mi Home lamps, an air fryer and the 5G router. It replaces ASUS Armoury Crate and Corsair iCUE. The product name is **Control Spawn**; the code, namespaces and folders still say **Prism**.
+One Windows control centre for a gaming PC and its room: fans, case RGB, Mi Home lamps, an air fryer and the 5G router. It replaces ASUS Armoury Crate and Corsair iCUE. The product name is **Control Spawn**; the source code (namespaces, project folders) still says **Prism**, but nothing on an installed PC does.
 
 ## Layout
 
@@ -10,7 +10,7 @@ C# .NET 8 solution `Prism.sln`:
 - `src/Prism.Hardware`: LibreHardwareMonitor sensors and fan control.
 - `src/Prism.Lighting`: OpenRGB client (TCP 6742), effects (`SpatialEffects.cs`), sensor lighting (`SensorLighting.cs`), Mi Home and Yeelight lamps.
 - `src/Prism.Router`: ZLT router client.
-- `src/Prism.Service`: background service (runs as admin or LocalSystem), named pipe `prism`, lighting loop, automations. Builds `ControlSpawn.Service.exe`; Windows service key `ControlSpawn`.
+- `src/Prism.Service`: background service (runs as admin or LocalSystem), named pipe `controlspawn`, lighting loop, automations. Builds `ControlSpawn.Service.exe`; Windows service key `ControlSpawn`.
 - `src/Prism.FanGuard`: `ControlSpawn.FanGuard.exe`, the fan watchdog the service starts as a child process (never a Windows service). A build copies it beside the service exe.
 - `src/Prism.App`: `ControlSpawn.exe`, WPF app, "Graphite HUD" dark theme (`Themes/Prism.xaml`, accent `#FF4D1A`, Segoe UI Variable), desktop widgets, tray.
 - `tests/*`: xUnit tests (about 508), plus `tests/Prism.App.Tests/Preview`, an offscreen renderer for app pages.

@@ -3,7 +3,7 @@ param([Parameter(Mandatory)][string]$Executable)
 $ErrorActionPreference = 'Stop'
 $resolvedExecutable = (Resolve-Path -LiteralPath $Executable).Path
 if ([IO.Path]::GetFileName($resolvedExecutable) -ne 'ControlSpawn.Service.exe') { throw 'Expected ControlSpawn.Service.exe.' }
-# 1.0.3 names; the data folders keep the Prism code name. Setup (installer/Configure-Prism.ps1) is the supported install.
+# 1.0.3 names; Setup (installer/Configure-ControlSpawn.ps1) is the supported install.
 $serviceName = 'ControlSpawn'
 $displayName = 'Control Spawn Hardware Service'
 $installDirectory = Split-Path -Parent $resolvedExecutable
@@ -49,7 +49,7 @@ if ($PSCmdlet.ShouldProcess($serviceName, 'Secure installation, record app hashe
         foreach ($rule in @($acl.Access | Where-Object { -not $_.IsInherited })) { $acl.RemoveAccessRuleSpecific($rule) }
         Set-Acl -LiteralPath $_.FullName -AclObject $acl
     }
-    $prismData = Join-Path $env:ProgramData 'Prism'
+    $prismData = Join-Path $env:ProgramData 'Control Spawn'
     Set-PrismDirectoryAcl $prismData $false
     # Remove any explicit grants left on data files by older installations before recording trust.
     Get-PrismChildren $prismData | ForEach-Object {
@@ -66,7 +66,7 @@ if ($PSCmdlet.ShouldProcess($serviceName, 'Secure installation, record app hashe
     $hashes = @{}
     foreach ($name in @('ControlSpawn.exe', 'ControlSpawn.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $installDirectory $name) -Algorithm SHA256).Hash }
     $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $identityDirectory 'app-hashes.json') -Encoding UTF8
-    if (-not [Diagnostics.EventLog]::SourceExists('Prism')) { New-EventLog -LogName Application -Source Prism }
+    if (-not [Diagnostics.EventLog]::SourceExists('Control Spawn')) { New-EventLog -LogName Application -Source 'Control Spawn' }
 
     # The path goes in through New-Service or the registry, never sc.exe: Windows PowerShell 5.1 drops the quotes inside an
     # argument, leaving a path with spaces unquoted (that broke reinstall and uninstall in 1.0.0 and 1.0.1).

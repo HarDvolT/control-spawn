@@ -93,7 +93,7 @@ To uninstall, use **Settings → Apps → Installed apps → Control Spawn**.
  ┌──────────────────────────┐        named pipe         ┌───────────────────────────┐
  │  Control Spawn app       │  ◄── state, 1 per sec ──  │  Hardware service         │
  │  window, tray, widgets   │  ── commands ──────────►  │  runs at boot, as admin   │
- │  (per user, no admin)    │        \\.\pipe\prism     │                           │
+ │  (per user, no admin)    │    \\.\pipe\controlspawn  │                           │
  └──────────────────────────┘                           │  fans, sensors   ─ LibreHardwareMonitor + PawnIO
                                                         │  case RGB        ─ OpenRGB (TCP 6742)
                                                         │  lamps, fryer    ─ Mi Home / Yeelight on the LAN
@@ -112,7 +112,7 @@ What Windows shows:
 | Fan watchdog, started by the service | Control Spawn Fan Guard | `ControlSpawn.FanGuard.exe` | |
 | Case RGB server | OpenRGB | `OpenRGB.exe` (bundled, unmodified) | |
 
-Versions before 1.0.3 used `Prism.App.exe`, `Prism.Service.exe` and the service key `Prism`. Setup moves those installs over and keeps your settings.
+Versions before 1.0.3 used the Prism name for their exes, service key and folders. Setup moves those installs to `C:Program FilesControl Spawn` and `C:ProgramDataControl Spawn`, keeps your settings and removes the old folders.
 
 ## Safety
 
@@ -146,7 +146,7 @@ powershell -ExecutionPolicy Bypass -File build\publish.ps1
 
 ## Project layout
 
-The product is called Control Spawn. The code still uses its working name, **Prism**.
+The product is called Control Spawn. The source code still uses its working name, **Prism**; nothing on an installed PC does.
 
 | Folder | What's in it |
 |---|---|

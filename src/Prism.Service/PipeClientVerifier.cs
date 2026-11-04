@@ -37,7 +37,7 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
     /// </summary>
     public static string InstalledAppDirectory(string serviceDirectory) =>
         Path.GetFullPath(Path.Combine(serviceDirectory.TrimEnd(Path.DirectorySeparatorChar), "..", "app"));
-    public static string ManifestPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "install", "app-hashes.json");
+    public static string ManifestPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Prism.Core.ProductNames.DataFolder, "install", "app-hashes.json");
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetNamedPipeClientProcessId(SafePipeHandle pipe, out uint pid);

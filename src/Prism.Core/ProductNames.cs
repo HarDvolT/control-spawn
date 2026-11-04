@@ -1,8 +1,8 @@
 namespace Prism.Core;
 
 /// <summary>
-/// What Windows shows. The code keeps its Prism code name (namespaces, folders, the pipe, the data folders); these are the
-/// shipped file and service names. Setup also accepts the 1.0.0–1.0.2 names so it can move those installs over.
+/// Every name a PC shows. Only the source keeps the Prism code name (namespaces, project folders). Setup still knows the
+/// 1.0.0–1.0.3 names, but only to move those installs over and remove them.
 /// </summary>
 public static class ProductNames
 {
@@ -12,6 +12,10 @@ public static class ProductNames
     public const string FanGuardExe = "ControlSpawn.FanGuard.exe";
     /// <summary>The Windows service key. Must match the key setup creates.</summary>
     public const string ServiceKey = "ControlSpawn";
+    /// <summary>The folder name under ProgramData, %APPDATA% and %LOCALAPPDATA%. Must match setup.</summary>
+    public const string DataFolder = "Control Spawn";
+    /// <summary>The Application event log source. Must match the source setup registers.</summary>
+    public const string EventSource = "Control Spawn";
 
     /// <summary>
     /// The fan guard may stop its parent, so it only serves the real service: the service exe in the guard's own folder

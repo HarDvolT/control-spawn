@@ -50,7 +50,7 @@ try {
   Write-Host 'Press Q in this window to stop Prism.' -ForegroundColor Cyan
 
   # Give the service up to 30 s to open its pipe (driver loading can be slow right after a restart).
-  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut)
+  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'controlspawn', [System.IO.Pipes.PipeDirection]::InOut)
   for ($try = 0; -not $c.IsConnected; $try++) {
     # A busy pipe (the app just took the free connection) throws IOException ("semaphore timeout"), not TimeoutException.
     try { $c.Connect(1000) } catch [TimeoutException], [System.IO.IOException] { if ($try -ge 29 -or $svcProc.HasExited) { throw 'The Prism service did not open its pipe - see prism-live.log in your temp folder' }; Start-Sleep -Milliseconds 250 }

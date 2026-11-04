@@ -123,7 +123,7 @@ public static class SensorProjection
         double? used = readings.FirstOrDefault(s => s.Id == "/ram/data/0")?.Value;
         double? available = readings.FirstOrDefault(s => s.Id == "/ram/data/1")?.Value;
         var result = readings.ToList();
-        result.Add(new("prism/ram/total", "Total Memory: Memory Total", SensorCategory.Memory, "Data", "GiB",
+        result.Add(new("controlspawn/ram/total", "Total Memory: Memory Total", SensorCategory.Memory, "Data", "GiB",
             used is not null && available is not null && double.IsFinite(used.Value) && double.IsFinite(available.Value) ? used + available : null));
         return result.AsReadOnly();
     }

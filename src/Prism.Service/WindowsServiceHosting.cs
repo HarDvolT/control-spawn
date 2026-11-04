@@ -32,7 +32,7 @@ internal sealed class ScmLifetime : ServiceBase, IHostLifetime
             try { Run(this); }
             catch (Exception e) { started.TrySetException(e); lifetime.StopApplication(); }
             finally { stopped.TrySetResult(); }
-        }) { IsBackground = true, Name = "Prism SCM dispatcher" };
+        }) { IsBackground = true, Name = "Control Spawn SCM dispatcher" };
         dispatcher.Start();
         return started.Task.WaitAsync(cancellationToken);
     }

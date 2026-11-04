@@ -20,7 +20,7 @@ public sealed class LampDpapiProtector : ILampSecretProtector
 public sealed class LampTokenStore(string? path = null, ILampSecretProtector? protector = null, SecretStore? secrets = null)
 {
     private readonly SecretStore? secrets = secrets ?? (protector is null ? new SecretStore() : null);
-    private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Prism", "lamp.json");
+    private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Prism.Core.ProductNames.DataFolder, "lamp.json");
     private readonly ILampSecretProtector protector = protector ?? new LampDpapiProtector();
     private string DevicePath(uint deviceId) => path + "." + deviceId.ToString(System.Globalization.CultureInfo.InvariantCulture);
     public void Save(uint deviceId, byte[] token) { if (secrets is not null) { if (token.Length != 16) throw new ArgumentException("Token must contain 16 bytes."); secrets.Save("lamp." + deviceId, token); } else new LampTokenStore(DevicePath(deviceId), protector).Save(token); }

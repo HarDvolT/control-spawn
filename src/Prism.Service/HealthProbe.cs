@@ -17,7 +17,7 @@ public sealed class WindowsHealthProbe : IHealthProbe
         using var identity = WindowsIdentity.GetCurrent();
         bool elevated = new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
         var warnings = new List<string>();
-        if (!elevated) warnings.Add("Prism is not elevated.");
+        if (!elevated) warnings.Add("Control Spawn is not elevated.");
         foreach (var service in ServiceController.GetServices())
         {
             using (service)

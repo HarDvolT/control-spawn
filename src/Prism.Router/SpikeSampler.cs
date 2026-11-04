@@ -106,7 +106,7 @@ public sealed class SpikeSampler : IDisposable
         _thread = new Thread(Loop)
         {
             IsBackground = true,
-            Name = "Prism spike sampler",
+            Name = "Control Spawn spike sampler",
         };
         _thread.Start();
     }

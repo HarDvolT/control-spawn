@@ -16,6 +16,10 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>8.0</AnalysisLevel>
   </PropertyGroup>
+  <!-- These DLLs ship in the install folder. The projects and namespaces keep the code name. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Core' Or '$(MSBuildProjectName)' == 'Prism.Hardware' Or '$(MSBuildProjectName)' == 'Prism.Lighting' Or '$(MSBuildProjectName)' == 'Prism.Router'">
+    <AssemblyName>$(MSBuildProjectName.Replace('Prism.', 'ControlSpawn.'))</AssemblyName>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Service' Or '$(MSBuildProjectName)' == 'Prism.FanGuard'">
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>

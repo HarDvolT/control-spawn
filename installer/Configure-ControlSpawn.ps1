@@ -9,8 +9,10 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $InstallDir = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\')
-$stateRoot = 'HKLM:\SOFTWARE\Prism\Installer'
-$data = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'Prism'
+$stateRoot = 'HKLM:\SOFTWARE\ControlSpawn\Installer'
+$dataFolder = 'Control Spawn'
+$data = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) $dataFolder
+$eventSource = 'Control Spawn'
 $serviceRoot = 'HKLM:\SYSTEM\CurrentControlSet\Services'
 $runKey = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $shortcutName = 'Control Spawn.lnk'
@@ -18,8 +20,7 @@ $approvedKey = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApprov
 # The app and the service live in their own folders: they ship different builds of the same runtime DLLs.
 $appDir = Join-Path $InstallDir 'app'
 $serviceDir = Join-Path $InstallDir 'service'
-# 1.0.3 renamed what Windows shows. The old names stay listed so setup can move 1.0.0-1.0.2 installs over and still
-# uninstall them. The data folders and the pipe keep the Prism code name on purpose.
+# The Prism names below exist only so setup can move older installs over and leave nothing of them behind.
 $serviceName = 'ControlSpawn'
 $serviceDisplayName = 'Control Spawn Hardware Service'
 $serviceExe = 'ControlSpawn.Service.exe'
@@ -27,6 +28,10 @@ $appExe = 'ControlSpawn.exe'
 $legacyServiceName = 'Prism'
 $legacyServiceExe = 'Prism.Service.exe'
 $legacyAppExe = 'Prism.App.exe'
+$legacyName = 'Prism'
+$legacyInstallDir = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) $legacyName
+$legacyData = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) $legacyName
+$legacyStateKey = "HKLM:\SOFTWARE\$legacyName"
 $startupCommand = '"' + (Join-Path $appDir $appExe) + '" --tray'
 if ($Mode -eq 'UserStartup') {
     # Inno runs this in the original unelevated user's context, even with alternate UAC credentials.
@@ -41,6 +46,8 @@ if ($Mode -eq 'UserStartup') {
     exit 0
 }
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Installer helper requires administrator privileges.' }
+# Setup runs this hidden, so without a transcript a failure leaves no reason anywhere.
+try { Start-Transcript -LiteralPath (Join-Path $env:TEMP 'ControlSpawn-setup-helper.log') -Append | Out-Null } catch { Write-Warning "No helper log: $_" }
 function Invoke-Sc([string[]]$Arguments) {
     & "$env:SystemRoot/System32/sc.exe" @Arguments | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "sc.exe $($Arguments -join ' ') failed ($LASTEXITCODE)." }
@@ -53,14 +60,25 @@ function Stop-PrismService([string]$Name) {
         $service.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(90))
     }
 }
-function Stop-BundledOpenRgb {
-    # ServiceRuntime releases its handle without terminating OpenRGB. Remove only our copy.
-    $expected = Join-Path $InstallDir 'openrgb\OpenRGB.exe'
-    foreach ($process in @(Get-Process -Name OpenRGB -ErrorAction SilentlyContinue)) {
-        if ($process.Path -eq $expected) {
+function Stop-InstalledProcess([string]$Path) {
+    # Match the full path: only our copy, never another install or a same-named program.
+    $name = [IO.Path]::GetFileNameWithoutExtension($Path)
+    foreach ($process in @(Get-Process -Name $name -ErrorAction SilentlyContinue)) {
+        if ($process.Path -eq $Path) {
             Stop-Process -Id $process.Id -Force
-            if (!$process.WaitForExit(30000)) { throw 'Bundled OpenRGB did not exit.' }
+            if (!$process.WaitForExit(30000)) { throw "$name did not exit." }
         }
+    }
+}
+function Stop-BundledOpenRgb {
+    # ServiceRuntime releases its handle without terminating OpenRGB.
+    foreach ($root in $InstallDir, $legacyInstallDir) { Stop-InstalledProcess (Join-Path $root 'openrgb\OpenRGB.exe') }
+}
+function Stop-InstalledApp {
+    # Inno's CloseApplications left the tray app running on uninstall (app\ stayed locked on disk), and it can't see an app
+    # running from the old folder at all, because setup replaces no file there.
+    foreach ($root in $InstallDir, $legacyInstallDir) {
+        foreach ($executable in $appExe, $legacyAppExe) { Stop-InstalledProcess (Join-Path $root "app\$executable") }
     }
 }
 function Assert-OwnedService([string]$Name) {
@@ -69,7 +87,9 @@ function Assert-OwnedService([string]$Name) {
         # Builds before the split ran the service from $InstallDir itself; that is still ours and gets moved.
         # 1.0.0 lost the quotes when reinstalling (see Register-PrismService): accept that form so this setup can repair it.
         # Either key may point at either exe name: 1.0.0-1.0.2 installed Prism.Service.exe, 1.0.3 ControlSpawn.Service.exe.
-        $unquoted = @(foreach ($executable in $serviceExe, $legacyServiceExe) { (Join-Path $serviceDir $executable); (Join-Path $InstallDir $executable) })
+        $unquoted = @(foreach ($root in $InstallDir, $legacyInstallDir) {
+            foreach ($executable in $serviceExe, $legacyServiceExe) { (Join-Path $root "service\$executable"); (Join-Path $root $executable) }
+        })
         $ours = @($unquoted | ForEach-Object { '"' + $_ + '"' }) + $unquoted
         if ($image -notin $ours) { throw "Refusing to modify unrelated service $Name ($image)." }
     }
@@ -119,10 +139,10 @@ function Register-PrismService {
     Invoke-Sc @('failureflag',$serviceName,'1')
 }
 function Update-StartupShortcuts {
-    # 1.0.0-1.0.2 left "Control Spawn.lnk" pointing at app\Prism.App.exe, which [InstallDelete] removes. The app counts any
+    # Older versions left "Control Spawn.lnk" pointing into the old install folder, which setup removes. The app counts any
     # existing shortcut as "start with Windows", and UserStartup only runs when the tray option is ticked, so repoint it
     # here for every profile; remove it if it can't be rewritten. Only our own shortcut name pointing at our old exe.
-    $old = @((Join-Path $appDir $legacyAppExe), (Join-Path $InstallDir $legacyAppExe))
+    $old = @(foreach ($root in $InstallDir, $legacyInstallDir) { (Join-Path $root "app\$appExe"); (Join-Path $root "app\$legacyAppExe"); (Join-Path $root $legacyAppExe) })
     $shell = New-Object -ComObject WScript.Shell
     foreach ($entry in Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList') {
         $folder = (Get-ItemProperty $entry.PSPath).ProfileImagePath
@@ -141,11 +161,76 @@ function Update-StartupShortcuts {
         }
     }
 }
+function Remove-EmptySoftwareKey([string]$Name) {
+    # reg.exe, not Remove-Item: elevated PowerShell gets "Requested registry access is not allowed" on direct children of
+    # HKLM\SOFTWARE (live, 2026-11-04). An empty key is only a leftover name, so it never fails an install or an uninstall.
+    $key = "HKLM:\SOFTWARE\$Name"
+    if (!(Test-Path $key) -or @(Get-ChildItem $key).Count -or (Get-Item $key).ValueCount) { return }
+    & "$env:SystemRoot/System32/reg.exe" delete "HKLM\SOFTWARE\$Name" /f | Out-Host
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Could not remove $key ($LASTEXITCODE)." }
+}
+function Move-LegacyFolder([string]$From, [string]$To) {
+    if (!(Test-Path -LiteralPath $From)) { return }
+    if ((Get-Item -LiteralPath $From -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "$From must not be a reparse point." }
+    # The stopped service's fan guard can hold a log open for a moment after it hands the fans back.
+    for ($try = 1; ; $try++) {
+        try {
+            if (!(Test-Path -LiteralPath $To)) { Move-Item -LiteralPath $From -Destination $To; return }
+            # A retried setup: what is already in the new folder wins.
+            foreach ($child in Get-ChildItem -LiteralPath $From -Force) {
+                if (!(Test-Path -LiteralPath (Join-Path $To $child.Name))) { Move-Item -LiteralPath $child.FullName -Destination $To }
+            }
+            Remove-Item -LiteralPath $From -Recurse -Force
+            return
+        } catch { if ($try -ge 15) { throw }; Start-Sleep -Seconds 1 }
+    }
+}
+function Move-LegacyData {
+    Move-LegacyFolder $legacyData $data
+    $logs = Join-Path $data 'logs'
+    if (Test-Path -LiteralPath $logs) {
+        foreach ($log in Get-ChildItem -LiteralPath $logs -Filter 'prism-*.jsonl') { Rename-Item -LiteralPath $log.FullName -NewName ('controlspawn-' + $log.Name.Substring(6)) }
+    }
+    $state = "$legacyStateKey\Installer"
+    if (Test-Path $state) {
+        New-Item -Path $stateRoot -Force | Out-Null
+        if (Test-Path "$state\DisabledServices") { Copy-Item -Path "$state\DisabledServices" -Destination $stateRoot -Recurse -Force }
+        Remove-Item -Path $state -Recurse
+    }
+    Remove-EmptySoftwareKey $legacyName
+    # App settings and widgets of every profile, moved as admin so a user who isn't signed in keeps theirs too. Another
+    # program could own a folder called Prism, so only one holding nothing but our files moves.
+    $ours = 'settings.json*','widgets.json*','led-presets.json*','lamp.json*','app.log*','router'
+    foreach ($entry in Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList') {
+        $folder = (Get-ItemProperty $entry.PSPath).ProfileImagePath
+        if (!$folder) { continue }
+        foreach ($area in 'AppData\Roaming', 'AppData\Local') {
+            $from = Join-Path $folder "$area\$legacyName"
+            if (!(Test-Path -LiteralPath $from)) { continue }
+            $foreign = @(Get-ChildItem -LiteralPath $from -Force | Where-Object { $name = $_.Name; !($ours | Where-Object { $name -like $_ }) })
+            if ($foreign.Count) { Write-Warning "Leaving $from in place: it holds files that are not ours."; continue }
+            try { Move-LegacyFolder $from (Join-Path $folder "$area\$dataFolder") } catch { Write-Warning "Could not move $from ($_)." }
+        }
+    }
+}
+function Remove-LegacyInstall {
+    # Runs last, once the new install works: until then the old folder is the way back. Only a folder our setup made.
+    if ($legacyInstallDir -eq $InstallDir -or !(Test-Path -LiteralPath $legacyInstallDir)) { return }
+    if (!(Test-Path -LiteralPath (Join-Path $legacyInstallDir 'unins000.dat')) -or !(Test-Path -LiteralPath (Join-Path $legacyInstallDir 'package-manifest.json'))) { Write-Warning "Leaving $legacyInstallDir in place: not a Control Spawn install."; return }
+    if ((Get-Item -LiteralPath $legacyInstallDir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'The old install folder must not be a reparse point.' }
+    if (@(Get-ChildItem -LiteralPath $legacyInstallDir -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) { throw 'The old install folder contains a reparse point.' }
+    if ([Diagnostics.EventLog]::SourceExists($legacyName)) { Remove-EventLog -Source $legacyName }
+    for ($try = 1; ; $try++) {
+        try { Remove-Item -LiteralPath $legacyInstallDir -Recurse -Force; return }
+        catch { if ($try -ge 15) { Write-Warning "Could not remove $legacyInstallDir ($_)."; return }; Start-Sleep -Seconds 1 }
+    }
+}
 try {
     Assert-OwnedService $legacyServiceName
     Assert-OwnedService $serviceName
     if ($Mode -eq 'Prepare') {
         # Both keys: an upgrade from 1.0.0-1.0.2 still runs as "Prism". The graceful stop is what hands the fans back.
+        Stop-InstalledApp
         Stop-PrismService $serviceName
         Stop-PrismService $legacyServiceName
         Stop-BundledOpenRgb
@@ -155,9 +240,10 @@ try {
         foreach ($required in @("service/$serviceExe",'service/ControlSpawn.FanGuard.exe',"app/$appExe",'openrgb/OpenRGB.exe','dependencies/PawnIO_setup.exe')) {
             if (!(Test-Path -LiteralPath (Join-Path $InstallDir $required))) { throw "Missing payload: $required" }
         }
+        Move-LegacyData
         New-Item -ItemType Directory -Force -Path $data | Out-Null
-        if ((Get-Item -LiteralPath $data).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'ProgramData/Prism must not be a reparse point.' }
-        if (@(Get-ChildItem -LiteralPath $data -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) { throw 'ProgramData/Prism contains a reparse point.' }
+        if ((Get-Item -LiteralPath $data).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'The settings folder must not be a reparse point.' }
+        if (@(Get-ChildItem -LiteralPath $data -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) { throw 'The settings folder contains a reparse point.' }
         # Settings can launch an executable as SYSTEM: users receive read access, not write.
         $acl = New-Object Security.AccessControl.DirectorySecurity
         $acl.SetAccessRuleProtection($true, $false)
@@ -169,7 +255,7 @@ try {
         Set-Acl -LiteralPath $data -AclObject $acl
         foreach ($child in Get-ChildItem -LiteralPath $data -Force) {
             & "$env:SystemRoot/System32/icacls.exe" $child.FullName '/reset' '/T' '/Q'
-            if ($LASTEXITCODE -ne 0) { throw 'Failed to secure ProgramData/Prism children.' }
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to secure the settings folder.' }
         }
         New-Item -Path "$stateRoot/DisabledServices" -Force | Out-Null
         $settings = Join-Path $data 'settings.json'
@@ -212,14 +298,14 @@ try {
             Stop-PrismService $name
             Set-Service -Name $name -StartupType Disabled
         }
-        # The service gives commands only to the app whose hashes are recorded here (PipeClientVerifier). ProgramData/Prism
+        # The service gives commands only to the app whose hashes are recorded here (PipeClientVerifier). The settings folder
         # is writable by administrators and SYSTEM only (set above), so a user can't swap in another app.
         $identity = Join-Path $data 'install'
         New-Item -ItemType Directory -Force -Path $identity | Out-Null
         $hashes = @{}
         foreach ($name in @($appExe, 'ControlSpawn.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $appDir $name) -Algorithm SHA256).Hash }
         $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $identity 'app-hashes.json') -Encoding UTF8
-        if (-not [Diagnostics.EventLog]::SourceExists('Prism')) { New-EventLog -LogName Application -Source Prism }
+        if (-not [Diagnostics.EventLog]::SourceExists($eventSource)) { New-EventLog -LogName Application -Source $eventSource }
         # Move a 1.0.0-1.0.2 install to the new key. Prepare already stopped it gracefully; this stops it again if needed.
         Remove-PrismService $legacyServiceName
         # The fan guard is not a service: the service starts ControlSpawn.FanGuard.exe itself before any fan write.
@@ -229,9 +315,11 @@ try {
             Start-Service $serviceName
             (Get-Service $serviceName).WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
         }
+        Remove-LegacyInstall
         if ($reboot) { exit 3010 }
     }
     if ($Mode -eq 'Uninstall') {
+        Stop-InstalledApp
         Stop-PrismService $serviceName
         Stop-PrismService $legacyServiceName
         Stop-BundledOpenRgb
@@ -241,7 +329,7 @@ try {
         # Remove matching Run entries in loaded user hives, including an alternate original user.
         foreach ($sid in [Microsoft.Win32.Registry]::Users.GetSubKeyNames()) {
             $key = [Microsoft.Win32.Registry]::Users.OpenSubKey("$sid\$runKey", $true)
-            $legacy = @(('"' + (Join-Path $InstallDir $legacyAppExe) + '" --tray'), ('"' + (Join-Path $appDir $legacyAppExe) + '" --tray'))
+            $legacy = @(foreach ($root in $InstallDir, $legacyInstallDir) { foreach ($exe in $legacyAppExe, "app\$legacyAppExe", "app\$appExe") { '"' + (Join-Path $root $exe) + '" --tray' } })
             if ($key) { try { if ($key.GetValue('Prism') -in @($startupCommand) + $legacy) { $key.DeleteValue('Prism') } } finally { $key.Dispose() } }
             $approved = [Microsoft.Win32.Registry]::Users.OpenSubKey("$sid\$approvedKey", $true)
             if ($approved) { try { $approved.DeleteValue('Prism', $false) } finally { $approved.Dispose() } }
@@ -252,12 +340,14 @@ try {
             if (Test-Path -LiteralPath $link) { Remove-Item -LiteralPath $link }
         }
         if ($RemoveSettings -and (Test-Path -LiteralPath $data)) {
-            $expected = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'Prism'))
+            $expected = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) $dataFolder))
             if ($data -ne $expected -or (Get-Item -LiteralPath $data).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unsafe settings removal path.' }
             if (@(Get-ChildItem -LiteralPath $data -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) { throw 'Settings contain a reparse point; refusing recursive removal.' }
             Remove-Item -LiteralPath $data -Recurse -Force
         }
         if (Test-Path $stateRoot) { Remove-Item -LiteralPath $stateRoot -Recurse }
+        Remove-EmptySoftwareKey 'ControlSpawn'
+        if ([Diagnostics.EventLog]::SourceExists($eventSource)) { Remove-EventLog -Source $eventSource }
         # PawnIO is shared with other hardware software and is deliberately retained.
     }
 } catch {

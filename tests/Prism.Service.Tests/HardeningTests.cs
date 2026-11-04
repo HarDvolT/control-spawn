@@ -78,7 +78,7 @@ public sealed class HardeningTests
     [Fact]
     public void ConsoleMigrationIncludesDisabledDevicesAndRouterSession()
     {
-        using var box = new Sandbox(); var old = box.File("Prism"); Directory.CreateDirectory(Path.Combine(old, "router"));
+        using var box = new Sandbox(); var old = box.File(Prism.Core.ProductNames.DataFolder); Directory.CreateDirectory(Path.Combine(old, "router"));
         foreach (var name in new[] { "lamp.json", "lamp.json.123", "router/credentials.json", "router/session.json" })
             File.WriteAllText(Path.Combine(old, name), "{\"dpapi\":\"AQID\"}");
         var store = Store(box.File("machine")); Assert.True(SecretMigration.Run(box.Directory, store));
@@ -195,17 +195,17 @@ public sealed class HardeningTests
     public void LogsRollRetainSevenDaysCapSizeAndOmitExceptionText()
     {
         using var box = new Sandbox(); var now = new DateTimeOffset(2026, 10, 29, 12, 0, 0, TimeSpan.Zero);
-        File.WriteAllText(box.File("prism-2026-10-22.jsonl"), "expired");
-        File.WriteAllText(box.File("prism-2026-10-23.jsonl"), "retained");
+        File.WriteAllText(box.File("controlspawn-2026-10-22.jsonl"), "expired");
+        File.WriteAllText(box.File("controlspawn-2026-10-23.jsonl"), "retained");
         var errors = new List<string>(); using var provider = new RollingLogProvider(box.Directory, () => now, errors.Add);
         var logger = provider.CreateLogger("fans"); using var scope = logger.BeginScope("fans");
         logger.LogError(new IOException("fixture-secret"), "BIOS handoff failed");
-        var path = box.File("prism-2026-10-29.jsonl"); var text = File.ReadAllText(path);
+        var path = box.File("controlspawn-2026-10-29.jsonl"); var text = File.ReadAllText(path);
         Assert.Contains("fans", text); Assert.DoesNotContain("fixture-secret", text); Assert.Single(errors);
-        Assert.False(File.Exists(box.File("prism-2026-10-22.jsonl"))); Assert.True(File.Exists(box.File("prism-2026-10-23.jsonl")));
+        Assert.False(File.Exists(box.File("controlspawn-2026-10-22.jsonl"))); Assert.True(File.Exists(box.File("controlspawn-2026-10-23.jsonl")));
         using (var file = File.OpenWrite(path)) file.SetLength(10 * 1024 * 1024);
         logger.LogInformation("At cap"); Assert.Equal(10 * 1024 * 1024, new FileInfo(path).Length);
-        now = now.AddDays(1); logger.LogInformation("Next day"); Assert.True(File.Exists(box.File("prism-2026-10-30.jsonl")));
+        now = now.AddDays(1); logger.LogInformation("Next day"); Assert.True(File.Exists(box.File("controlspawn-2026-10-30.jsonl")));
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public sealed class HardeningTests
             Assert.Null(PipeClientVerifier.DevAppBesideBuild(service));
             File.WriteAllText(Path.Combine(appDir, "ControlSpawn.exe"), "");
             Assert.Equal(Path.Combine(appDir, "ControlSpawn.exe"), PipeClientVerifier.DevAppBesideBuild(service + Path.DirectorySeparatorChar));
-            Assert.Null(PipeClientVerifier.DevAppBesideBuild(Directory.CreateDirectory(Path.Combine(root, "Program Files", "Prism")).FullName));   // installed
+            Assert.Null(PipeClientVerifier.DevAppBesideBuild(Directory.CreateDirectory(Path.Combine(root, "Program Files", "Control Spawn")).FullName));   // installed
         }
         finally { Directory.Delete(root, true); }
     }
@@ -229,7 +229,7 @@ public sealed class HardeningTests
     [Fact]
     public void AnInstalledServiceLooksForTheAppInTheAppFolderBesideIt()
     {
-        var root = Path.Combine("C:" + Path.DirectorySeparatorChar, "Program Files", "Prism");
+        var root = Path.Combine("C:" + Path.DirectorySeparatorChar, "Program Files", "Control Spawn");
         var expected = Path.GetFullPath(Path.Combine(root, "app"));
         Assert.Equal(expected, PipeClientVerifier.InstalledAppDirectory(Path.Combine(root, "service")));
         Assert.Equal(expected, PipeClientVerifier.InstalledAppDirectory(Path.Combine(root, "service") + Path.DirectorySeparatorChar));

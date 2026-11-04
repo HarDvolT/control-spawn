@@ -178,7 +178,7 @@ public sealed class PingMonitor : IDisposable
         _thread = new Thread(Loop)
         {
             IsBackground = true,
-            Name = "Prism ping monitor",
+            Name = "Control Spawn ping monitor",
         };
         _thread.Start();
     }

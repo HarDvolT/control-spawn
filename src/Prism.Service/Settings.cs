@@ -173,7 +173,7 @@ public interface ISettingsStore
 }
 public sealed class JsonSettingsStore(string? path = null) : ISettingsStore
 {
-    private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "settings.json");
+    private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Prism.Core.ProductNames.DataFolder, "settings.json");
     public string? HealthWarning { get; private set; }
     public ServiceSettings Load()
     {

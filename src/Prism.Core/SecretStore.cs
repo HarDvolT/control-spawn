@@ -25,7 +25,7 @@ public sealed class MachineSecretEncryption : ISecretEncryption
 /// <summary>Service-owned machine secrets. All filesystem access is lazy; callers own returned plaintext.</summary>
 public sealed class SecretStore(string? directory = null, ISecretEncryption? encryption = null, Action<string>? secureDirectory = null)
 {
-    public static string DefaultDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "secrets");
+    public static string DefaultDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Prism.Core.ProductNames.DataFolder, "secrets");
     private readonly string directory = directory ?? DefaultDirectory;
     private readonly ISecretEncryption encryption = encryption ?? new MachineSecretEncryption();
     private readonly Action<string> secureDirectory = secureDirectory ?? SecureDirectory;

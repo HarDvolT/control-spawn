@@ -6,7 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>Prism.Router</RootNamespace>
-    <AssemblyName>Prism.Router</AssemblyName>
     <IsPackable>false</IsPackable>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
