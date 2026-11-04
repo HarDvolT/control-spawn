@@ -22,7 +22,7 @@ public partial class App : Application
         _client = options.Mock ? new MockPrismClient() : new PipePrismClient();
         _widgets = new DesktopWidgetHost();
         // Mock mode cannot write to the Windows startup registry.
-        IStartupRegistry startup = options.Mock ? new InMemoryStartupRegistry() : new RegistryStartup();
+        IStartupRegistry startup = options.Mock ? new InMemoryStartupRegistry() : new ShortcutStartup();
         var vm = new MainViewModel(_client, settings, store, startup, new WidgetLayoutStore(), _widgets);
         _widgets.ViewModel = vm.Widgets;
         var window = new MainWindow(vm);
