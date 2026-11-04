@@ -141,7 +141,7 @@ public sealed class ServiceTests
             new SensorReading("/cpu/load/1", "CPU Core #1", SensorCategory.Cpu, "Load", "%", null),
             new SensorReading("/cpu/temperature/0", "CPU Tctl", SensorCategory.Cpu, "Temperature", "C", 49),
             new SensorReading("/ram/data/0", "Memory Used", SensorCategory.Memory, "Data", "GiB", 12),
-            new SensorReading("prism/ram/total", "Memory Total", SensorCategory.Memory, "Data", "GiB", 32),
+            new SensorReading("controlspawn/ram/total", "Memory Total", SensorCategory.Memory, "Data", "GiB", 32),
             new SensorReading("/board/fan/1", "Fan #2", SensorCategory.Motherboard, "Fan", "rpm", null),
             new SensorReading("/board/fan/5", "Fan #6", SensorCategory.Motherboard, "Fan", "rpm", 0)
         };

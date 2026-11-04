@@ -11,7 +11,7 @@ namespace Prism.Core.Ipc;
 /// </summary>
 public static class PipeContract
 {
-    public const string PipeName = "prism";
+    public const string PipeName = "controlspawn";
     public const int ProtocolVersion = 1;
 
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)

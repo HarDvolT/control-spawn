@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
-  <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><OutputType>Exe</OutputType><AssemblyTitle>Control Spawn Hardware Service</AssemblyTitle><ApplicationIcon>..\Prism.App\Assets\ControlSpawn.ico</ApplicationIcon></PropertyGroup>
+  <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><OutputType>Exe</OutputType><AssemblyName>ControlSpawn.Service</AssemblyName><AssemblyTitle>Control Spawn Hardware Service</AssemblyTitle><ApplicationIcon>..\Prism.App\Assets\ControlSpawn.ico</ApplicationIcon></PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
@@ -7,5 +7,14 @@
     <ProjectReference Include="../Prism.Hardware/Prism.Hardware.csproj" />
     <ProjectReference Include="../Prism.Lighting/Prism.Lighting.csproj" />
     <ProjectReference Include="../Prism.Router/Prism.Router.csproj" />
+    <!-- Build order only: the fan guard is a separate exe the service starts, not a library it loads. -->
+    <ProjectReference Include="../Prism.FanGuard/Prism.FanGuard.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
+  <!-- FanGuardProcess starts the guard from the service's own folder, so a build (Debug, tests, try-live.ps1) gets a copy.
+       A publish (-r win-x64) skips this: build/publish.ps1 publishes the guard into service\ itself. -->
+  <Target Name="CopyFanGuardBesideService" AfterTargets="Build" Condition="'$(RuntimeIdentifier)' == ''">
+    <ItemGroup><FanGuardOutput Include="$(MSBuildThisFileDirectory)../Prism.FanGuard/bin/$(Configuration)/$(TargetFramework)/ControlSpawn.FanGuard.*" /></ItemGroup>
+    <Error Condition="'@(FanGuardOutput)' == ''" Text="ControlSpawn.FanGuard was not built; the service would start without a fan guard." />
+    <Copy SourceFiles="@(FanGuardOutput)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

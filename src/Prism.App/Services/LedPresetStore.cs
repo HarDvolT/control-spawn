@@ -6,7 +6,7 @@ namespace Prism.App.Services;
 public sealed record LedPreset(string Device, string Name, string Layer, string[] Colors);
 public sealed class LedPresetStore(string? path = null)
 {
-    private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Prism", "led-presets.json");
+    private readonly string path = path ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Prism.Core.ProductNames.DataFolder, "led-presets.json");
     public List<LedPreset> Load()
     {
         var result = File.Exists(path) ? JsonSerializer.Deserialize<List<LedPreset>>(File.ReadAllText(path), PipeContract.Json) ?? [] : [];

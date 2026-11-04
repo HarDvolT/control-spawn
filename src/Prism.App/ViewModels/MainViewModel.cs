@@ -233,7 +233,7 @@ public sealed class MainViewModel : ObservableObject
         if (!IsConnected)
         {
             StatusText = "Service not running";
-            BannerText = "Service not running — showing the last known values. Start Prism.Service to control the hardware.";
+            BannerText = "Service not running — showing the last known values. Start the Control Spawn Hardware Service to control the hardware.";
         }
         OnPropertiesChanged(nameof(ShowBanner), nameof(StatusText), nameof(BannerText));
     }

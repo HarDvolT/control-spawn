@@ -8,7 +8,7 @@ $out = Join-Path $root 'docs\live-fan-test.txt'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\Prism.Service.exe'
+$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\ControlSpawn.Service.exe'
 $p = Start-Process $exe -ArgumentList '--console', '--exit-after', '60' -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $env:TEMP 'prism-fan-test.log')
 "Fan test $(Get-Date)" | Out-File $out -Encoding utf8
 try {

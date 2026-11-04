@@ -7,7 +7,7 @@ namespace Prism.Service;
 
 public sealed class RollingLogProvider(string? directory = null, Func<DateTimeOffset>? now = null, Action<string>? eventError = null) : ILoggerProvider, ISupportExternalScope
 {
-    private readonly string directory = directory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Prism", "logs");
+    private readonly string directory = directory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Prism.Core.ProductNames.DataFolder, "logs");
     private readonly Func<DateTimeOffset> now = now ?? (() => DateTimeOffset.UtcNow);
     private readonly Action<string> eventError = eventError ?? WriteEvent;
     private readonly object gate = new();
@@ -18,7 +18,7 @@ public sealed class RollingLogProvider(string? directory = null, Func<DateTimeOf
     private static void WriteEvent(string message)
     {
         if (!OperatingSystem.IsWindows()) return;
-        try { EventLog.WriteEntry("Prism", message, EventLogEntryType.Error); }
+        try { EventLog.WriteEntry(Prism.Core.ProductNames.EventSource, message, EventLogEntryType.Error); }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or System.Security.SecurityException) { }
     }
     private void Write(string category, LogLevel level, string message)
@@ -32,10 +32,11 @@ public sealed class RollingLogProvider(string? directory = null, Func<DateTimeOf
             try
             {
                 Directory.CreateDirectory(directory);
-                foreach (var file in Directory.GetFiles(directory, "prism-*.jsonl"))
-                    if (DateTime.TryParseExact(Path.GetFileNameWithoutExtension(file)[6..], "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                const string Prefix = "controlspawn-";
+                foreach (var file in Directory.GetFiles(directory, Prefix + "*.jsonl"))
+                    if (DateTime.TryParseExact(Path.GetFileNameWithoutExtension(file)[Prefix.Length..], "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
                         System.Globalization.DateTimeStyles.None, out var date) && date.Date < time.UtcDateTime.Date.AddDays(-6)) File.Delete(file);
-                var path = Path.Combine(directory, $"prism-{time:yyyy-MM-dd}.jsonl");
+                var path = Path.Combine(directory, $"{Prefix}{time:yyyy-MM-dd}.jsonl");
                 int bytes = Encoding.UTF8.GetByteCount(line);
                 if (bytes <= 10 * 1024 * 1024 && (!File.Exists(path) || new FileInfo(path).Length + bytes <= 10 * 1024 * 1024)) File.AppendAllText(path, line, new UTF8Encoding(false));
             }

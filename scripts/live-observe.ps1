@@ -1,4 +1,4 @@
-# Live read-only check: starts Prism.Service with --observe (real sensors, NO fan/RGB/lamp writes),
+# Live read-only check: starts the service (ControlSpawn.Service.exe) with --observe (real sensors, NO fan/RGB/lamp writes),
 # reads two state snapshots over the pipe, saves them, then stops the service.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -6,7 +6,7 @@ $out = Join-Path $root 'docs\live-observe.json'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\Prism.Service.exe'
+$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\ControlSpawn.Service.exe'
 $log = Join-Path $env:TEMP 'prism-observe.log'
 $p = Start-Process $exe -ArgumentList '--observe' -PassThru -WindowStyle Hidden -RedirectStandardOutput $log
 try {

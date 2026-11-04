@@ -249,7 +249,7 @@ public sealed class WidgetLayoutStore
     }
 
     public static string DefaultPath => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Prism", "widgets.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Prism.Core.ProductNames.DataFolder, "widgets.json");
 
     public string FilePath { get; }
 

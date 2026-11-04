@@ -56,7 +56,7 @@ public sealed class ShortcutStartup : IStartupRegistry
     }
 
     private static string DefaultExecutablePath() =>
-        Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "Prism.App.exe");
+        Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, Prism.Core.ProductNames.AppExe);
 }
 
 /// <summary>In-memory implementation for tests and mock mode.</summary>
@@ -68,6 +68,6 @@ public sealed class InMemoryStartupRegistry : IStartupRegistry
     public void SetEnabled(bool enabled, bool minimizedToTray)
     {
         IsEnabled = enabled;
-        LastCommand = enabled ? StartupCommand.Build(@"C:\Apps\Prism.App.exe", minimizedToTray) : null;
+        LastCommand = enabled ? StartupCommand.Build(@"C:\Apps\ControlSpawn.exe", minimizedToTray) : null;
     }
 }
