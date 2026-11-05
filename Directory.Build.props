@@ -9,7 +9,7 @@
     <Product>Control Spawn</Product>
     <!-- Task Manager shows FileDescription (AssemblyTitle) and CompanyName; without these .NET falls back to the assembly name. -->
     <Company>Control Spawn</Company>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
   </PropertyGroup>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Prism.Core' Or '$(MSBuildProjectName)' == 'Prism.Hardware' Or '$(MSBuildProjectName)' == 'Prism.Lighting' Or '$(MSBuildProjectName)' == 'Prism.Router' Or '$(MSBuildProjectName)' == 'Prism.Service' Or '$(MSBuildProjectName)' == 'Prism.FanGuard'">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
