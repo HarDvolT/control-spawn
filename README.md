@@ -8,9 +8,11 @@
 Fans, case RGB, Mi Home lamps, the air fryer and the 5G router, in one app.
 It replaces ASUS Armoury Crate and Corsair iCUE.
 
-[![Version](https://img.shields.io/badge/version-1.0.3-FF4D1A)](https://github.com/HarDvolT/control-spawn/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.0.4-FF4D1A)](https://github.com/HarDvolT/control-spawn/releases/latest)
 [![Platform](https://img.shields.io/badge/Windows%2011-x64-0078D4)](#requirements)
-[![.NET](https://img.shields.io/badge/.NET-8-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
+[![Licence](https://img.shields.io/badge/licence-MPL--2.0-brightgreen)](LICENSE)
+[![CI](https://github.com/HarDvolT/control-spawn/actions/workflows/ci.yml/badge.svg)](https://github.com/HarDvolT/control-spawn/actions/workflows/ci.yml)
 
 ### [⬇ Download ControlSpawnSetup.exe](https://github.com/HarDvolT/control-spawn/releases/latest)
 
@@ -19,6 +21,8 @@ It replaces ASUS Armoury Crate and Corsair iCUE.
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="Dashboard: scenes, CPU and GPU, lighting, fans, lamps, internet and air fryer">
 </p>
+
+> **Early project.** It was built on one PC, an ASUS ROG STRIX B850-F, and that's the only board with fan control today. On any other board, the app reads sensors and leaves your fans to the BIOS. Some labels, such as "Radiator", still assume that PC. [Help get your board verified](CONTRIBUTING.md).
 
 ---
 
@@ -33,6 +37,8 @@ It replaces ASUS Armoury Crate and Corsair iCUE.
 - [Build from source](#build-from-source)
 - [Project layout](#project-layout)
 - [Third-party software](#third-party-software)
+- [Contributing](#contributing)
+- [Licence](#licence)
 
 ## What it does
 
@@ -116,6 +122,7 @@ Versions before 1.0.3 used the Prism name for their exes, service key and folder
 
 ## Safety
 
+- Fan control only runs on verified boards. On other boards, the app never writes to your fans.
 - The AIO pump always runs at 100%. It can't be changed from the app.
 - If the CPU or GPU reaches 90 °C, or the sensors fail three times in a row, every fan goes to 100%.
 - No fan setting goes below its minimum.
@@ -125,7 +132,7 @@ Versions before 1.0.3 used the Prism name for their exes, service key and folder
 
 ## Build from source
 
-You need the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```powershell
 dotnet build Prism.sln -c Debug
@@ -135,7 +142,7 @@ dotnet test Prism.sln -c Debug
 Run the service with fake hardware, then start the app and it connects to it:
 
 ```powershell
-src\Prism.Service\bin\Debug\net8.0-windows\ControlSpawn.Service.exe --mock --console
+src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe --mock --console
 ```
 
 Build the installer (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php)). It downloads OpenRGB and PawnIO, checks their hashes against `build/dependencies.json`, and writes `build/out/ControlSpawnSetup.exe`:
@@ -169,5 +176,13 @@ The installer bundles, unmodified:
 - **[PawnIO 2.2.0](https://github.com/namazso/PawnIO.Setup/releases/tag/2.2.0)**, the signed driver LibreHardwareMonitor uses for sensors and fans. It is shared with other apps, so uninstalling Control Spawn leaves it in place.
 
 Full notices: [installer/THIRD-PARTY-NOTICES.txt](installer/THIRD-PARTY-NOTICES.txt).
+
+## Contributing
+
+Help is welcome, and you don't need special hardware. See [CONTRIBUTING.md](CONTRIBUTING.md). Please report security problems privately, as [SECURITY.md](SECURITY.md) explains.
+
+## Licence
+
+Control Spawn is licensed under the [Mozilla Public License 2.0](LICENSE). Bundled components keep their own licences.
 
 Not affiliated with ASUS, Corsair, Xiaomi, Yeelight, Careli or ZLT.

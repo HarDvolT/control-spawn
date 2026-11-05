@@ -1,0 +1,30 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Control Spawn version
+      placeholder: "1.0.4"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: pc
+    attributes:
+      label: Your PC
+      description: Motherboard, CPU, GPU, and any RGB or fan software you also run.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Attach the newest log from C:\ProgramData\Control Spawn. Check it for anything private first.

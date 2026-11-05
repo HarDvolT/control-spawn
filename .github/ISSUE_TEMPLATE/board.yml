@@ -1,0 +1,30 @@
+name: My board
+description: Help us support your motherboard
+title: "Board: "
+labels: [hardware]
+body:
+  - type: markdown
+    attributes:
+      value: Fan control stays off on boards we haven't verified, so reporting yours is safe.
+  - type: input
+    id: board
+    attributes:
+      label: Motherboard
+      description: "To find it, run this in PowerShell: Get-CimInstance Win32_BaseBoard | Select Manufacturer, Product"
+    validations:
+      required: true
+  - type: textarea
+    id: fans
+    attributes:
+      label: What's plugged into each fan header
+      placeholder: |
+        CPU_FAN: radiator
+        AIO_PUMP: pump
+        CHA_FAN1: rear fan
+    validations:
+      required: true
+  - type: textarea
+    id: sensors
+    attributes:
+      label: What the app shows
+      description: Do temperatures and fan speeds look right? A screenshot of the Monitor page helps.

@@ -6,6 +6,7 @@ public sealed partial class ServiceRuntime
 {
     private sealed class FanModule(ServiceRuntime runtime) : HostedModule("fans", ok => runtime.ModuleHealth("fans", ok))
     {
+        private const string ReadOnlyWarning = "Fan control is off: this board hasn't been verified yet, so your BIOS keeps control of the fans.";
         protected override async Task ExecuteAsync(CancellationToken token)
         {
             var previous = runtime.clock.Elapsed;
@@ -17,6 +18,8 @@ public sealed partial class ServiceRuntime
                     HardwareSnapshot next; TimeSpan cycle;
                     lock (runtime.stateGate) { next = runtime.snapshot; cycle = runtime.sensorCycle; }
                     if (cycle < TimeSpan.Zero) continue; // No software writes until sensors and the watchdog are ready.
+                    if (runtime.controls.Headers.Count == 0) runtime.warnings["fans-readonly"] = ReadOnlyWarning;
+                    else runtime.warnings.TryRemove("fans-readonly", out _);
                     if (runtime.enableFanGuard)
                     {
                         runtime.fanGuard ??= new(() => new FanGuardProcess());
