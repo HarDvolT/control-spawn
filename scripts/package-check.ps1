@@ -1,6 +1,6 @@
 # Static inspection only: no application, service or dependency is executed.
 [CmdletBinding()]
-param([string]$OutputPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'build/out/Prism'))
+param([string]$OutputPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'build/out/ControlSpawn'))
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 if (!(Test-Path -LiteralPath $OutputPath -PathType Container)) { throw "Package output missing: $OutputPath. Run build/publish.ps1 first." }
@@ -72,7 +72,7 @@ function Get-PeImports([string]$Path) {
 # Windows 11 inbox DLLs only. In particular, MSVC redistributable DLLs are NOT assumed installed.
 $inbox = @('advapi32.dll','authz.dll','avrt.dll','bcrypt.dll','bcryptprimitives.dll','cabinet.dll','cfgmgr32.dll','clbcatq.dll','combase.dll','comctl32.dll','comdlg32.dll','credui.dll','crypt32.dll','cryptbase.dll','cryptnet.dll','cryptsp.dll','d2d1.dll','d3d9.dll','d3d11.dll','d3d12.dll','dcomp.dll','dbghelp.dll','dhcpcsvc.dll','dnsapi.dll','dsound.dll','dwmapi.dll','dwrite.dll','dxgi.dll','dxva2.dll','gdi32.dll','glu32.dll','hid.dll','imm32.dll','iphlpapi.dll','kernel32.dll','kernelbase.dll','ksuser.dll','mpr.dll','msacm32.dll','mscoree.dll','msimg32.dll','msvcrt.dll','mswsock.dll','ncrypt.dll','netapi32.dll','normaliz.dll','ntdll.dll','ntmarta.dll','ole32.dll','oleacc.dll','oleaut32.dll','opengl32.dll','pdh.dll','powrprof.dll','profapi.dll','propsys.dll','psapi.dll','rasapi32.dll','rpcrt4.dll','secur32.dll','setupapi.dll','shcore.dll','shell32.dll','shlwapi.dll','srvcli.dll','sspicli.dll','ucrtbase.dll','uiautomationcore.dll','urlmon.dll','user32.dll','userenv.dll','usp10.dll','uxtheme.dll','version.dll','wevtapi.dll','win32u.dll','windowscodecs.dll','winhttp.dll','wininet.dll','winmm.dll','winscard.dll','winspool.drv','winsta.dll','wintrust.dll','wlanapi.dll','wldap32.dll','ws2_32.dll','wtsapi32.dll','wscapi.dll','winusb.dll')
 # OpenRGB's release ZIP leaves out the Visual C++ runtime and expects it installed; the installer checks for it and points
-# to Microsoft's download when it's missing. Prism's own folders must stay free of it.
+# to Microsoft's download when it's missing. Control Spawn's own folders must stay free of it.
 $missing = @()
 $vcRuntime = @('vcruntime140.dll','vcruntime140_1.dll','msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll','msvcp140_atomic_wait.dll','msvcp140_codecvt_ids.dll','concrt140.dll','vccorlib140.dll')
 foreach ($file in $files | Where-Object { $_.Extension -in '.dll','.exe' -and $_.FullName -notlike "$OutputPath\dependencies\*" }) {

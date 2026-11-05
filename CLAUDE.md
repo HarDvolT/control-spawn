@@ -1,28 +1,28 @@
-# Control Spawn (code name Prism)
+# Control Spawn
 
-One Windows control centre for a gaming PC and its room: fans, case RGB, Mi Home lamps, an air fryer and the 5G router. It replaces ASUS Armoury Crate and Corsair iCUE. The product name is **Control Spawn**; the source code (namespaces, project folders) still says **Prism**, but nothing on an installed PC does.
+One Windows control centre for a gaming PC and its room: fans, case RGB, Mi Home lamps, an air fryer and the 5G router. It replaces ASUS Armoury Crate and Corsair iCUE.
 
 ## Layout
 
-C# .NET 10 solution `Prism.sln`:
+C# .NET 10 solution `ControlSpawn.sln`:
 
-- `src/Prism.Core`: IPC contract (`Ipc/PipeContract.cs`), shared models.
-- `src/Prism.Hardware`: LibreHardwareMonitor sensors and fan control.
-- `src/Prism.Lighting`: OpenRGB client (TCP 6742), effects (`SpatialEffects.cs`), sensor lighting (`SensorLighting.cs`), Mi Home and Yeelight lamps.
-- `src/Prism.Router`: ZLT router client.
-- `src/Prism.Service`: background service (runs as admin or LocalSystem), named pipe `controlspawn`, lighting loop, automations. Builds `ControlSpawn.Service.exe`; Windows service key `ControlSpawn`.
-- `src/Prism.FanGuard`: `ControlSpawn.FanGuard.exe`, the fan watchdog the service starts as a child process (never a Windows service). A build copies it beside the service exe.
-- `src/Prism.App`: `ControlSpawn.exe`, WPF app, "Graphite HUD" dark theme (`Themes/Prism.xaml`, accent `#FF4D1A`, Segoe UI Variable), desktop widgets, tray.
-- `tests/*`: xUnit tests (about 508), plus `tests/Prism.App.Tests/Preview`, an offscreen renderer for app pages.
+- `src/ControlSpawn.Core`: IPC contract (`Ipc/PipeContract.cs`), shared models.
+- `src/ControlSpawn.Hardware`: LibreHardwareMonitor sensors and fan control.
+- `src/ControlSpawn.Lighting`: OpenRGB client (TCP 6742), effects (`SpatialEffects.cs`), sensor lighting (`SensorLighting.cs`), Mi Home and Yeelight lamps.
+- `src/ControlSpawn.Router`: ZLT router client.
+- `src/ControlSpawn.Service`: background service (runs as admin or LocalSystem), named pipe `controlspawn`, lighting loop, automations. Builds `ControlSpawn.Service.exe`; Windows service key `ControlSpawn`.
+- `src/ControlSpawn.FanGuard`: `ControlSpawn.FanGuard.exe`, the fan watchdog the service starts as a child process (never a Windows service). A build copies it beside the service exe.
+- `src/ControlSpawn.App`: `ControlSpawn.exe`, WPF app, "Graphite HUD" dark theme (`Themes/ControlSpawn.xaml`, accent `#FF4D1A`, Segoe UI Variable), desktop widgets, tray.
+- `tests/*`: xUnit tests (about 508), plus `tests/ControlSpawn.App.Tests/Preview`, an offscreen renderer for app pages.
 - `docs/`: design (`DESIGN-LANGUAGE.md`, `design-v2/`), hardware notes (`HARDWARE.md`), briefs and status reports.
 - `installer/`, `build/publish.ps1`: Inno Setup installer and self-contained publish.
 
 ## Working rules
 
-- Build and test in **Debug**: `dotnet build Prism.sln -c Debug` (0 warnings expected) and `dotnet test Prism.sln -c Debug`. The owner's live app runs from `bin\Release`, so Release files may be locked.
+- Build and test in **Debug**: `dotnet build ControlSpawn.sln -c Debug` (0 warnings expected) and `dotnet test ControlSpawn.sln -c Debug`. The owner's live app runs from `bin\Release`, so Release files may be locked.
 - Look at UI changes with the preview tool, then open the PNG it writes:
-  `dotnet run --project tests/Prism.App.Tests/Preview -c Debug -- <outdir> --v2 --page=Lighting`
-- Run the service without hardware: `src/Prism.Service/bin/Debug/net10.0-windows/ControlSpawn.Service.exe --mock --console`; the app connects to it.
+  `dotnet run --project tests/ControlSpawn.App.Tests/Preview -c Debug -- <outdir> --v2 --page=Lighting`
+- Run the service without hardware: `src/ControlSpawn.Service/bin/Debug/net10.0-windows/ControlSpawn.Service.exe --mock --console`; the app connects to it.
 - Live hardware runs only on the owner's PC through `scripts/try-live.ps1` (admin). Don't try to drive real fans or RGB elsewhere.
 - Match the surrounding code: dense C#, short comments that explain *why*, controls built in code with the theme's styles.
 - Work on a branch cut from `ui/v2-pages`. Commit with clear messages ending in `Co-Authored-By: Claude <noreply@anthropic.com>`, push the branch, and open a pull request into `ui/v2-pages`. Never push to `main` or `ui/v2-pages` directly.

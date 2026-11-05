@@ -1,0 +1,21 @@
+<Application x:Class="ControlSpawn.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <ResourceDictionary><ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="Themes/ControlSpawn.xaml" />
+            <ResourceDictionary Source="Views/Pages/Devices/Devices.xaml" />
+            <ResourceDictionary Source="Views/Pages/AirFryer/AirFryer.xaml" />
+            <ResourceDictionary Source="Views/Pages/Dashboard/Dashboard.xaml" />
+            <ResourceDictionary Source="Views/Pages/Monitor/Monitor.xaml" />
+            <ResourceDictionary Source="Views/Pages/Lighting/Lighting.xaml" />
+            <ResourceDictionary Source="Views/Pages/Fans/Fans.xaml" />
+            <ResourceDictionary Source="Views/Pages/Lamp/Lamp.xaml" />
+            <ResourceDictionary Source="Views/Pages/Scenes/Scenes.xaml" />
+            <ResourceDictionary Source="Views/Pages/Modem/Modem.xaml" />
+            <ResourceDictionary Source="Views/Pages/Settings/Settings.xaml" />
+            <ResourceDictionary Source="Views/Pages/Widgets/Widgets.xaml" />
+        </ResourceDictionary.MergedDictionaries></ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -55,10 +55,10 @@ The base is stronger than a typical first release, and the gaps are clear.
 | Fan headers 2, 6 and 7 are hardcoded as Radiator, Case fans and pump | `LhmHardwareMonitor.cs:180`, `FanController.cs:54`, `StallWatch.cs:12`, `FanModule.cs:30` |
 | Exactly two fan groups are required, and settings fail validation otherwise | `Settings.cs:104`, `CommandProcessor.cs:542`, `StateAssembler.cs:64` |
 | The app assumes those two groups in at least five places | `MainViewModel`, `WidgetViewModel`, `DashboardViewModel`, `FansViewModel` |
-| Only ASUS and Corsair conflicts are known | `AsusServiceCheck.cs`, `Prism.iss` |
+| Only ASUS and Corsair conflicts are known | `AsusServiceCheck.cs`, `ControlSpawn.iss` |
 | The case picture and lighting split assume the owner's layout | `CaseIllustration.cs`, `SpatialEffects.cs:107` |
 | The pump warning assumes a pump that idles near 2,800 rpm | `StallWatch.cs` |
-| The router client is ZLT only, with no general router interface | `Prism.Router` |
+| The router client is ZLT only, with no general router interface | `ControlSpawn.Router` |
 
 **Blocking "modular":**
 
@@ -69,7 +69,7 @@ The base is stronger than a typical first release, and the gaps are clear.
 | Commands are a fixed list of about 45 names, each handled in the service | `Commands`, `CommandProcessor` (547 lines) |
 | State is one fixed record with fields per feature | `StateMessage` |
 | Core interfaces know about Mi Home types | `IServiceRuntime` |
-| Fryer code lives in the lighting project, and the app references that project directly | `Prism.Lighting`, `Prism.App.csproj` |
+| Fryer code lives in the lighting project, and the app references that project directly | `ControlSpawn.Lighting`, `ControlSpawn.App.csproj` |
 | LAN device protocols run inside the SYSTEM service | `ServiceRuntime.cs:578-598`, `DeviceDiscovery.cs` |
 | Every module runs as SYSTEM, though fans and sensors look like the only ones that need it | `ServiceRuntime.cs:264` |
 | Nothing decides who wins when several features want the same device | No shared rule across scenes, automations and events |
@@ -301,7 +301,7 @@ tests/
 
 Separate repos: `control-spawn-registry` (plugin index), `control-spawn-hardware` (board profiles and reports), `control-spawn-docs` (website).
 
-**The source rename to `ControlSpawn` happens in Phase 0.** Plugin authors will depend on these names, and renaming after the SDK ships breaks everyone.
+**The source now uses `ControlSpawn` names throughout.** The rename came first because plugin authors will depend on these names.
 
 ### 3.6 Who's in control
 
@@ -538,7 +538,7 @@ This is your new idea, and it's the feature set that takes the app beyond enthus
 | **App Priority** | CPU priority, core choice, I/O priority and power per app, saved as rules | Applied when each app starts | Great fit for this PC's 9800X3D. Blocks critical Windows processes. Anti-cheat games can refuse it, so report that |
 | **Game Mode** | When a game starts: apply priority, pause heavy background apps, switch fans, lights and power | Uses existing process-based automations | Restores everything on exit |
 | **Internet Limiter** | Per-app usage, block an app, limit an app's speed, data caps, quiet hours | See phases below | Limits start simple and honest |
-| **Network Tools** | Ping, spike detection, speed test, who's on my network, DNS switcher | Moves from `Prism.Router`, so it no longer needs the ZLT router | Read-only by default |
+| **Network Tools** | Ping, spike detection, speed test, who's on my network, DNS switcher | Moves from `ControlSpawn.Router`, so it no longer needs the ZLT router | Read-only by default |
 | **Disk Health** | SMART data, temperature, wear, TRIM status | Read-only | Warnings only. Never defragments an SSD |
 | **Memory Tools** | What's using memory, with a plain explanation | Read-only first | No fake "RAM boosters" |
 | **Updates** | Update installed apps through WinGet, list available driver sources | WinGet | Links to official driver pages. No third-party driver packs |
@@ -890,7 +890,7 @@ Sequence matters more than volume.
 | 1 | **Licence for the core** | MPL-2.0: keeps core changes open, compatible with closed plugins. GPL-3.0 is stronger but less plugin friendly. Take legal advice on OpenRGB and PawnIO bundling |
 | 2 | **Licence for the SDK** | MIT or Apache-2.0 |
 | 3 | **The name** | Decided: Control Spawn. A trademark search before the 2.0 launch is still worth doing, because "Spawn" is a well-known brand elsewhere |
-| 4 | **Rename source in Phase 0** | Yes |
+| 4 | **Rename source in Phase 0** | Done |
 | 5 | **Fully open core?** | Yes. It's what earns trust, and SignPath needs no proprietary components |
 | 6 | **Money** | Donations and sponsorship, core always free |
 | 7 | **Windows 10** | Stay Windows 11 only at first, then review demand |
@@ -909,7 +909,7 @@ Sequence matters more than volume.
 4. Add Windows CI for build, tests and package check.
 5. Fix `FailedModuleBacksOffWhileSiblingKeepsRunning` and the `HardeningUiTests` flake.
 6. Rewrite `ARCHITECTURE.md`, and turn sections 3 and 3.4 into ADRs.
-7. Rename source and namespaces to `ControlSpawn`.
+7. Rename source and namespaces to `ControlSpawn`. Done.
 8. Add the update checker with signature validation.
 9. Add `cs report`.
 10. RFC: hardware profiles, fan roles and groups.

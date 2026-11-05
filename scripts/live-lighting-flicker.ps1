@@ -1,5 +1,5 @@
 # GPU flicker round C (about 1.5 min). Run as administrator.
-# Same 30 s static BLUE round, with the latest Prism (GPU bus turns + 10 s GPU refresh), but with the other
+# Same 30 s static BLUE round, with the latest Control Spawn (GPU bus turns + 10 s GPU refresh), but with the other
 # programs that also talk to the GPU closed for the test: AMD Software (RadeonSoftware, AMDRSServ) and
 # Armoury Crate (its service and helper processes). Armoury Crate's service is started again at the end;
 # open AMD Software from the Start menu afterwards if you want it back (or it returns on the next sign-in).
@@ -10,16 +10,16 @@ $out = Join-Path $root 'docs\live-lighting-flicker.txt'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
+$exe = Join-Path $root 'src\ControlSpawn.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
 "Lighting flicker check $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 
 function Round($label, $extraArgs) {
-  $errLog = Join-Path $env:TEMP "prism-flicker-$label.err"
+  $errLog = Join-Path $env:TEMP "controlspawn-flicker-$label.err"
   $p = Start-Process $exe -ArgumentList (@('--console', '--exit-after', '45') + $extraArgs) -PassThru -WindowStyle Hidden -RedirectStandardError $errLog
   try {
     Start-Sleep -Seconds 8
-    $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
+    $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'controlspawn', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
     $w = New-Object System.IO.StreamWriter($c); $w.AutoFlush = $true; $r = New-Object System.IO.StreamReader($c)
     $w.WriteLine('{"id":1,"command":"hello","args":{"version":1,"client":"app"}}'); $null = $r.ReadLine()
     foreach ($g in 'Radiator', 'Case fans') { $w.WriteLine('{"id":2,"command":"setFanMode","args":{"group":"' + $g + '","mode":"Silent"}}'); $null = $r.ReadLine() }

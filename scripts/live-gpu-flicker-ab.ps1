@@ -1,7 +1,7 @@
 # GPU flicker A/B test (about 2 min). Run as administrator.
 # All lights go static BLUE twice for 30 s. Count how often the GPU flashes another colour in each round.
-#   Round A: Prism as normal (reads GPU temperature/load once a second).
-#   Round B: Prism with GPU sensor reads switched off (--no-gpu-sensors).
+#   Round A: Control Spawn as normal (reads GPU temperature/load once a second).
+#   Round B: Control Spawn with GPU sensor reads switched off (--no-gpu-sensors).
 # If B is clean and A flickers, the sensor reads are disturbing the GPU's lighting bus.
 # Fans stay on Silent; everything is put back at the end (fans -> BIOS, ASUS/Corsair services restarted).
 $ErrorActionPreference = 'Stop'
@@ -10,7 +10,7 @@ $out = Join-Path $root 'docs\live-gpu-flicker-ab.txt'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
+$exe = Join-Path $root 'src\ControlSpawn.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
 "GPU flicker A/B $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 
@@ -18,7 +18,7 @@ function Round($label, $extraArgs) {
   $p = Start-Process $exe -ArgumentList (@('--console', '--exit-after', '45') + $extraArgs) -PassThru -WindowStyle Hidden
   try {
     Start-Sleep -Seconds 8
-    $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
+    $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'controlspawn', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
     $w = New-Object System.IO.StreamWriter($c); $w.AutoFlush = $true; $r = New-Object System.IO.StreamReader($c)
     $w.WriteLine('{"id":1,"command":"hello","args":{"version":1,"client":"app"}}'); $null = $r.ReadLine()
     foreach ($g in 'Radiator', 'Case fans') { $w.WriteLine('{"id":2,"command":"setFanMode","args":{"group":"' + $g + '","mode":"Silent"}}'); $null = $r.ReadLine() }

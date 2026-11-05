@@ -135,14 +135,14 @@ Versions before 1.0.3 used the Prism name for their exes, service key and folder
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```powershell
-dotnet build Prism.sln -c Debug
-dotnet test Prism.sln -c Debug
+dotnet build ControlSpawn.sln -c Debug
+dotnet test ControlSpawn.sln -c Debug
 ```
 
 Run the service with fake hardware, then start the app and it connects to it:
 
 ```powershell
-src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe --mock --console
+src\ControlSpawn.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe --mock --console
 ```
 
 Build the installer (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php)). It downloads OpenRGB and PawnIO, checks their hashes against `build/dependencies.json`, and writes `build/out/ControlSpawnSetup.exe`:
@@ -153,17 +153,15 @@ powershell -ExecutionPolicy Bypass -File build\publish.ps1
 
 ## Project layout
 
-The product is called Control Spawn. The source code still uses its working name, **Prism**; nothing on an installed PC does.
-
 | Folder | What's in it |
 |---|---|
-| `src/Prism.Core` | Shared models and the pipe contract between app and service |
-| `src/Prism.Hardware` | Sensors and fan control (LibreHardwareMonitor) |
-| `src/Prism.Lighting` | OpenRGB client, effects, sensor lighting, Mi Home and Yeelight |
-| `src/Prism.Router` | ZLT 5G router client |
-| `src/Prism.Service` | Background service, lighting loop, automations, air fryer (`ControlSpawn.Service.exe`) |
-| `src/Prism.FanGuard` | Fan watchdog the service starts as a child process; hands the fans to the BIOS if the service dies (`ControlSpawn.FanGuard.exe`) |
-| `src/Prism.App` | WPF app, tray and desktop widgets (`ControlSpawn.exe`) |
+| `src/ControlSpawn.Core` | Shared models and the pipe contract between app and service |
+| `src/ControlSpawn.Hardware` | Sensors and fan control (LibreHardwareMonitor) |
+| `src/ControlSpawn.Lighting` | OpenRGB client, effects, sensor lighting, Mi Home and Yeelight |
+| `src/ControlSpawn.Router` | ZLT 5G router client |
+| `src/ControlSpawn.Service` | Background service, lighting loop, automations, air fryer (`ControlSpawn.Service.exe`) |
+| `src/ControlSpawn.FanGuard` | Fan watchdog the service starts as a child process; hands the fans to the BIOS if the service dies (`ControlSpawn.FanGuard.exe`) |
+| `src/ControlSpawn.App` | WPF app, tray and desktop widgets (`ControlSpawn.exe`) |
 | `tests/` | xUnit tests, plus an offscreen renderer for app pages |
 | `installer/`, `build/` | Inno Setup installer and the publish script |
 | `docs/` | Design language, hardware notes, architecture |

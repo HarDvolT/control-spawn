@@ -3,7 +3,7 @@
 #
 # Lamp: you paste the Mi Home token when asked (input is hidden). The service stores it DPAPI-encrypted for
 #       your Windows account and never prints it. Then the lamp goes orange -> blue -> dim green -> warm white.
-# Router: you type the router admin password when asked (hidden). Stored DPAPI-encrypted, never printed. Prism then
+# Router: you type the router admin password when asked (hidden). Stored DPAPI-encrypted, never printed. Control Spawn then
 #       reads the 5G signal read-only (the same 4 allowed commands as your widget).
 # Leave either prompt empty to skip that part. Fans stay on Silent; the service exits cleanly at the end.
 $ErrorActionPreference = 'Stop'
@@ -11,18 +11,18 @@ $root = Split-Path $PSScriptRoot -Parent
 $out = Join-Path $root 'docs\live-lamp-router.txt'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
+$exe = Join-Path $root 'src\ControlSpawn.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
 "Lamp + router test $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 function Plain($secure) { $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure); try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) } }
 
 $passSecure = Read-Host "Router admin password (Enter to skip)" -AsSecureString
 
-$errLog = Join-Path $env:TEMP 'prism-lamp-router.err'
+$errLog = Join-Path $env:TEMP 'controlspawn-lamp-router.err'
 $p = Start-Process $exe -ArgumentList '--console', '--exit-after', '300' -PassThru -WindowStyle Hidden -RedirectStandardError $errLog
 try {
   Start-Sleep -Seconds 7
-  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
+  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'controlspawn', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
   $w = New-Object System.IO.StreamWriter($c); $w.AutoFlush = $true; $r = New-Object System.IO.StreamReader($c)
   $script:id = 1
   function Send($cmd, $payload) {

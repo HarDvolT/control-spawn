@@ -1,4 +1,4 @@
-# Prism UX audit — from the user's first real run (2026-10-29)
+# Control Spawn UX audit — from the user's first real run (2026-10-29)
 
 The user's verdict: "the UI/UX experience is bad, not well structured". Screenshots of Monitor, Devices, Lighting and
 Lamp from the live app. Target quality: the approved design canvas (docs/design/*.dc.html) and the Vaulto-style

@@ -1,0 +1,3 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="clr-namespace:ControlSpawn.App.Controls" xmlns:vm="clr-namespace:ControlSpawn.App.ViewModels" xmlns:v="clr-namespace:ControlSpawn.App.Views">
+<DataTemplate DataType="{x:Type vm:AppliancesViewModel}"><v:AppliancesWorkspace/></DataTemplate>
+</ResourceDictionary>

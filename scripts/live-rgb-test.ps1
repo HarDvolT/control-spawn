@@ -11,7 +11,7 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
+$exe = Join-Path $root 'src\ControlSpawn.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
 "RGB test $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 
@@ -25,9 +25,9 @@ try {
   $orgb = Start-Process $openrgb -ArgumentList '--server', '--noautoconnect' -WorkingDirectory (Split-Path $openrgb) -PassThru -WindowStyle Minimized
   Log "OpenRGB server starting (device detection takes ~15 s)..."
   Start-Sleep -Seconds 18
-  $svcProc = Start-Process $exe -ArgumentList '--console', '--exit-after', '75' -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $env:TEMP 'prism-rgb-test.log')
+  $svcProc = Start-Process $exe -ArgumentList '--console', '--exit-after', '75' -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $env:TEMP 'controlspawn-rgb-test.log')
   Start-Sleep -Seconds 8
-  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
+  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'controlspawn', [System.IO.Pipes.PipeDirection]::InOut); $c.Connect(5000)
   $w = New-Object System.IO.StreamWriter($c); $w.AutoFlush = $true; $r = New-Object System.IO.StreamReader($c)
   $script:id = 1
   function Send($cmd, $payload) {
@@ -55,6 +55,6 @@ try {
   elseif ($svcProc) { Log "Service exited cleanly; fans back on the BIOS." }
   if ($orgb) { Stop-Process -Id $orgb.Id -Force -ErrorAction SilentlyContinue; Log "OpenRGB stopped." }
   foreach ($name in $stopped) { Start-Service $name -ErrorAction SilentlyContinue; Log "Restarted $name" }
-  Copy-Item (Join-Path $env:TEMP 'prism-rgb-test.log') (Join-Path $root 'docs\live-rgb-test.log') -ErrorAction SilentlyContinue
+  Copy-Item (Join-Path $env:TEMP 'controlspawn-rgb-test.log') (Join-Path $root 'docs\live-rgb-test.log') -ErrorAction SilentlyContinue
   Write-Host "Done." -ForegroundColor Green
 }
