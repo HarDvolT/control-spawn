@@ -2,8 +2,6 @@
 
 This describes the app as it is today. Where it's heading is in [PLAN-platform.md](PLAN-platform.md).
 
-The product is Control Spawn. The source still uses the code name Prism for namespaces, project folders and `Prism.sln`.
-
 ## Processes
 
 | Process | Runs as | Job |
@@ -17,7 +15,7 @@ Only the service touches hardware, so admin rights live in one place. Fans, ligh
 
 ## The pipe
 
-The app talks to the service over the named pipe `\\.\pipe\controlspawn`, using one JSON message per line. The contract is `src/Prism.Core/Ipc/PipeContract.cs`:
+The app talks to the service over the named pipe `\\.\pipe\controlspawn`, using one JSON message per line. The contract is `src/ControlSpawn.Core/Ipc/PipeContract.cs`:
 
 - The client sends a request and gets a reply with the same id.
 - The service pushes a state message about once a second.
@@ -27,13 +25,13 @@ The app talks to the service over the named pipe `\\.\pipe\controlspawn`, using 
 
 | Project | Job |
 |---|---|
-| `Prism.Core` | Pipe contract and shared models |
-| `Prism.Hardware` | LibreHardwareMonitor sensors, fan curves and safety |
-| `Prism.Lighting` | OpenRGB client, effects at 30 fps, sensor lighting, Mi Home and Yeelight |
-| `Prism.Router` | ZLT router client |
-| `Prism.Service` | Service host. Each module has its own retry loop, so one failure doesn't stop the others |
-| `Prism.FanGuard` | Fan watchdog |
-| `Prism.App` | WPF app |
+| `ControlSpawn.Core` | Pipe contract and shared models |
+| `ControlSpawn.Hardware` | LibreHardwareMonitor sensors, fan curves and safety |
+| `ControlSpawn.Lighting` | OpenRGB client, effects at 30 fps, sensor lighting, Mi Home and Yeelight |
+| `ControlSpawn.Router` | ZLT router client |
+| `ControlSpawn.Service` | Service host. Each module has its own retry loop, so one failure doesn't stop the others |
+| `ControlSpawn.FanGuard` | Fan watchdog |
+| `ControlSpawn.App` | WPF app |
 
 ## Fan safety
 

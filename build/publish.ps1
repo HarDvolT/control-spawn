@@ -1,4 +1,4 @@
-# Build only. Never executes Prism, OpenRGB, PawnIO or the resulting installer.
+# Build only. Never executes Control Spawn, OpenRGB, PawnIO or the resulting installer.
 [CmdletBinding()]
 param(
     [string]$CertificateThumbprint,
@@ -10,7 +10,7 @@ Set-StrictMode -Version Latest
 $root = Split-Path $PSScriptRoot -Parent
 $stamp = [Guid]::NewGuid().ToString('N')
 $work = Join-Path $PSScriptRoot "work/$stamp"
-$out = Join-Path $PSScriptRoot 'out/Prism'
+$out = Join-Path $PSScriptRoot 'out/ControlSpawn'
 if (Test-Path $out) { throw "Output already exists: $out. Move it aside before building; stale files are never packaged." }
 New-Item -ItemType Directory -Force -Path $work, "$PSScriptRoot/cache", "$PSScriptRoot/logs" | Out-Null
 $pins = Get-Content "$PSScriptRoot/dependencies.json" -Raw | ConvertFrom-Json
@@ -75,7 +75,7 @@ try {
     $env:NUGET_HTTP_CACHE_PATH = Join-Path $PSScriptRoot 'cache/nuget-http'
     $env:NUGET_PLUGINS_CACHE_PATH = Join-Path $PSScriptRoot 'cache/nuget-plugins'
     # The fan guard (ControlSpawn.FanGuard.exe) is required: the service starts it as a child process before any fan write.
-    foreach ($project in @('Prism.Service', 'Prism.App', 'Prism.FanGuard')) {
+    foreach ($project in @('ControlSpawn.Service', 'ControlSpawn.App', 'ControlSpawn.FanGuard')) {
         $csproj = "$snapshot/src/$project/$project.csproj"
         $destination = Join-Path $work "publish/$project"
         & dotnet publish $csproj -c Release -r win-x64 --self-contained true -o $destination `
@@ -93,7 +93,7 @@ try {
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 # The app (WPF) and the service ship different builds of the same runtime DLLs (WindowsBase, System.CodeDom...), so each
 # gets its own folder. The fan guard runs from the service's folder and must agree with it byte for byte.
-$folders = @{ 'Prism.App' = 'app'; 'Prism.Service' = 'service'; 'Prism.FanGuard' = 'service' }
+$folders = @{ 'ControlSpawn.App' = 'app'; 'ControlSpawn.Service' = 'service'; 'ControlSpawn.FanGuard' = 'service' }
 Get-ChildItem "$work/publish" -Directory | ForEach-Object {
     $publishDirectory = $_.FullName
     $folder = Join-Path $out $folders[$_.Name]
@@ -128,7 +128,7 @@ $manifest.files = @(Get-ChildItem $out -Recurse -File | ForEach-Object {
 $manifest | ConvertTo-Json -Depth 6 | Set-Content "$out/package-manifest.json" -Encoding UTF8
 & "$root/scripts/package-check.ps1" -OutputPath $out
 if (!$SkipInstaller -and $IsccPath) {
-    & $IsccPath "/DPayloadDir=$out" "/DSetupOutputDir=$PSScriptRoot/out" "$root/installer/Prism.iss"
+    & $IsccPath "/DPayloadDir=$out" "/DSetupOutputDir=$PSScriptRoot/out" "$root/installer/ControlSpawn.iss"
     if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)." }
     Sign-File "$PSScriptRoot/out/ControlSpawnSetup.exe"
     Write-Host "Installer: $PSScriptRoot/out/ControlSpawnSetup.exe (not executed)"

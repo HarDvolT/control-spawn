@@ -14,5 +14,5 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - run: dotnet build Prism.sln -c Debug
-      - run: dotnet test Prism.sln -c Debug --no-build
+      - run: dotnet build ControlSpawn.sln -c Debug
+      - run: dotnet test ControlSpawn.sln -c Debug --no-build

@@ -17,8 +17,8 @@ You need Windows 11, Git and the .NET SDK named in the README.
 ```powershell
 git clone https://github.com/HarDvolT/control-spawn.git
 cd control-spawn
-dotnet build Prism.sln -c Debug
-dotnet test Prism.sln -c Debug
+dotnet build ControlSpawn.sln -c Debug
+dotnet test ControlSpawn.sln -c Debug
 ```
 
 To run with fake hardware, follow the README's [Build from source](README.md#build-from-source) section.
@@ -26,7 +26,7 @@ To run with fake hardware, follow the README's [Build from source](README.md#bui
 To look at a page without running the app:
 
 ```powershell
-dotnet run --project tests/Prism.App.Tests/Preview -c Debug -- <outdir> --v2 --page=Lighting
+dotnet run --project tests/ControlSpawn.App.Tests/Preview -c Debug -- <outdir> --v2 --page=Lighting
 ```
 
 ## Find your way around
@@ -40,7 +40,6 @@ dotnet run --project tests/Prism.App.Tests/Preview -c Debug -- <outdir> --v2 --p
 - Keep PRs small, with one topic each.
 - Match the code around you: dense C#, short comments that explain why, and controls built in code with the theme's styles.
 - Build with 0 warnings, and add tests for new logic.
-- The source still says Prism in places. That's the old code name, so don't rename things as part of another change.
 
 ## Pull requests
 

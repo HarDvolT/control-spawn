@@ -52,7 +52,7 @@ function Invoke-Sc([string[]]$Arguments) {
     & "$env:SystemRoot/System32/sc.exe" @Arguments | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "sc.exe $($Arguments -join ' ') failed ($LASTEXITCODE)." }
 }
-function Stop-PrismService([string]$Name) {
+function Stop-ControlSpawnService([string]$Name) {
     $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
     if ($service -and $service.Status -ne 'Stopped') {
         # Graceful SCM stop waits for Prism's RestoreDefaults/BIOS fan handoff. Never kill it.
@@ -85,7 +85,7 @@ function Assert-OwnedService([string]$Name) {
     if (Test-Path "$serviceRoot/$Name") {
         $image = (Get-ItemProperty "$serviceRoot/$Name").ImagePath
         # Builds before the split ran the service from $InstallDir itself; that is still ours and gets moved.
-        # 1.0.0 lost the quotes when reinstalling (see Register-PrismService): accept that form so this setup can repair it.
+        # 1.0.0 lost the quotes when reinstalling (see Register-ControlSpawnService): accept that form so this setup can repair it.
         # Either key may point at either exe name: 1.0.0-1.0.2 installed Prism.Service.exe, 1.0.3 ControlSpawn.Service.exe.
         $unquoted = @(foreach ($root in $InstallDir, $legacyInstallDir) {
             foreach ($executable in $serviceExe, $legacyServiceExe) { (Join-Path $root "service\$executable"); (Join-Path $root $executable) }
@@ -113,15 +113,15 @@ function Restore-Conflicts {
         Remove-Item -LiteralPath $record.PSPath
     }
 }
-function Remove-PrismService([string]$Name) {
+function Remove-ControlSpawnService([string]$Name) {
     # Graceful stop first (the BIOS fan handoff), then delete. Never kill the service.
-    Stop-PrismService $Name
+    Stop-ControlSpawnService $Name
     if (!(Get-Service $Name -ErrorAction SilentlyContinue)) { return }
     & "$env:SystemRoot/System32/sc.exe" delete $Name | Out-Host
     # 1072: already marked for deletion (an open Services window holds it); Windows removes it once that closes.
     if ($LASTEXITCODE -notin 0,1072) { throw "sc.exe delete $Name failed ($LASTEXITCODE)." }
 }
-function Register-PrismService {
+function Register-ControlSpawnService {
     Assert-OwnedService $serviceName
     $binary = '"' + (Join-Path $serviceDir $serviceExe) + '"'
     if (!(Get-Service $serviceName -ErrorAction SilentlyContinue)) {
@@ -231,8 +231,8 @@ try {
     if ($Mode -eq 'Prepare') {
         # Both keys: an upgrade from 1.0.0-1.0.2 still runs as "Prism". The graceful stop is what hands the fans back.
         Stop-InstalledApp
-        Stop-PrismService $serviceName
-        Stop-PrismService $legacyServiceName
+        Stop-ControlSpawnService $serviceName
+        Stop-ControlSpawnService $legacyServiceName
         Stop-BundledOpenRgb
         exit 0
     }
@@ -295,7 +295,7 @@ try {
                 New-ItemProperty $record -Name Delayed -Value $delayed -PropertyType DWord | Out-Null
                 New-ItemProperty $record -Name WasRunning -Value ([int]($service.Status -eq 'Running')) -PropertyType DWord | Out-Null
             }
-            Stop-PrismService $name
+            Stop-ControlSpawnService $name
             Set-Service -Name $name -StartupType Disabled
         }
         # The service gives commands only to the app whose hashes are recorded here (PipeClientVerifier). The settings folder
@@ -307,9 +307,9 @@ try {
         $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $identity 'app-hashes.json') -Encoding UTF8
         if (-not [Diagnostics.EventLog]::SourceExists($eventSource)) { New-EventLog -LogName Application -Source $eventSource }
         # Move a 1.0.0-1.0.2 install to the new key. Prepare already stopped it gracefully; this stops it again if needed.
-        Remove-PrismService $legacyServiceName
+        Remove-ControlSpawnService $legacyServiceName
         # The fan guard is not a service: the service starts ControlSpawn.FanGuard.exe itself before any fan write.
-        Register-PrismService
+        Register-ControlSpawnService
         Update-StartupShortcuts
         if (!$reboot) {
             Start-Service $serviceName
@@ -320,11 +320,11 @@ try {
     }
     if ($Mode -eq 'Uninstall') {
         Stop-InstalledApp
-        Stop-PrismService $serviceName
-        Stop-PrismService $legacyServiceName
+        Stop-ControlSpawnService $serviceName
+        Stop-ControlSpawnService $legacyServiceName
         Stop-BundledOpenRgb
-        Remove-PrismService $serviceName
-        Remove-PrismService $legacyServiceName
+        Remove-ControlSpawnService $serviceName
+        Remove-ControlSpawnService $legacyServiceName
         Restore-Conflicts
         # Remove matching Run entries in loaded user hives, including an alternate original user.
         foreach ($sid in [Microsoft.Win32.Registry]::Users.GetSubKeyNames()) {
@@ -353,7 +353,7 @@ try {
 } catch {
     Write-Error -ErrorRecord $_ -ErrorAction Continue
     if ($Mode -eq 'Install') {
-        try { Stop-PrismService $serviceName; Stop-PrismService $legacyServiceName; Stop-BundledOpenRgb; Restore-Conflicts } catch { Write-Warning "Recovery needs attention: $_" }
+        try { Stop-ControlSpawnService $serviceName; Stop-ControlSpawnService $legacyServiceName; Stop-BundledOpenRgb; Restore-Conflicts } catch { Write-Warning "Recovery needs attention: $_" }
     }
     exit 1
 }
