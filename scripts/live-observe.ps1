@@ -6,12 +6,12 @@ $out = Join-Path $root 'docs\live-observe.json'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
-$log = Join-Path $env:TEMP 'prism-observe.log'
+$exe = Join-Path $root 'src\ControlSpawn.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
+$log = Join-Path $env:TEMP 'controlspawn-observe.log'
 $p = Start-Process $exe -ArgumentList '--observe' -PassThru -WindowStyle Hidden -RedirectStandardOutput $log
 try {
   Start-Sleep -Seconds 6
-  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'prism', [System.IO.Pipes.PipeDirection]::InOut)
+  $c = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'controlspawn', [System.IO.Pipes.PipeDirection]::InOut)
   $c.Connect(5000)
   $w = New-Object System.IO.StreamWriter($c); $w.AutoFlush = $true
   $r = New-Object System.IO.StreamReader($c)

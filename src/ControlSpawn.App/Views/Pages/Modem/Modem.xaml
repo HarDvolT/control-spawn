@@ -1,0 +1,67 @@
+<ResourceDictionary xmlns:vm="clr-namespace:ControlSpawn.App.ViewModels" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:c="clr-namespace:ControlSpawn.App.Controls" xmlns:v="clr-namespace:ControlSpawn.App.Views">
+  <DataTemplate DataType="{x:Type vm:ModemViewModel}">
+    <StackPanel>
+      <DockPanel Margin="0,0,0,16">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom"><c:StatusChip Text="{Binding NetworkChip}" Level="Cool" Margin="0,0,8,0"/><c:StatusChip Text="{Binding PingChip}" Level="Cool" Margin="0,0,8,0"/><c:StatusChip Text="{Binding ConnectionChip}"/></StackPanel>
+        <StackPanel>
+          <TextBlock Text="INTERNET" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding ServiceLine}" Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" />
+        </StackPanel>
+      </DockPanel>
+      <c:CardGrid>
+        <c:GlassCard Span="4" Height="340"><StackPanel>
+          <c:RingGauge Width="200" Height="200" ValueFontSize="56" Thickness="16" Value="{Binding Score}" Caption="{Binding Verdict}" SweepAngle="270" RingColor="{Binding VerdictColor, Converter={StaticResource HexToColor}}" Margin="0,14,0,8"/>
+          <ItemsControl ItemsSource="{Binding Bars}" HorizontalAlignment="Center"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Width="10" Height="{Binding Height}" Background="{Binding ColorHex, Converter={StaticResource HexToBrush}}" CornerRadius="3" Margin="2,0" VerticalAlignment="Bottom"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+          <TextBlock Text="{Binding Sentence}" Style="{StaticResource SmallMuted}" TextAlignment="Center" TextWrapping="Wrap" Margin="24,12,24,0"/>
+        </StackPanel></c:GlassCard>
+        <c:GlassCard Span="8" Height="340"><StackPanel>
+          <DockPanel Margin="0,0,0,16"><c:SegmentedControl DockPanel.Dock="Right" ItemsSource="{Binding Radios}" SelectedItem="{Binding SelectedRadio, Mode=TwoWay}"/><StackPanel><TextBlock Text="Signal readings" Style="{StaticResource CardTitle}"/><TextBlock Text="Bars show where each reading sits from poor to excellent" Style="{StaticResource SmallMuted}" Margin="0,4,0,0"/></StackPanel></DockPanel>
+          <ItemsControl ItemsSource="{Binding RadioMetrics}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><c:SpacedGrid Columns="2" Gap="12"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Background="#17181D" BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="16" Padding="14" Height="116"><StackPanel><DockPanel><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><TextBlock Text="{Binding Number}" FontSize="26" FontWeight="SemiBold" Foreground="{Binding ColorHex, Converter={StaticResource HexToBrush}}"/><TextBlock Text="{Binding Unit}" FontSize="11" Foreground="#7C808A" VerticalAlignment="Bottom" Margin="2,0,0,3"/></StackPanel><TextBlock Text="{Binding Net}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel><TextBlock Text="{Binding Description}" Style="{StaticResource SmallMuted}"/><c:SignalRail Value="{Binding Position}" Height="22" Margin="0,4,0,0"/><UniformGrid Columns="4"><TextBlock Text="Poor" FontSize="10" Foreground="#626671"/><TextBlock Text="Fair" FontSize="10" Foreground="#626671"/><TextBlock Text="Good" FontSize="10" Foreground="#626671"/><TextBlock Text="Excellent" FontSize="10" Foreground="#626671" HorizontalAlignment="Right"/></UniformGrid></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+        </StackPanel></c:GlassCard>
+        <c:GlassCard Span="6" Height="290"><StackPanel>
+          <DockPanel><Button DockPanel.Dock="Right" Content="{Binding SpikeCountText}" Command="{Binding ToggleSpikesCommand}" Style="{StaticResource TextAction}"/><StackPanel><TextBlock Text="Ping" Style="{StaticResource CardTitle}"/><TextBlock Text="Latest measured service samples" Style="{StaticResource SmallMuted}" Margin="0,4,0,12"/></StackPanel></DockPanel>
+          <Border Background="#0D0E12" BorderBrush="#0FFFFFFF" BorderThickness="1" CornerRadius="14" Padding="8"><c:LineChart Linear="True" HorizontalGrid="True" AutoScale="True" Values="{Binding PingHistory}" Color="#36D6FF" Height="120"/></Border>
+          <ItemsControl ItemsSource="{Binding PingStats}" Margin="0,12,0,0"><ItemsControl.ItemsPanel><ItemsPanelTemplate><c:SpacedGrid Columns="4" Gap="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="{Binding Key}" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding Value}" FontSize="17" FontWeight="SemiBold" Foreground="{Binding ColorHex, Converter={StaticResource HexToBrush}}" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+        </StackPanel></c:GlassCard>
+        <c:GlassCard Span="3" Height="290"><StackPanel><TextBlock Text="Speed test" Style="{StaticResource CardTitle}"/><c:RingGauge Width="126" Height="126" Value="{Binding Download}" Maximum="500" Caption="Mb/s down" RingColor="#36D6FF" Margin="0,14,0,8"/><TextBlock Text="{Binding UploadText}" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding SpeedStatus}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap"/><Button Content="Run speed test" Command="{Binding RunSpeedTestCommand}" Style="{StaticResource PrimaryButton}" Margin="0,12,0,0"/></StackPanel></c:GlassCard>
+        <c:GlassCard Span="3" Height="290"><StackPanel><TextBlock Text="Connected" Style="{StaticResource CardTitle}"/><TextBlock Text="{Binding ClientInventoryText}" Style="{StaticResource Placeholder}"/><ItemsControl ItemsSource="{Binding Devices}"><ItemsControl.ItemTemplate><DataTemplate><DockPanel Margin="0,8"><TextBlock DockPanel.Dock="Right" Text="{Binding Connection}" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding Name}" FontSize="12"/></DockPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></c:GlassCard>
+        <c:GlassCard Span="7" Height="222"><StackPanel><TextBlock Text="Cell &amp; band" Style="{StaticResource CardTitle}"/><TextBlock Text="What the modem is locked onto right now" Style="{StaticResource SmallMuted}" Margin="0,4,0,12"/><ItemsControl ItemsSource="{Binding CellStats}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><c:SpacedGrid Columns="4" Gap="8"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Background="#17181D" CornerRadius="12" Padding="12,10"><StackPanel><TextBlock Text="{Binding Key}" Style="{StaticResource SmallMuted}"/><TextBlock Text="{Binding Value}" FontSize="15" FontWeight="SemiBold" Margin="0,4,0,0"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></c:GlassCard>
+        <c:GlassCard Span="5" Height="222"><StackPanel><TextBlock Text="Router" Style="{StaticResource CardTitle}"/><DockPanel Margin="0,16,0,10"><TextBlock DockPanel.Dock="Right" Text="{Binding RouterModel}"/><TextBlock Text="Model" Style="{StaticResource SmallMuted}"/></DockPanel><DockPanel Margin="0,0,0,10"><TextBlock DockPanel.Dock="Right" Text="{Binding RouterUptime}"/><TextBlock Text="Uptime" Style="{StaticResource SmallMuted}"/></DockPanel><DockPanel Margin="0,0,0,10"><TextBlock DockPanel.Dock="Right" Text="{Binding RouterMonthlyData}"/><TextBlock Text="Data this month" Style="{StaticResource SmallMuted}"/></DockPanel><Expander Header="Router access and diagnostics" Foreground="#A3A6AE"><StackPanel><Button Content="{Binding CopyLabel}" Command="{Binding CopyCommand}"/><v:TokenEntry/></StackPanel></Expander></StackPanel></c:GlassCard>
+      </c:CardGrid>
+      <ItemsControl ItemsSource="{Binding Spikes}" Visibility="{Binding SpikesOpen, Converter={StaticResource BoolToVisibility}}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding Tip}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,12"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+      <Expander Header="Signal history and nearby cells" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,16">
+        <StackPanel>
+          <c:GlassCard Margin="0,0,0,18" StaggerIndex="4">
+            <StackPanel>
+              <TextBlock Text="Where your SINR sits" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,3" />
+              <TextBlock Text="{Binding SinrNow}" Style="{StaticResource NumberLarge}" TextWrapping="Wrap" Margin="0,3" />
+              <c:GlowProgressBar Value="{Binding SinrKnob}" Height="5" />
+              <TextBlock Text="−10 dB · poor → 30 dB · great" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3" />
+            </StackPanel>
+          </c:GlassCard>
+          <c:GlassCard Margin="0,0,0,18" StaggerIndex="5">
+            <StackPanel>
+              <TextBlock Text="Neighbor cells" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,3" />
+              <TextBlock Text="Band        PCI        RSRP        SINR" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,3" />
+              <ItemsControl ItemsSource="{Binding Neighbors}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <WrapPanel>
+                      <TextBlock Text="{Binding Band}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3" />
+                      <TextBlock Text="{Binding Pci}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3" />
+                      <TextBlock Text="{Binding Rsrp}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3" />
+                      <TextBlock Text="{Binding Sinr}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3" />
+                    </WrapPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Text="{Binding NeighborStatus}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3" />
+            </StackPanel>
+          </c:GlassCard>
+        </StackPanel>
+      </Expander>
+      <TextBlock Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" Text="{Binding LastError}" Style="{StaticResource Muted}" TextWrapping="Wrap" Foreground="#FF8A8A" Margin="0,12" />
+    </StackPanel>
+  </DataTemplate>
+</ResourceDictionary>

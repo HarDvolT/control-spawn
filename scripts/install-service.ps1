@@ -7,14 +7,14 @@ if ([IO.Path]::GetFileName($resolvedExecutable) -ne 'ControlSpawn.Service.exe') 
 $serviceName = 'ControlSpawn'
 $displayName = 'Control Spawn Hardware Service'
 $installDirectory = Split-Path -Parent $resolvedExecutable
-if ((Split-Path -Leaf $installDirectory) -ne 'Prism') { throw 'Use a dedicated installation directory named Prism.' }
+if ((Split-Path -Leaf $installDirectory) -ne 'service') { throw 'Use a dedicated installation directory named service.' }
 for ($ancestor = [IO.DirectoryInfo]$installDirectory; $null -ne $ancestor; $ancestor = $ancestor.Parent) {
     if ($ancestor.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Installation path cannot contain a reparse point.' }
 }
 foreach ($name in @('ControlSpawn.exe', 'ControlSpawn.dll', 'ControlSpawn.FanGuard.exe')) {
     if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $name))) { throw "Missing installed app file: $name" }
 }
-function Set-PrismDirectoryAcl([string]$Path, [bool]$AllowRead) {
+function Set-ControlSpawnDirectoryAcl([string]$Path, [bool]$AllowRead) {
     $acl = New-Object System.Security.AccessControl.DirectorySecurity
     $acl.SetAccessRuleProtection($true, $false)
     foreach ($sid in @('S-1-5-18', 'S-1-5-32-544')) {
@@ -28,11 +28,11 @@ function Set-PrismDirectoryAcl([string]$Path, [bool]$AllowRead) {
     if (-not (Test-Path -LiteralPath $Path)) { [IO.Directory]::CreateDirectory($Path, $acl) | Out-Null }
     Set-Acl -LiteralPath $Path -AclObject $acl
 }
-function Get-PrismChildren([string]$Path) {
+function Get-ControlSpawnChildren([string]$Path) {
     foreach ($entry in Get-ChildItem -LiteralPath $Path -Force) {
-        if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse points are not supported in Prism directories.' }
+        if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse points are not supported in Control Spawn directories.' }
         $entry
-        if ($entry.PSIsContainer) { Get-PrismChildren $entry.FullName }
+        if ($entry.PSIsContainer) { Get-ControlSpawnChildren $entry.FullName }
     }
 }
 if ($PSCmdlet.ShouldProcess($serviceName, 'Secure installation, record app hashes, and create automatic service with recovery')) {
@@ -41,28 +41,28 @@ if ($PSCmdlet.ShouldProcess($serviceName, 'Secure installation, record app hashe
     $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if ($null -ne $existingService -and $existingService.Status -ne 'Stopped') { throw "Stop $serviceName before updating its installation." }
     # Install into a dedicated directory: regular users must never be able to replace trusted binaries or dependencies.
-    Set-PrismDirectoryAcl $installDirectory $true
-    Get-PrismChildren $installDirectory | ForEach-Object {
+    Set-ControlSpawnDirectoryAcl $installDirectory $true
+    Get-ControlSpawnChildren $installDirectory | ForEach-Object {
         if ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse points are not supported in an installation.' }
         $acl = Get-Acl -LiteralPath $_.FullName
         $acl.SetAccessRuleProtection($false, $false)
         foreach ($rule in @($acl.Access | Where-Object { -not $_.IsInherited })) { $acl.RemoveAccessRuleSpecific($rule) }
         Set-Acl -LiteralPath $_.FullName -AclObject $acl
     }
-    $prismData = Join-Path $env:ProgramData 'Control Spawn'
-    Set-PrismDirectoryAcl $prismData $false
+    $dataRoot = Join-Path $env:ProgramData 'Control Spawn'
+    Set-ControlSpawnDirectoryAcl $dataRoot $false
     # Remove any explicit grants left on data files by older installations before recording trust.
-    Get-PrismChildren $prismData | ForEach-Object {
-        if ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse points are not supported in Prism data.' }
+    Get-ControlSpawnChildren $dataRoot | ForEach-Object {
+        if ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse points are not supported in Control Spawn data.' }
         $acl = Get-Acl -LiteralPath $_.FullName
         $acl.SetAccessRuleProtection($false, $false)
         foreach ($rule in @($acl.Access | Where-Object { -not $_.IsInherited })) { $acl.RemoveAccessRuleSpecific($rule) }
         Set-Acl -LiteralPath $_.FullName -AclObject $acl
     }
-    $identityDirectory = Join-Path $prismData 'install'
-    Set-PrismDirectoryAcl $identityDirectory $false
-    Set-PrismDirectoryAcl (Join-Path $prismData 'secrets') $false
-    Set-PrismDirectoryAcl (Join-Path $prismData 'logs') $false
+    $identityDirectory = Join-Path $dataRoot 'install'
+    Set-ControlSpawnDirectoryAcl $identityDirectory $false
+    Set-ControlSpawnDirectoryAcl (Join-Path $dataRoot 'secrets') $false
+    Set-ControlSpawnDirectoryAcl (Join-Path $dataRoot 'logs') $false
     $hashes = @{}
     foreach ($name in @('ControlSpawn.exe', 'ControlSpawn.dll')) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $installDirectory $name) -Algorithm SHA256).Hash }
     $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $identityDirectory 'app-hashes.json') -Encoding UTF8

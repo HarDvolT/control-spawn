@@ -1,4 +1,4 @@
-# Prism — verified hardware facts (tested on this PC, 2026-10-28)
+# Control Spawn — verified hardware facts (tested on this PC, 2026-10-28)
 
 | Part | Model | Control path (verified) |
 |---|---|---|
@@ -25,14 +25,14 @@
 - **AsusFanControlService must be stopped/disabled.** While it runs, every NCT6701D register reads 0xFF/0 (all RPM = 0). Disabled + reboot → real readings. Same as LibreHardwareMonitor issue #1610 on this board.
 - Control: `ISensor.Control.SetSoftware(percent)` works; `SetDefault()` hands the header back to BIOS. Always call `SetDefault()` on exit/crash.
 - ASUS firmware WMI `root\wmi ASUSManagement` has GetFanPolicy/SetFanPolicy (FanType 0–3, profiles like STANDARD) and Get/SetManualFanCurvePro (8 points). Its port/RHWM methods (asio_hw_fun07/13/21) return 0 on this BIOS: do not use them.
-- OpenRGB: its SDK server is TCP 6742. iCUE and the ASUS AURA services fight over the same chips, so they must be stopped when Prism controls lighting.
+- OpenRGB: its SDK server is TCP 6742. iCUE and the ASUS AURA services fight over the same chips, so they must be stopped when Control Spawn controls lighting.
 - PawnIO kernel driver 2.2 is installed (service "PawnIO"). Hardware access needs admin, so the hardware runs in an elevated Windows service, and the UI talks to it over a named pipe.
 
 ## Lighting findings (live tests, 2026-10-29)
 
-- All devices take Prism's frames through OpenRGB 1.1: 2x Vengeance RGB DDR5 (10 LEDs), RX 9070 XT Taichi (4),
+- All devices take Control Spawn's frames through OpenRGB 1.1: 2x Vengeance RGB DDR5 (10 LEDs), RX 9070 XT Taichi (4),
   ROG STRIX B850-F (board LEDs + ARGB header, resizable). Fans' RGB rings are not in OpenRGB's device list yet.
-- GPU lighting chip: max 10 fps from Prism, still frames refreshed only every 10 s, and writes take turns with GPU
+- GPU lighting chip: max 10 fps from Control Spawn, still frames refreshed only every 10 s, and writes take turns with GPU
   sensor reads (`BusTurns.Gpu`). Red flashes on the GPU came from AMD Software / Armoury Crate also using the bus.
 - RAM lighting shares the chipset SMBus with the DIMM temperature sensors: writes take turns (`BusTurns.Smbus`).
 - OpenRGB "device list updated" notices must be handled by refreshing in place. A full reconnect re-initialises
