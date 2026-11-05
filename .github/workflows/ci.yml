@@ -1,0 +1,20 @@
+name: CI
+on:
+  push:
+    branches: [main, ui/v2-pages]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet build Prism.sln -c Debug
+      - run: dotnet test Prism.sln -c Debug --no-build

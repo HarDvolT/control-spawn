@@ -1,0 +1,11 @@
+name: Idea
+description: Suggest a feature or a device to support
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like
+      description: What problem would it solve for you?
+    validations:
+      required: true

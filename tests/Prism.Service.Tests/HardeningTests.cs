@@ -187,7 +187,7 @@ public sealed class HardeningTests
         var healthy = new TestModule("fans", async token => { ready.SetResult(); await Task.Delay(Timeout.Infinite, token); });
         var healthyTask = healthy.RunAsync(stop.Token); await ready.Task;
         var failed = new TestModule("rgb", _ => throw new IOException("fixture"), (delay, _) =>
-        { delays.Add(delay); if (delays.Count == 4) stop.Cancel(); Assert.True(healthy.Health.Running); return Task.CompletedTask; });
+        { delays.Add(delay); Assert.True(healthy.Health.Running); if (delays.Count == 4) stop.Cancel(); return Task.CompletedTask; }); // Check first: cancelling stops the sibling.
         await failed.RunAsync(stop.Token); await healthyTask;
         Assert.Equal(new[] { 1, 2, 4, 8 }, delays.Select(d => (int)d.TotalSeconds)); Assert.Equal(4, failed.Health.Failures);
     }
