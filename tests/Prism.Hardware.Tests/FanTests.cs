@@ -144,6 +144,14 @@ public sealed class FanTests
         public void SetSoftware(int header, float percent) => throw new IOException("Fake failure");
         public void SetDefault(int header) { Restored.Add(header); if (header == 1) throw new IOException("Fake cleanup failure"); }
     }
+    [Theory]
+    [InlineData("ROG STRIX B850-F GAMING WIFI", true)]
+    [InlineData(" rog strix b850-f gaming wifi ", true)]
+    [InlineData("ROG STRIX X870E-E GAMING WIFI", false)]
+    [InlineData("TUF GAMING B650-PLUS", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void FanControlIsOnlyForVerifiedBoards(string? product, bool allowed) => Assert.Equal(allowed, VerifiedBoards.Allows(product));
     [Fact]
     public void FanMapKeepsKnownHeadersAndDiscoversOnlyNonzeroEmptyHeaders()
     {

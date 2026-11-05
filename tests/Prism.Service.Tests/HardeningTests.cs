@@ -214,9 +214,9 @@ public sealed class HardeningTests
         var root = Path.Combine(Path.GetTempPath(), "prism-dev-" + Guid.NewGuid().ToString("N"));
         try
         {
-            var service = Directory.CreateDirectory(Path.Combine(root, "src", "Prism.Service", "bin", "Release", "net8.0-windows")).FullName;
+            var service = Directory.CreateDirectory(Path.Combine(root, "src", "Prism.Service", "bin", "Release", "net10.0-windows")).FullName;
             Assert.Null(PipeClientVerifier.DevAppBesideBuild(service));   // nothing built beside it yet
-            var appDir = Directory.CreateDirectory(Path.Combine(root, "src", "Prism.App", "bin", "Release", "net8.0-windows")).FullName;
+            var appDir = Directory.CreateDirectory(Path.Combine(root, "src", "Prism.App", "bin", "Release", "net10.0-windows")).FullName;
             File.WriteAllText(Path.Combine(appDir, "Prism.App.exe"), "");   // a stale pre-1.0.3 build is not trusted
             Assert.Null(PipeClientVerifier.DevAppBesideBuild(service));
             File.WriteAllText(Path.Combine(appDir, "ControlSpawn.exe"), "");

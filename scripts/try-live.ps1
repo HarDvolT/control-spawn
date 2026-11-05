@@ -9,8 +9,8 @@ $out = Join-Path $root 'docs\live-automations.txt'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 
-$service = Join-Path $root 'src\Prism.Service\bin\Release\net8.0-windows\ControlSpawn.Service.exe'
-$app = Join-Path $root 'src\Prism.App\bin\Release\net8.0-windows\ControlSpawn.exe'
+$service = Join-Path $root 'src\Prism.Service\bin\Release\net10.0-windows\ControlSpawn.Service.exe'
+$app = Join-Path $root 'src\Prism.App\bin\Release\net10.0-windows\ControlSpawn.exe'
 # 1.0.3 renamed the exes; the old names catch a copy left running from an older build.
 $processNames = 'ControlSpawn', 'ControlSpawn.Service', 'Prism.App', 'Prism.Service'
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'

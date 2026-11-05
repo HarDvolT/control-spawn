@@ -10,7 +10,7 @@ It replaces ASUS Armoury Crate and Corsair iCUE.
 
 [![Version](https://img.shields.io/badge/version-1.0.3-FF4D1A)](https://github.com/HarDvolT/control-spawn/releases/latest)
 [![Platform](https://img.shields.io/badge/Windows%2011-x64-0078D4)](#requirements)
-[![.NET](https://img.shields.io/badge/.NET-8-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
 [![Licence](https://img.shields.io/badge/licence-MPL--2.0-brightgreen)](LICENSE)
 [![CI](https://github.com/HarDvolT/control-spawn/actions/workflows/ci.yml/badge.svg)](https://github.com/HarDvolT/control-spawn/actions/workflows/ci.yml)
 
@@ -132,7 +132,7 @@ Versions before 1.0.3 used the Prism name for their exes, service key and folder
 
 ## Build from source
 
-You need the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```powershell
 dotnet build Prism.sln -c Debug
@@ -142,7 +142,7 @@ dotnet test Prism.sln -c Debug
 Run the service with fake hardware, then start the app and it connects to it:
 
 ```powershell
-src\Prism.Service\bin\Debug\net8.0-windows\ControlSpawn.Service.exe --mock --console
+src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe --mock --console
 ```
 
 Build the installer (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php)). It downloads OpenRGB and PawnIO, checks their hashes against `build/dependencies.json`, and writes `build/out/ControlSpawnSetup.exe`:
