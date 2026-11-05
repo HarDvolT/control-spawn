@@ -10,7 +10,7 @@ $out = Join-Path $root 'docs\live-lighting-flicker.txt'
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "NOT ADMIN - open PowerShell with 'Run as administrator'" -ForegroundColor Red; exit 1 }
 $openrgb = 'C:\Users\Hakim\AppData\Local\Temp\orgb\OpenRGB.exe'
-$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net8.0-windows\ControlSpawn.Service.exe'
+$exe = Join-Path $root 'src\Prism.Service\bin\Debug\net10.0-windows\ControlSpawn.Service.exe'
 "Lighting flicker check $(Get-Date)" | Out-File $out -Encoding utf8
 function Log($m) { $m | Out-File $out -Append; Write-Host $m }
 

@@ -24,7 +24,7 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
     /// <summary>The app built from this repository next to a service running from its own build folder, or null when installed.</summary>
     public static string? DevAppBesideBuild(string serviceDirectory)
     {
-        // .../src/Prism.Service/bin/<Configuration>/net8.0-windows/
+        // .../src/Prism.Service/bin/<Configuration>/net10.0-windows/
         var framework = new DirectoryInfo(serviceDirectory.TrimEnd(Path.DirectorySeparatorChar));
         var configuration = framework.Parent; var bin = configuration?.Parent; var project = bin?.Parent;
         if (configuration is null || bin?.Name != "bin" || project?.Name != "Prism.Service" || project.Parent is null) return null;

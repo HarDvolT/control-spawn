@@ -73,9 +73,9 @@ Regenerate preview evidence from the repository root:
 
 ```powershell
 dotnet build tests/Prism.App.Tests/Preview/Prism.App.Preview.csproj -c Release --no-restore -m:1 -nodeReuse:false -p:UseSharedCompilation=false
-dotnet tests/Prism.App.Tests/Preview/bin/Release/net8.0-windows/Prism.App.Preview.dll tests/Prism.App.Tests/obj/v2-preview --v2
-dotnet tests/Prism.App.Tests/Preview/bin/Release/net8.0-windows/Prism.App.Preview.dll tests/Prism.App.Tests/obj/settings-preview --v2 --page=Settings
-dotnet tests/Prism.App.Tests/Preview/bin/Release/net8.0-windows/Prism.App.Preview.dll tests/Prism.App.Tests/obj/v2-power-preview
+dotnet tests/Prism.App.Tests/Preview/bin/Release/net10.0-windows/Prism.App.Preview.dll tests/Prism.App.Tests/obj/v2-preview --v2
+dotnet tests/Prism.App.Tests/Preview/bin/Release/net10.0-windows/Prism.App.Preview.dll tests/Prism.App.Tests/obj/settings-preview --v2 --page=Settings
+dotnet tests/Prism.App.Tests/Preview/bin/Release/net10.0-windows/Prism.App.Preview.dll tests/Prism.App.Tests/obj/v2-power-preview
 ```
 
 PNGs and binding logs live in ignored `obj` directories. The pre-existing untracked `docs/codex-v2-pages.log` is preserved and excluded from the implementation commit.

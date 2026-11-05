@@ -139,10 +139,10 @@ public sealed class DesktopDuplication : IScreenZones
         try
         {
             Check(D3D11CreateDevice(IntPtr.Zero, 1, IntPtr.Zero, 0x20, IntPtr.Zero, 0, 7, out device, out _, out context));
-            var dxgiId = new Guid("54EC77FA-1377-44E6-8C32-88FD5F44C84C"); Check(Marshal.QueryInterface(device, ref dxgiId, out dxgi));
+            var dxgiId = new Guid("54EC77FA-1377-44E6-8C32-88FD5F44C84C"); Check(Marshal.QueryInterface(device, in dxgiId, out dxgi));
             Check(Method<OutPointer>(dxgi, 7)(dxgi, out adapter));
             Check(Method<EnumOutput>(adapter, 7)(adapter, 0, out output));
-            var outputId = new Guid("00CDDEA8-939B-4B83-A340-A685226666CC"); Check(Marshal.QueryInterface(output, ref outputId, out output1));
+            var outputId = new Guid("00CDDEA8-939B-4B83-A340-A685226666CC"); Check(Marshal.QueryInterface(output, in outputId, out output1));
             Check(Method<Duplicate>(output1, 22)(output1, device, out duplication));
             while (!token.IsCancellationRequested)
             {
@@ -152,7 +152,7 @@ public sealed class DesktopDuplication : IScreenZones
                 IntPtr texture = IntPtr.Zero;
                 try
                 {
-                    var textureId = new Guid("6F15AAF2-D208-4E89-9AB4-489535D34F9C"); Check(Marshal.QueryInterface(resource, ref textureId, out texture));
+                    var textureId = new Guid("6F15AAF2-D208-4E89-9AB4-489535D34F9C"); Check(Marshal.QueryInterface(resource, in textureId, out texture));
                     Method<GetDesc>(texture, 10)(texture, out var desc);
                     if (staging == IntPtr.Zero)
                     {
