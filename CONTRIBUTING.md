@@ -8,6 +8,7 @@ Thanks for helping. You don't need fans, RGB or any special hardware to start: t
 - **Try it and report bugs**, especially on hardware we haven't seen.
 - **Pick up a [good first issue](https://github.com/HarDvolT/control-spawn/labels/good%20first%20issue).**
 - **Talk about bigger ideas** in an issue before you build them. The long-term direction is in [docs/PLAN-platform.md](docs/PLAN-platform.md).
+- **Help design the plugin system.** It's being designed in the open in [RFC 0001](docs/rfcs/0001-plugin-system.md), and it has open questions that need experienced people.
 
 ## Set up
 
@@ -27,6 +28,10 @@ To look at a page without running the app:
 ```powershell
 dotnet run --project tests/Prism.App.Tests/Preview -c Debug -- <outdir> --v2 --page=Lighting
 ```
+
+## Find your way around
+
+[docs/CODE-GUIDE.md](docs/CODE-GUIDE.md) follows one real feature from a slider to a lamp, and shows where everything lives.
 
 ## Rules
 
