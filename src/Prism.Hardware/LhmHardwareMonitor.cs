@@ -20,6 +20,7 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     private Computer? computer;
     private readonly Dictionary<int, IControl> controls = new();
     private readonly Dictionary<IHardware, DateTime> dimmReads = new();
+    private bool boardVerified;
     private bool disposed;
     /// <summary>
     /// Each DIMM temperature read holds the SMBus and the RAM lighting waits ~200 ms for it, which showed as a step in
@@ -42,6 +43,7 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
                     try { computer.Close(); } finally { computer = null; }
                     throw;
                 }
+                boardVerified = VerifiedBoards.Allows(computer.SMBios?.Board?.ProductName);
             }
             var readings = new List<SensorReading>();
             foreach (var hardware in computer.Hardware) Visit(hardware, readings);
@@ -66,8 +68,8 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
         };
         foreach (var sensor in hardware.Sensors)
         {
-            // Only the verified motherboard chip can be controlled; never expose GPU controls.
-            if (hardware.HardwareType.ToString() == "SuperIO" &&
+            // Only a verified board's chip can be controlled; never expose GPU controls.
+            if (boardVerified && hardware.HardwareType.ToString() == "SuperIO" &&
                 hardware.Name.Contains("NCT6701D", StringComparison.OrdinalIgnoreCase) &&
                 sensor.SensorType == SensorType.Control && sensor.Control is not null && sensor.Index is >= 0 and < 7)
                 controls[sensor.Index + 1] = sensor.Control;
@@ -164,6 +166,16 @@ public sealed class LhmHardwareMonitor(ISensorSource source) : IHardwareMonitor
         else source.Dispose();
         stop.Dispose();
     }
+}
+
+/// <summary>
+/// Boards whose headers were checked on the real PC. Fan roles are still tied to header numbers (2, 6, pump on 7), so
+/// another board with the same chip could have its CPU fan or pump on a header this app would slow down.
+/// </summary>
+public static class VerifiedBoards
+{
+    private static readonly string[] Products = ["ROG STRIX B850-F GAMING WIFI"];
+    public static bool Allows(string? product) => product is not null && Products.Contains(product.Trim(), StringComparer.OrdinalIgnoreCase);
 }
 
 public static class FanMap
