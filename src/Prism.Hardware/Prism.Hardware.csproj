@@ -2,6 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="../Prism.Core/Prism.Core.csproj" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
   </ItemGroup>
 </Project>

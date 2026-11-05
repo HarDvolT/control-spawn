@@ -1,6 +1,6 @@
 # Prism — architecture
 
-Native Windows app, C# / .NET 8. One solution `Prism.sln`.
+Native Windows app, C# / .NET 10. One solution `Prism.sln`.
 
 ```
 src/
@@ -37,13 +37,12 @@ The UI layers never talk to hardware directly: only the service does, so admin r
 
 ## Rules for everyone writing code here
 
-- Target `net8.0` (`net8.0-windows` only where Windows APIs are needed). Nullable enabled, warnings as errors off.
+- Target `net10.0` (`net10.0-windows` only where Windows APIs are needed). Nullable enabled, warnings as errors off.
 - Every hardware or network dependency sits behind an interface, with a fake for tests and a `--mock` mode,
   so all logic is unit-testable without touching hardware, the router or the network.
 - Do NOT run anything that touches real hardware, drivers, services, the registry, WMI methods, the router
   or the lamp. Code and unit tests only. Do not install global tools or system software.
-- The .NET 8 **SDK is not installed yet** on this PC (only the runtime). If `dotnet build` is unavailable,
-  write the code carefully anyway, keep projects buildable, and list in your summary what was not compiled.
+- Build with the .NET 10 SDK. Run builds and tests in Debug; report anything that could not be checked.
 - Each agent only edits its own folders (see owners above) plus shared files it creates under `src/Prism.Core`
   only when listed in its brief. Do not edit another agent's folders.
 - Do not commit; leave changes in the working tree.

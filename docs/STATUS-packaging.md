@@ -6,7 +6,7 @@ Packaging source is implemented on branch `package`. No installer was run, no ap
 
 ## Build
 
-Use Windows PowerShell 5.1 on a Windows x64 build machine with .NET 8 SDK and network access. Inno Setup **6.3 or newer** is required to compile the installer; the build only prints installation guidance if it is absent and never installs tools itself.
+Use Windows PowerShell 5.1 on a Windows x64 build machine with .NET 10 SDK and network access. Inno Setup **6.3 or newer** is required to compile the installer; the build only prints installation guidance if it is absent and never installs tools itself.
 
 From the repository root:
 
