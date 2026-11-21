@@ -109,6 +109,17 @@ public sealed class HardeningTests
         Assert.True(watch.Check(TimeSpan.FromSeconds(9))); Assert.Equal(1, calls);
     }
     [Fact]
+    public void SensorStallWatchNamesAStuckReadOnceAndASlowReadWhenItEnds()
+    {
+        var now = TimeSpan.Zero; var watch = new SensorStallWatch(() => now);
+        watch.Begin("Cpu"); now = TimeSpan.FromMilliseconds(400); Assert.Null(watch.End());
+        watch.Begin("GpuAmd"); now += TimeSpan.FromMilliseconds(1499); Assert.Null(watch.Check());
+        now += TimeSpan.FromMilliseconds(1); Assert.StartsWith("GpuAmd sensor read has been stuck for 1500 ms", watch.Check());
+        now += TimeSpan.FromSeconds(1); Assert.Null(watch.Check());
+        Assert.Equal("GpuAmd sensor read took 2500 ms.", watch.End());
+        Assert.Null(watch.Check()); Assert.Null(watch.End());
+    }
+    [Fact]
     public void FanGuardServesOnlyTheServiceInItsOwnFolder()
     {
         var folder = Path.Combine(Path.GetTempPath(), "Control Spawn", "service");
