@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
   <PropertyGroup><TargetFramework>net10.0-windows</TargetFramework><OutputType>Exe</OutputType><AssemblyName>ControlSpawn.Service</AssemblyName><AssemblyTitle>Control Spawn Hardware Service</AssemblyTitle><ApplicationIcon>..\ControlSpawn.App\Assets\ControlSpawn.ico</ApplicationIcon></PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="ControlSpawn.Service.Tests" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
     <ProjectReference Include="../ControlSpawn.Core/ControlSpawn.Core.csproj" />

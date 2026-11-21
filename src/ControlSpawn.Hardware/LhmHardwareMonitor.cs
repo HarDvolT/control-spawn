@@ -24,7 +24,7 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     private Computer? computer;
     private readonly Dictionary<int, IControl> controls = new();
     private readonly Dictionary<IHardware, DateTime> dimmReads = new();
-    private bool boardVerified;
+    private readonly BoardVerification boardVerification = new();
     private bool disposed;
     private volatile bool gpuSensorsMissing;
     public bool GpuSensorsMissing => gpuSensorsMissing;
@@ -75,8 +75,8 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
                     try { computer.Close(); } finally { computer = null; }
                     throw;
                 }
-                boardVerified = VerifiedBoards.Allows(computer.SMBios?.Board?.ProductName);
             }
+            boardVerification.Check(() => computer.SMBios?.Board?.ProductName);
             var readings = new List<SensorReading>();
             foreach (var hardware in computer.Hardware) Visit(hardware, readings);
             return readings;
@@ -106,7 +106,7 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
         foreach (var sensor in hardware.Sensors)
         {
             // Only a verified board's chip can be controlled; never expose GPU controls.
-            if (boardVerified && type == "SuperIO" &&
+            if (boardVerification.Verified && type == "SuperIO" &&
                 hardware.Name.Contains("NCT6701D", StringComparison.OrdinalIgnoreCase) &&
                 sensor.SensorType == SensorType.Control && sensor.Control is not null && sensor.Index is >= 0 and < 7)
                 controls[sensor.Index + 1] = sensor.Control;
@@ -149,6 +149,26 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
                 }
             }
             finally { gpuClient?.Dispose(); }
+        }
+    }
+}
+
+internal sealed class BoardVerification(TimeProvider? timeProvider = null)
+{
+    private readonly TimeProvider time = timeProvider ?? TimeProvider.System;
+    private bool? result;
+    private long? failedAt;
+    public bool Verified => result == true;
+
+    public void Check(Func<string?> readProduct)
+    {
+        // A definitive answer is cached. An exception leaves the board unverified and eligible for a later retry.
+        if (result.HasValue || (failedAt is { } failure && time.GetElapsedTime(failure) < TimeSpan.FromSeconds(30))) return;
+        try { result = VerifiedBoards.Allows(readProduct()); }
+        catch (Exception e)
+        {
+            failedAt = time.GetTimestamp();
+            ControlSpawnLog.Failure("sensors", e);
         }
     }
 }

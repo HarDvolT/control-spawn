@@ -34,10 +34,13 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private ReactiveFrame reactive = new();
     private readonly ReactiveSmoother smoothing = new();
     private readonly OpenRgbProcess rgbProcess = new();
+    private Task? rgbLaunch;
+    internal Action<string>? StartOpenRgb { get; init; }
     private readonly object stateGate = new();
     private HardwareSnapshot snapshot = new(DateTimeOffset.UtcNow, []);
     private readonly Queue<TelemetrySample> sampleHistory = new();
-    private readonly ProcessTelemetry processTelemetry = new();
+    private ProcessTelemetry? processTelemetry;
+    internal Func<IReadOnlyList<ProcessLoad>?>? SampleProcesses { get; init; }
     private IReadOnlyList<ProcessLoad>? processLoads;
     private bool? lastThermalThrottle;
     private int thermalEpisodes;
@@ -261,8 +264,13 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         AppDomain.CurrentDomain.ProcessExit += exit;
         AppDomain.CurrentDomain.UnhandledException += crash;
         Console.CancelKeyPress += cancel;
-        IControlSpawnModule[] modules = [new SensorModule(this), new FanModule(this), new RgbModule(this), new LampModule(this), new RouterModule(this),
+        List<IControlSpawnModule> modules = [new SensorModule(this), new FanModule(this), new RgbModule(this), new LampModule(this), new RouterModule(this),
             new HealthModule(this), new CaptureModule(this, true), new CaptureModule(this, false), new DiscoveryModule(this), new ApplianceModule(this)];
+        if (!mock)
+        {
+            processTelemetry = new(ok => ModuleHealth("process-telemetry", ok), SampleProcesses);
+            modules.Add(processTelemetry);
+        }
         // Sensor reads may block in native code. Start each module independently of the others.
         foreach (var module in modules) module.Start(linked.Token, background: !mock);
         var loops = modules.Select(module => module.Completion).ToArray();
@@ -344,7 +352,23 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             {
                 if (!mock && !rgbConnected && clock.Elapsed >= reconnect)
                 {
-                    if (CheckOpenRgbPath(value)) rgbProcess.Start(value.OpenRgbPath!);
+                    if (rgbLaunch is { IsCompleted: false }) continue;
+                    if (rgbLaunch is { } launch)
+                    {
+                        rgbLaunch = null;
+                        await launch;
+                    }
+                    else if (CheckOpenRgbPath(value))
+                    {
+                        var path = value.OpenRgbPath!;
+                        rgbLaunch = Task.Run(() =>
+                        {
+                            var current = Volatile.Read(ref settings);
+                            if (!token.IsCancellationRequested && current.LaunchOpenRgb && current.OpenRgbPath == path)
+                                (StartOpenRgb ?? rgbProcess.Start)(path);
+                        }, token);
+                        continue; // Release rgbGate and let a later tick connect once the launch has finished.
+                    }
                     var client = (OpenRgbClient)rgb;
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(2));
                     await client.ConnectAsync(cancellationToken: timeout.Token);

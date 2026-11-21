@@ -19,7 +19,6 @@ public sealed partial class ServiceRuntime
             do
             {
                 HardwareSnapshot next;
-                var nextProcesses = runtime.mock ? null : runtime.processTelemetry.Sample();
                 try { next = SensorProjection.ReadSnapshot(runtime.sensors); runtime.warnings.TryRemove("sensors", out _); }
                 catch (Exception e) { next = new(DateTimeOffset.UtcNow, [], false); runtime.warnings["sensors"] = "Sensor read failed."; ControlSpawnLog.Failure("sensors", e); }
                 if (runtime.sensors.GpuSensorsMissing)
@@ -29,7 +28,7 @@ public sealed partial class ServiceRuntime
                 lock (runtime.stateGate)
                 {
                     runtime.snapshot = next;
-                    runtime.processLoads = nextProcesses;
+                    runtime.processLoads = runtime.processTelemetry?.Latest;
                     runtime.sensorCycle = runtime.clock.Elapsed;
                     runtime.inputs.Temperature = next.Temperature(SensorCategory.Cpu) ?? double.NaN;
                     var system = StateAssembler.Assemble(next, value, runtime.controls.Headers, [], null, null, new(runtime.mock, false, [], runtime.failsafe)).System;

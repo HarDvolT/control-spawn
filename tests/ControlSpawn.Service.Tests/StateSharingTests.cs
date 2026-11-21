@@ -30,7 +30,8 @@ public sealed class StateSharingTests
     public async Task ConcurrentReadersWaitForTheBuildInProgressInsteadOfStartingTheirOwn()
     {
         int builds = 0;
-        var hub = new StateHub(() => { Interlocked.Increment(ref builds); Thread.Sleep(100); return Empty(); });
+        // A frozen clock: on a slow runner a late task could otherwise find the 250 ms cache expired and build again.
+        var hub = new StateHub(() => { Interlocked.Increment(ref builds); Thread.Sleep(100); return Empty(); }, () => TimeSpan.Zero);
         await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(hub.Read)));
         Assert.Equal(1, builds);
     }
