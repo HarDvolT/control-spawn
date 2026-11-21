@@ -1,6 +1,6 @@
 # RFC 0001: the plugin system
 
-Status: **open for comment.** Nothing here is built yet. Disagree, poke holes, and suggest better ideas in the linked GitHub issue.
+Status: **open for comment.** Nothing here is built yet. The proposed design that answers these questions is in [DESIGN-plugins.md](../DESIGN-plugins.md). Disagree, poke holes, and suggest better ideas in the linked GitHub issue.
 
 ## Why
 
