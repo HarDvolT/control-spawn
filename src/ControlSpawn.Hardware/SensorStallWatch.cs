@@ -13,9 +13,12 @@ public sealed class SensorStallWatch(Func<TimeSpan>? now = null)
     private readonly object gate = new();
     private string? hardware;
     private TimeSpan started;
-    private bool reported;
+    private bool reported, reportStuck;
 
-    public void Begin(string name) { lock (gate) { hardware = name; started = now(); reported = false; } }
+    public void Begin(string name, bool reportStuck = true)
+    {
+        lock (gate) { hardware = name; started = now(); reported = false; this.reportStuck = reportStuck; }
+    }
 
     /// <summary>Returns a sentence when the read that just ended was slow, else null.</summary>
     public string? End()
@@ -34,7 +37,7 @@ public sealed class SensorStallWatch(Func<TimeSpan>? now = null)
         lock (gate)
         {
             var took = now() - started;
-            if (hardware is null || reported || took < StuckRead) return null;
+            if (hardware is null || !reportStuck || reported || took < StuckRead) return null;
             reported = true;
             return $"{hardware} sensor read has been stuck for {took.TotalMilliseconds:0} ms; fans go to BIOS control at 3 s.";
         }
