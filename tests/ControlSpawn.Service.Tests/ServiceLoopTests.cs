@@ -5,6 +5,12 @@ using Xunit;
 
 namespace ControlSpawn.Service.Tests;
 
+/// <summary>These run the real (non-mock) runtime and block thread-pool threads on purpose. Run them alone so they cannot
+/// starve the timing-sensitive tests on a small CI runner.</summary>
+[CollectionDefinition(nameof(ServiceLoopTests), DisableParallelization = true)]
+public sealed class ServiceLoopCollection;
+
+[Collection(nameof(ServiceLoopTests))]
 public sealed class ServiceLoopTests
 {
     private sealed class NoDiscovery : IMiioDiscoveryTransport, IDiscoveryTransport
