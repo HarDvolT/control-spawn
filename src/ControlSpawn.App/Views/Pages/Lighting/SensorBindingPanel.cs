@@ -168,7 +168,7 @@ public sealed class SensorBindingPanel : Grid
     {
         var body = new StackPanel();
         styles.HorizontalAlignment = HorizontalAlignment.Right;
-        body.Children.Add(CardHeader("LOOK", styles));
+        body.Children.Add(CardHeader("Look", styles));
         styles.SelectionChanged += (_, _) => { if (styles.SelectedIndex >= 0) styleHint.Text = StyleHints[styles.SelectedIndex]; DraftChanged(); };
         AutomationProperties.SetName(styles, "Sensor style");
         body.Children.Add(look);
@@ -211,8 +211,8 @@ public sealed class SensorBindingPanel : Grid
         AutomationProperties.SetName(rangeTrack, "Sensor range");
         body.Children.Add(rangeTrack);
         var ends = new DockPanel { Margin = new(0, 12, 0, 0) };
-        var highBox = Labelled("HIGH", high); DockPanel.SetDock(highBox, Dock.Right); ends.Children.Add(highBox);
-        ends.Children.Add(Labelled("LOW", low));
+        var highBox = Labelled("High", high); DockPanel.SetDock(highBox, Dock.Right); ends.Children.Add(highBox);
+        ends.Children.Add(Labelled("Low", low));
         body.Children.Add(ends);
         low.ValueChanged += () => { if (!suppress) { rangeTrack.SetRange(low.Value, high.Value); DraftChanged(); } };
         high.ValueChanged += () => { if (!suppress) { rangeTrack.SetRange(low.Value, high.Value); DraftChanged(); } };

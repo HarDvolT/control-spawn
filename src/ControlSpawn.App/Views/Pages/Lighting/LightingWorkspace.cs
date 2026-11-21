@@ -299,13 +299,13 @@ public sealed class LightingWorkspace : UserControl
         dial.AngleChanged += value => { if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { Angle = Math.Round(value) }); };
 
         var sizeRow = new StackPanel();
-        sizeRow.Children.Add(ValueLabel("SIZE", sizeValue, new(0, 14, 0, 8))); sizeRow.Children.Add(scale);
+        sizeRow.Children.Add(ValueLabel("Size", sizeValue, new(0, 14, 0, 8))); sizeRow.Children.Add(scale);
         scale.ValueChanged += (_, _) => { sizeValue.Text = $"{scale.Value:0.0}×"; if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { Scale = Math.Round(scale.Value, 2) }); };
         AutomationProperties.SetName(scale, "Size");
 
         var cometRow = new StackPanel();
         cometRow.Children.Add(ValueLabel("Comets", countValue, new(0, 14, 0, 8))); cometRow.Children.Add(count);
-        cometRow.Children.Add(ValueLabel("TAIL", tailValue, new(0, 12, 0, 8))); cometRow.Children.Add(tail);
+        cometRow.Children.Add(ValueLabel("Tail", tailValue, new(0, 12, 0, 8))); cometRow.Children.Add(tail);
         count.Step = 1;
         count.ValueChanged += (_, _) => { countValue.Text = $"{count.Value:0}"; if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { CometCount = (int)Math.Round(count.Value) }); };
         tail.ValueChanged += (_, _) => { tailValue.Text = tail.Value < 0.3 ? "Short" : tail.Value < 0.65 ? "Medium" : "Long"; if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { TailLength = Math.Round(tail.Value, 2) }); };
