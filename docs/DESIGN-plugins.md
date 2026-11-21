@@ -36,6 +36,8 @@ Plugins sit outside all three layers. These rules keep them there:
 6. **Killing anything plugin-related leaves fans safe.** Killing a plugin, every plugin, or the plugin module leaves fans on their curves. Killing the service still hands fans to the BIOS through FanGuard, exactly as today. These are the Phase 3 exit tests on the real PC.
 7. **Plugin fan channels aren't in this design.** The plan allows plugins to provide extra fans one day (`fan.channel`, such as a USB fan hub). That needs its own RFC, because a USB hub can't be handed back to the BIOS by FanGuard. It needs a device that falls back to a safe speed on its own when its plugin stops. Until that RFC is accepted, the host refuses any manifest that asks for `fan.channel`.
 8. **Heating appliances keep their confirmed start.** The fryer's two-step start (`PrepareApplianceStart`, then `ConfirmApplianceStart` with a one-use nonce, app only) stays in the core. The host sends a heating action to a plugin only after the core has checked a valid confirmation. Honest limit: a plugin that talks to the fryer over the LAN could start it on its own. The core can't prevent that, so appliance plugins need review and a project signature (section 9).
+9. **Plugin events can't change fans through automations.** A plugin's `event.emit` can trigger an automation, and an automation can apply a scene, and a scene can set a fan mode. In SDK 0.x, a scene applied because of a plugin event keeps the current fan mode and changes only lights. Fan modes change only from the user, built-in rules (lock, game, night) and the fan page. A test covers it.
+10. **Plugins can't starve the PC.** A plugin that eats every core could delay the service long enough to miss FanGuard's 3-second heartbeat. That would hand fans to the BIOS, which is safe but bad. So each plugin's job object caps its CPU (default 10% of the machine, hard cap), and plugins start at below-normal priority.
 
 If a later change needs to break one of these rules, it needs a new RFC and the owner's approval, not a code review.
 
@@ -54,7 +56,8 @@ ControlSpawn.Service.exe  (LocalSystem today, Core after the split)
 - **The plugin manager is a module, not a new service.** It runs as `PluginModule` inside today's service, with the same retry rules as every other module. When the plan splits the service into Guardian (SYSTEM) and Core (low rights), `PluginModule` moves to Core unchanged. Plugins never run beside the Guardian.
 - **Each plugin is its own process.** A crash in one doesn't touch the others, the service or the fans.
 - **Each plugin runs in an AppContainer** with only the capabilities its manifest declares, such as `internetClient` or `privateNetworkClientServer` for LAN devices. The process token has no admin rights, even though the service that starts it does.
-- **Each plugin sits in a job object** that kills it when the service exits, and caps its memory and process count. Default caps: 256 MB, 4 processes. The manifest can't raise them in SDK 0.x.
+- **The token underneath isn't SYSTEM.** An AppContainer token built from the service's SYSTEM token would still carry the SYSTEM user SID, and some objects grant access to SYSTEM and to all app packages. So the host builds the plugin's token from a low-rights account (LocalService, or a per-plugin virtual account), then adds the AppContainer on top. Spike S1 picks which.
+- **Each plugin sits in a job object** that kills it when the service exits (`KILL_ON_JOB_CLOSE`), and caps its memory, CPU and process count. Default caps: 256 MB, 10% CPU, 4 processes. Breakaway isn't allowed, so a plugin can't start a child outside the job. The manifest can't raise the caps in SDK 0.x.
 - **stdout and stderr go to the plugin's log**, capped at 1 MB per file. The protocol never uses stdio, so a library that prints can't break it. (PR #49's GPU host had to redirect `Console.Out` for exactly this reason.)
 
 Spike S1 checks what an AppContainer started from a LocalSystem service can really do and reach. Until it passes, official plugins run with a restricted token and a job object, and community plugins don't run at all.
@@ -295,7 +298,7 @@ Each spike ends with a short written result in `docs/`, run on the owner's PC wh
 
 | Spike | Question | Where |
 |---|---|---|
-| S1 | Can a LocalSystem service start a plugin in an AppContainer with LAN access? Does the AppContainer block the `controlspawn` pipe? Can it reach a Yeelight on the LAN? | Owner's PC |
+| S1 | Can a LocalSystem service start a plugin in an AppContainer, on a LocalService or virtual-account base token, with LAN access? Does it block the `controlspawn` pipe and FanGuard's process? Can it still reach a Yeelight on the LAN? Do the job object's CPU and memory caps hold? | Owner's PC |
 | S2 | Can a sandboxed plugin open one declared USB HID device and nothing else? | Owner's PC, with a peripheral |
 | S3 | JSON lines against shared memory for LED frames, at 30 fps, inside the sandbox | Owner's PC |
 | S4 | Idle memory of a Rust plugin, a NativeAOT C# plugin and a normal .NET plugin | Any Windows PC |
@@ -323,6 +326,8 @@ Each step is its own PR, ships on its own, and changes nothing users see until s
 - A plugin can't read another plugin's secrets, settings or devices.
 - A heating action without a valid core confirmation never reaches the plugin.
 - A plugin's sensor reading never changes a fan duty (SDK 0.x).
+- A scene applied because of a plugin event leaves the fan mode as it was.
+- A plugin that spins every core doesn't make the fan loop miss a FanGuard beat.
 - A second client can't connect to a plugin's pipe.
 
 ## 14. Still open
