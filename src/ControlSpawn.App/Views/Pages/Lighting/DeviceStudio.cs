@@ -66,7 +66,7 @@ public sealed class DeviceStudio : UserControl
             rail.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
         };
         DockPanel.SetDock(arrange, Dock.Right); header.Children.Add(arrange);
-        header.Children.Add(Styled(new TextBlock { Text = "YOUR PC, PART BY PART", VerticalAlignment = VerticalAlignment.Center }, "SectionLabel"));
+        header.Children.Add(Styled(new TextBlock { Text = "Your PC, part by part", VerticalAlignment = VerticalAlignment.Center }, "SectionLabel"));
         body.Children.Add(header);
         body.Children.Add(rail);
 

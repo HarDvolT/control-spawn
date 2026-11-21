@@ -6,7 +6,7 @@
           <Button Content="Add or fix a lamp" Command="{Binding ShowSetupCommand}" Style="{StaticResource PillButton}" Margin="0,4,8,4" />
         </StackPanel>
         <StackPanel>
-          <TextBlock Text="LAMPS" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
+          <TextBlock Text="Lamps" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" TextWrapping="Wrap" />
         </StackPanel>
       </DockPanel>
@@ -41,7 +41,7 @@
                 </Border>
                 <DockPanel Margin="0,8,0,8">
                   <Button Command="{Binding ToggleCommand}" Style="{StaticResource TextAction}" HorizontalAlignment="Left" Margin="0,0,16,0">
-                    <Grid Width="174" Height="174"><c:LampOrb ColorHex="{Binding ColorEntry}"/><TextBlock Text="{Binding PowerText}" Foreground="#AA07080A" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/></Grid>
+                    <Grid Width="174" Height="174"><c:LampOrb ColorHex="{Binding ColorEntry}"/><TextBlock Text="{Binding PowerText}" Foreground="#AA07080A" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/></Grid>
                   </Button>
                   <StackPanel Margin="0,8">
                     <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding Brightness, StringFormat={}{0:0}%}" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Brightness" Style="{StaticResource SmallMuted}" VerticalAlignment="Center"/></DockPanel>
@@ -55,7 +55,7 @@
                     </UniformGrid>
                   </StackPanel>
                 </DockPanel>
-                <DockPanel Margin="0,0,0,10"><Button x:Name="CustomColorButton" DockPanel.Dock="Right" Content="Custom" Command="{Binding OpenCustomColorCommand}" Style="{StaticResource TextAction}" Height="16" MinHeight="0" Padding="0"/><TextBlock Text="COLOUR" Style="{StaticResource SectionLabel}"/></DockPanel><Popup IsOpen="{Binding CustomColorOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=CustomColorButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"><Border Background="#17181D" CornerRadius="16" Padding="16" BorderBrush="#33FFFFFF" BorderThickness="1"><StackPanel><c:ColorWheel ColorHex="{Binding ColorEntry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="160" Height="160"/><Button Content="Follow lighting map" Command="{Binding FollowMapCommand}" Margin="0,12,0,0"/></StackPanel></Border></Popup><ItemsControl ItemsSource="{Binding Swatches}">
+                <DockPanel Margin="0,0,0,10"><Button x:Name="CustomColorButton" DockPanel.Dock="Right" Content="Custom" Command="{Binding OpenCustomColorCommand}" Style="{StaticResource TextAction}" Height="16" MinHeight="0" Padding="0"/><TextBlock Text="Colour" Style="{StaticResource SectionLabel}"/></DockPanel><Popup IsOpen="{Binding CustomColorOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=CustomColorButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"><Border Background="#17181D" CornerRadius="16" Padding="16" BorderBrush="#33FFFFFF" BorderThickness="1"><StackPanel><c:ColorWheel ColorHex="{Binding ColorEntry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="160" Height="160"/><Button Content="Follow lighting map" Command="{Binding FollowMapCommand}" Margin="0,12,0,0"/></StackPanel></Border></Popup><ItemsControl ItemsSource="{Binding Swatches}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                       <UniformGrid Columns="8" />
@@ -68,14 +68,14 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
                 <!-- Whites use the bulb's own white LEDs, as Mi Home does: far brighter than a white mixed from colours. -->
-                <DockPanel Margin="0,0,0,10"><TextBlock DockPanel.Dock="Right" Text="{Binding WhiteText}" Style="{StaticResource SmallMuted}"/><TextBlock Text="WHITE" Style="{StaticResource SectionLabel}"/></DockPanel>
+                <DockPanel Margin="0,0,0,10"><TextBlock DockPanel.Dock="Right" Text="{Binding WhiteText}" Style="{StaticResource SmallMuted}"/><TextBlock Text="White" Style="{StaticResource SectionLabel}"/></DockPanel>
                 <c:ThickSlider WhiteSpectrum="True" Minimum="1700" Maximum="6500" Step="100" Height="20" Value="{Binding WhiteKelvin, Mode=TwoWay}" AutomationProperties.Name="White temperature" Margin="0,0,0,10"/>
                 <UniformGrid Columns="3" Margin="0,0,0,14">
                   <c:ChoiceButton Choice="2700" Selection="{Binding Kelvin}" Content="Warm" Command="{Binding SetWhiteCommand}" CommandParameter="2700" Margin="0,0,8,0"/>
                   <c:ChoiceButton Choice="4000" Selection="{Binding Kelvin}" Content="Neutral" Command="{Binding SetWhiteCommand}" CommandParameter="4000" Margin="0,0,8,0"/>
                   <c:ChoiceButton Choice="6500" Selection="{Binding Kelvin}" Content="Daylight" Command="{Binding SetWhiteCommand}" CommandParameter="6500"/>
                 </UniformGrid>
-                <TextBlock Text="FOLLOWS" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
+                <TextBlock Text="Follows" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
                 <c:SegmentedControl ItemsSource="{Binding PrimaryFollowModes}" SelectedItem="{Binding Follow, Mode=TwoWay}" ItemContainerStyle="{StaticResource LampFollowItem}" Margin="0,8,0,0" FontSize="11">
                   <c:SegmentedControl.ItemTemplate>
                     <DataTemplate>

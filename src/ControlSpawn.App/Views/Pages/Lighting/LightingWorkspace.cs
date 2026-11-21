@@ -129,7 +129,7 @@ public sealed class LightingWorkspace : UserControl
         DockPanel.SetDock(lightsOff, Dock.Right); heading.Children.Add(lightsOff);
         lightsOff.Click += (_, _) => { if (model is null) return; var target = model.Effect == LightingEffect.Off ? lastOnEffect : LightingEffect.Off; if (model.Effects.FirstOrDefault(e => e.Effect == target) is { } option) model.SelectEffectCommand.Execute(option); };
         var titles = new StackPanel();
-        titles.Children.Add(Styled(new TextBlock { Text = "LIGHTING" }, "PageEyebrow"));
+        titles.Children.Add(Styled(new TextBlock { Text = "Lighting" }, "PageEyebrow"));
         titles.Children.Add(Styled(title, "H1"));
         titles.Children.Add(Styled(subtitle, "PageSubtitle"));
         heading.Children.Add(titles); host.Children.Add(heading);
@@ -156,7 +156,7 @@ public sealed class LightingWorkspace : UserControl
 
         // Row 1, left: the live preview (whole case) or the editable canvas (per device).
         var previewBody = new StackPanel();
-        var liveHeader = CardHeader("YOUR PC, LIVE", null);
+        var liveHeader = CardHeader("Your PC, live", null);
         previewBody.Children.Add(liveHeader);
         previewBody.Children.Add(illustration);
         // Per device: the part-by-part studio, with the case layout tools one click away inside it.
@@ -206,7 +206,7 @@ public sealed class LightingWorkspace : UserControl
         var hexBox = new Border { Background = new SolidColorBrush(Color.FromRgb(13, 14, 18)), BorderBrush = new SolidColorBrush(Color.FromArgb(31, 255, 255, 255)), BorderThickness = new(1), CornerRadius = new(10), Padding = new(10, 4, 10, 4), Child = hex };
         hex.LostFocus += (_, _) => CommitHex(); hex.KeyDown += (_, e) => { if (e.Key == Key.Enter) CommitHex(); };
         AutomationProperties.SetName(hex, "Colour code");
-        body.Children.Add(CardHeader("COLOUR", hexBox));
+        body.Children.Add(CardHeader("Colour", hexBox));
         var row = new Grid { Margin = new(0, 4, 0, 0) };
         row.ColumnDefinitions.Add(new() { Width = new GridLength(176) }); row.ColumnDefinitions.Add(new());
         var wheel = new ColorWheel { Width = 160, Height = 160, MinWidth = 0, MinHeight = 0, RingMode = true, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
@@ -222,7 +222,7 @@ public sealed class LightingWorkspace : UserControl
         }
         row.Children.Add(swatches); body.Children.Add(row);
 
-        body.Children.Add(ValueLabel("BRIGHTNESS", brightnessValue, new(0, 18, 0, 8)));
+        body.Children.Add(ValueLabel("Brightness", brightnessValue, new(0, 18, 0, 8)));
         brightness.Glow = false; brightness.UseGradient = true; brightness.AccentColor = ColorUtil.Parse("#36D6FF", Colors.Cyan);
         brightness.ValueChanged += (_, _) => { brightnessValue.Text = $"{brightness.Value:0}%"; if (!suppress && model is not null) model.BrightnessPercent = brightness.Value; };
         AutomationProperties.SetName(brightness, "Brightness");
@@ -237,7 +237,7 @@ public sealed class LightingWorkspace : UserControl
         body.Children.Add(presets);
 
         // One-click looks: effect, colour and palette together.
-        body.Children.Add(Styled(new TextBlock { Text = "QUICK LOOKS", Margin = new(0, 20, 0, 10) }, "SectionLabel"));
+        body.Children.Add(Styled(new TextBlock { Text = "Quick looks", Margin = new(0, 20, 0, 10) }, "SectionLabel"));
         var looks = new UniformGrid { Columns = 3 };
         foreach (var (name, effect, colour, paletteName, a, b) in new[]
         {
@@ -264,7 +264,7 @@ public sealed class LightingWorkspace : UserControl
     {
         var body = new StackPanel();
         categories.SelectionChanged += (_, _) => FilterGallery();
-        body.Children.Add(CardHeader("EFFECTS", categories));
+        body.Children.Add(CardHeader("Effects", categories));
         gallery.Margin = new(0, 6, 0, 0);
         body.Children.Add(gallery);
         return body;
@@ -277,14 +277,14 @@ public sealed class LightingWorkspace : UserControl
         tuneHint.Margin = new(0, 2, 0, 6); body.Children.Add(Styled(tuneHint, "SmallMuted"));
 
         var speedRow = new StackPanel();
-        speedRow.Children.Add(ValueLabel("SPEED", speedValue, new(0, 12, 0, 8))); speedRow.Children.Add(speed);
+        speedRow.Children.Add(ValueLabel("Speed", speedValue, new(0, 12, 0, 8))); speedRow.Children.Add(speed);
         speed.ValueChanged += (_, _) => { speedValue.Text = speed.Value < 34 ? "Slow" : speed.Value < 67 ? "Medium" : "Fast"; if (!suppress && model is not null) model.SpeedPercent = speed.Value; };
         AutomationProperties.SetName(speed, "Speed");
 
         var paletteRow = new StackPanel();
         var paletteHeader = new DockPanel { Margin = new(0, 14, 0, 6) };
         DockPanel.SetDock(palettes, Dock.Right); paletteHeader.Children.Add(palettes);
-        paletteHeader.Children.Add(Styled(new TextBlock { Text = "PALETTE", VerticalAlignment = VerticalAlignment.Center }, "SectionLabel"));
+        paletteHeader.Children.Add(Styled(new TextBlock { Text = "Palette", VerticalAlignment = VerticalAlignment.Center }, "SectionLabel"));
         paletteRow.Children.Add(paletteHeader); paletteRow.Children.Add(palette);
         paletteRow.Children.Add(Styled(new TextBlock { Text = "Drag a dot to move it. Pick a colour above to recolour the selected dot.", Margin = new(0, 2, 0, 0), TextWrapping = TextWrapping.Wrap }, "SmallMuted"));
         palettes.SelectionChanged += (_, _) => { if (!suppress && model is not null && palettes.SelectedItem is string value) _ = model.SetParametersAsync(model.Parameters with { Palette = value, Stops = null }); };
@@ -293,7 +293,7 @@ public sealed class LightingWorkspace : UserControl
         var directionRow = new DockPanel { Margin = new(0, 14, 0, 0) };
         dial.Margin = new(0, 0, 16, 0); DockPanel.SetDock(dial, Dock.Left); directionRow.Children.Add(dial);
         var directionText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        directionText.Children.Add(Styled(new TextBlock { Text = "DIRECTION" }, "SectionLabel"));
+        directionText.Children.Add(Styled(new TextBlock { Text = "Direction" }, "SectionLabel"));
         directionText.Children.Add(Styled(new TextBlock { Text = "Drag the dial to choose which way it travels", Margin = new(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap }, "SmallMuted"));
         directionRow.Children.Add(directionText);
         dial.AngleChanged += value => { if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { Angle = Math.Round(value) }); };
@@ -304,7 +304,7 @@ public sealed class LightingWorkspace : UserControl
         AutomationProperties.SetName(scale, "Size");
 
         var cometRow = new StackPanel();
-        cometRow.Children.Add(ValueLabel("COMETS", countValue, new(0, 14, 0, 8))); cometRow.Children.Add(count);
+        cometRow.Children.Add(ValueLabel("Comets", countValue, new(0, 14, 0, 8))); cometRow.Children.Add(count);
         cometRow.Children.Add(ValueLabel("TAIL", tailValue, new(0, 12, 0, 8))); cometRow.Children.Add(tail);
         count.Step = 1;
         count.ValueChanged += (_, _) => { countValue.Text = $"{count.Value:0}"; if (!suppress && model is not null) _ = model.SetParametersAsync(model.Parameters with { CometCount = (int)Math.Round(count.Value) }); };
@@ -320,11 +320,11 @@ public sealed class LightingWorkspace : UserControl
 
         // Lamps and saving are about the whole look, so they sit at the bottom of the card.
         body.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)), Margin = new(0, 18, 0, 0) });
-        body.Children.Add(Styled(new TextBlock { Text = "LAMPS", Margin = new(0, 14, 0, 8) }, "SectionLabel"));
+        body.Children.Add(Styled(new TextBlock { Text = "Lamps", Margin = new(0, 14, 0, 8) }, "SectionLabel"));
         lampFollow.SelectionChanged += (_, _) => { if (!suppress) _ = SetLampFollowAsync(lampFollow.SelectedIndex switch { 0 => "pc", 1 => "average", _ => "own" }); };
         lampFollow.HorizontalAlignment = HorizontalAlignment.Left;
         body.Children.Add(lampFollow);
-        body.Children.Add(Styled(new TextBlock { Text = "SAVE THIS LOOK", Margin = new(0, 16, 0, 8) }, "SectionLabel"));
+        body.Children.Add(Styled(new TextBlock { Text = "Save this look", Margin = new(0, 16, 0, 8) }, "SectionLabel"));
         var save = new DockPanel();
         var saveButton = new Button { Content = "Save to scene", MinHeight = 36, Padding = new(16, 0, 16, 0), Margin = new(8, 0, 0, 0) };
         saveButton.Click += (_, _) => { if (model is not null && sceneBox.SelectedItem is string scene) { model.SceneName = scene; model.SaveToSceneCommand.Execute(null); } };
@@ -512,7 +512,7 @@ public sealed class LightingWorkspace : UserControl
     {
         var colour = DriverColor(driver); bool following = driver == PartDriver.Case;
         var body = new StackPanel { Orientation = Orientation.Horizontal };
-        body.Children.Add(new TextBlock { Text = DriverMark(driver), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(colour), Margin = new(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
+        body.Children.Add(new TextBlock { Text = DriverMark(driver), FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(colour), Margin = new(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
         body.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = following ? Brushes.WhiteSmoke : new SolidColorBrush(Color.FromRgb(200, 202, 208)), FontWeight = FontWeights.SemiBold });
         if (!following) body.Children.Add(new TextBlock { Text = " · " + note, FontSize = 12, Foreground = new SolidColorBrush(colour) });
         var button = new Button { Content = body, Margin = new(0, 0, 8, 8), Cursor = Cursors.Hand, ToolTip = tip };

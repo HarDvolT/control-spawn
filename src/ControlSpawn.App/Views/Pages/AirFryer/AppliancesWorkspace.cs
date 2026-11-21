@@ -105,7 +105,7 @@ public sealed class AppliancesWorkspace : UserControl
         var header = new DockPanel { Margin = new(0, 0, 0, 2) };
         v.Chips = new WrapPanel { VerticalAlignment = VerticalAlignment.Bottom }; DockPanel.SetDock(v.Chips, Dock.Right); header.Children.Add(v.Chips);
         var copy = new StackPanel();
-        var label = new TextBlock { Text = "AIR FRYER" }; label.SetResourceReference(StyleProperty, "SectionLabel"); copy.Children.Add(label);
+        var label = new TextBlock { Text = "Air fryer" }; label.SetResourceReference(StyleProperty, "SectionLabel"); copy.Children.Add(label);
         v.Headline = new TextBlock { Text = "Ready when you are", FontSize = 32, Margin = new(0, 4, 0, 0) }; v.Headline.SetResourceReference(StyleProperty, "H1"); copy.Children.Add(v.Headline);
         v.Subtitle = new TextBlock { Text = appliance is null ? "Control Spawn never starts it on its own" : "", FontSize = 13, Foreground = Secondary, Margin = new(0, 6, 0, 0), TextWrapping = TextWrapping.Wrap }; copy.Children.Add(v.Subtitle);
         header.Children.Add(copy);
@@ -136,7 +136,10 @@ public sealed class AppliancesWorkspace : UserControl
 
         // Starting asks twice, inline: the first tap only fetches a one-use confirmation from the service.
         var confirm = new DockPanel();
-        var mark = new TextBlock { Text = "⚠", FontSize = 20, Foreground = new SolidColorBrush(Amber), VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 14, 0) }; DockPanel.SetDock(mark, Dock.Left); confirm.Children.Add(mark);
+        // A line warning icon in the same stroke as the rest of the app, not a font glyph.
+        var mark = new System.Windows.Shapes.Path { Data = Geometry.Parse("M12 3 L2 20 H22 Z M12 9 V14 M12 17 V17.5"), Stroke = new SolidColorBrush(Amber), StrokeThickness = 1.6,
+            StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round, Width = 20, Height = 20, Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 14, 0) }; DockPanel.SetDock(mark, Dock.Left); confirm.Children.Add(mark);
         var yes = v.Yes = new Button { Content = "Yes, start cooking", MinHeight = 42, Padding = new(20, 0, 20, 0), Margin = new(10, 0, 0, 0) }; yes.SetResourceReference(StyleProperty, "PrimaryPillButton"); yes.FontSize = 13;
         var no = new Button { Content = "Not yet", MinHeight = 42, Padding = new(18, 0, 18, 0), Margin = new(14, 0, 0, 0) }; no.SetResourceReference(StyleProperty, "PillButton");
         DockPanel.SetDock(yes, Dock.Right); DockPanel.SetDock(no, Dock.Right); confirm.Children.Add(yes); confirm.Children.Add(no);
@@ -163,7 +166,7 @@ public sealed class AppliancesWorkspace : UserControl
         v.Start = new Button { Content = "Start cooking", MinHeight = 48 }; v.Start.SetResourceReference(StyleProperty, "PrimaryPillButton");
         v.Pause = new Button { Content = "Pause", MinHeight = 48, Margin = new(0, 0, 10, 0) }; v.Pause.SetResourceReference(StyleProperty, "PillButton");
         v.Stop = new Button { Content = "Stop cooking", MinHeight = 48, Foreground = new SolidColorBrush(Color.FromRgb(255, 138, 138)), Background = new SolidColorBrush(Color.FromArgb(26, Red.R, Red.G, Red.B)), BorderBrush = new SolidColorBrush(Color.FromArgb(128, Red.R, Red.G, Red.B)) };
-        v.Stop.SetResourceReference(StyleProperty, "PillButton"); v.Stop.FontWeight = FontWeights.Bold;
+        v.Stop.SetResourceReference(StyleProperty, "PillButton"); v.Stop.FontWeight = FontWeights.SemiBold;
         buttons.Children.Add(v.Start); buttons.Children.Add(v.Pause); buttons.Children.Add(v.Stop);
         panel.Children.Add(buttons);
         v.Start.Click += async (_, _) =>

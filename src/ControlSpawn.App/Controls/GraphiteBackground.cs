@@ -1,50 +1,16 @@
 using System.Windows;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
-using ControlSpawn.App.Common;
 
 namespace ControlSpawn.App.Controls;
 
-/// <summary>The shell's dot grid and two drifting light fields, drawn without bitmap assets.</summary>
+/// <summary>The shell's plain graphite ground.</summary>
 public sealed class GraphiteBackground : FrameworkElement
 {
-    private readonly TranslateTransform drift = new();
-    public GraphiteBackground()
-    {
-        Motion.WhileVisible(this, UpdateMotion, () => drift.BeginAnimation(TranslateTransform.XProperty, null));
-        SystemParameters.StaticPropertyChanged += PreferenceChanged;
-    }
-    private void PreferenceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    { if (IsLoaded) Dispatcher.BeginInvoke(UpdateMotion); }
-    private void UpdateMotion()
-    {
-        // The glows stay still: drifting them repainted the whole window (millions of pixels on a high-DPI screen)
-        // ten times a second for a movement of 2.5 px a second that nobody could see.
-        drift.BeginAnimation(TranslateTransform.XProperty, null);
-    }
-    protected override void OnRender(DrawingContext dc)
-    {
-        dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(7, 8, 10)), null, new Rect(RenderSize));
-        // One tiled brush instead of thousands of separate dots keeps every redraw cheap.
-        dc.DrawRectangle(DotGrid, null, new Rect(RenderSize));
-        dc.PushTransform(drift);
-        Glow(dc, new Point(140, 80), 390, Color.FromArgb(28, 255, 77, 26));
-        Glow(dc, new Point(ActualWidth - 100, 430), 465, Color.FromArgb(22, 54, 214, 255));
-        dc.Pop();
-    }
-    private static readonly DrawingBrush DotGrid = CreateDotGrid();
-    private static DrawingBrush CreateDotGrid()
-    {
-        var dot = new GeometryDrawing(new SolidColorBrush(Color.FromArgb(8, 255, 255, 255)), null, new EllipseGeometry(new Point(1, 1), 1, 1));
-        var tile = new DrawingGroup(); tile.Children.Add(new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(0, 0, 24, 24)))); tile.Children.Add(dot);
-        var brush = new DrawingBrush(tile) { TileMode = TileMode.Tile, Viewport = new Rect(0, 0, 24, 24), ViewportUnits = BrushMappingMode.Absolute, Stretch = Stretch.None };
-        brush.Freeze(); return brush;
-    }
-    private static void Glow(DrawingContext dc, Point at, double radius, Color color)
-    {
-        var brush = new RadialGradientBrush(color, Colors.Transparent);
-        dc.DrawEllipse(brush, null, at, radius, radius);
-    }
+    private static readonly Brush Ground = CreateGround();
+    private static Brush CreateGround() { var b = new SolidColorBrush(Color.FromRgb(7, 8, 10)); b.Freeze(); return b; }
+    // A plain graphite ground. The dot grid and the ember and ion light washes were decoration behind the content,
+    // so colour now lives only where it means something: the live LEDs, the lamps and the status readings.
+    protected override void OnRender(DrawingContext dc) => dc.DrawRectangle(Ground, null, new Rect(RenderSize));
 }
 
 public sealed class LiveIndicator : FrameworkElement

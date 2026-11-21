@@ -22,7 +22,7 @@ public sealed class DevicesWorkspace : UserControl
     private readonly Dictionary<string, (DeviceNameEditor Name, TextBlock Info, WrapPanel Buttons, TextBlock Status, TextBlock Reading, Border Swatch)> cards = new();
     public DevicesWorkspace()
     {
-        root.Children.Add(new TextBlock { Text = "DEVICES", FontSize = 11, Foreground = new SolidColorBrush(ColorUtil.TextTertiary) });
+        root.Children.Add(new TextBlock { Text = "Devices", FontSize = 11, Foreground = new SolidColorBrush(ColorUtil.TextTertiary) });
         banner.SetResourceReference(TextBlock.FontFamilyProperty, "NumberFont");
         banner.FontWeight = FontWeights.SemiBold;
         var heading = new DockPanel(); root.Children.Add(heading);

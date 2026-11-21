@@ -43,7 +43,7 @@ public sealed class WidgetCard : UserControl
         DockPanel.SetDock(status, Dock.Right); status.VerticalAlignment = VerticalAlignment.Center; header.Children.Add(status);
         var icon = new DeviceIcon { Kind = IconFor(vm.Kind, vm.PreviewIcon), Width = 14, Height = 14, Color = ColorUtil.Parse(vm.IconColor, Colors.White), Margin = new(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
         header.Children.Add(icon);
-        header.Children.Add(new TextBlock { Text = Title(vm.Kind), FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = Brush("#A3A6AE"), VerticalAlignment = VerticalAlignment.Center });
+        header.Children.Add(new TextBlock { Text = Title(vm.Kind), FontSize = 12, FontWeight = FontWeights.Medium, Foreground = Brush("#A3A6AE"), VerticalAlignment = VerticalAlignment.Center });
 
         var stack = new StackPanel(); stack.Children.Add(header); stack.Children.Add(body);
         var card = new Border { CornerRadius = new(16), BorderThickness = new(1), BorderBrush = Brush("#26FFFFFF"), Padding = new(16, 14, 16, 16), Child = stack };
@@ -297,9 +297,9 @@ public sealed class WidgetCard : UserControl
     };
     private static string Title(WidgetKind kind) => kind switch
     {
-        WidgetKind.SystemMonitor => "SYSTEM", WidgetKind.Cpu => "PROCESSOR", WidgetKind.Gpu => "GRAPHICS", WidgetKind.Fans => "FANS",
-        WidgetKind.Lighting => "LIGHTING", WidgetKind.Lamp => "LAMPS", WidgetKind.Modem => "INTERNET", WidgetKind.Ping => "PING",
-        WidgetKind.Network => "NETWORK", WidgetKind.Scenes => "SCENES", WidgetKind.AirFryer => "AIR FRYER", _ => kind.ToString().ToUpperInvariant()
+        WidgetKind.SystemMonitor => "System", WidgetKind.Cpu => "Processor", WidgetKind.Gpu => "Graphics", WidgetKind.Fans => "Fans",
+        WidgetKind.Lighting => "Lighting", WidgetKind.Lamp => "Lamps", WidgetKind.Modem => "Internet", WidgetKind.Ping => "Ping",
+        WidgetKind.Network => "Network", WidgetKind.Scenes => "Scenes", WidgetKind.AirFryer => "Air fryer", _ => kind.ToString()
     };
     private static Button Pill(string text)
     {
