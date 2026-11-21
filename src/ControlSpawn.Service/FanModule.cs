@@ -11,6 +11,7 @@ public sealed partial class ServiceRuntime
         {
             var previous = runtime.clock.Elapsed;
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            bool wrote = false; Exception? loggedStartError = null;
             try
             {
                 do
@@ -23,9 +24,15 @@ public sealed partial class ServiceRuntime
                     if (runtime.enableFanGuard)
                     {
                         runtime.fanGuard ??= new(() => new FanGuardProcess());
-                        try { runtime.fanGuard.Ensure(); runtime.warnings.TryRemove("fanguard", out _); }
-                        catch (Exception e) when (e is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
-                        { runtime.warnings["fanguard"] = FanGuardKeeper.Warning; throw; }
+                        // Ensure never waits for a guard to start. Until one is ready, the BIOS keeps the fans.
+                        if (!runtime.fanGuard.Ensure())
+                        {
+                            if (runtime.fanGuard.LastStartError is { } error && !ReferenceEquals(error, loggedStartError)) { loggedStartError = error; ControlSpawnLog.Failure("fans", error); }
+                            if (wrote) { runtime.RestoreDefaults(); wrote = false; }
+                            if (runtime.fanGuard.Restarts > 0 || runtime.fanGuard.LastStartError is not null) runtime.warnings["fanguard"] = FanGuardKeeper.Warning;
+                            continue;
+                        }
+                        runtime.warnings.TryRemove("fanguard", out _);
                     }
                     var value = Volatile.Read(ref runtime.settings);
                     foreach (var group in value.Fans)
@@ -37,7 +44,7 @@ public sealed partial class ServiceRuntime
                         if (runtime.controls.Headers.Contains(group.Key) && group.Key != 7) runtime.fans.Configure(group.Key, group.Value.ToSettings(value.FanProfiles));
                     bool fresh = runtime.clock.Elapsed - cycle < TimeSpan.FromSeconds(2);
                     if (!fresh) next = next with { Success = false };
-                    runtime.fans.Apply(next, runtime.clock.Elapsed - previous); previous = runtime.clock.Elapsed;
+                    runtime.fans.Apply(next, runtime.clock.Elapsed - previous); previous = runtime.clock.Elapsed; wrote = true;
                     // A guard that died since Ensure: hand back to the BIOS (finally below) and start a new one on the retry.
                     try { if (fresh) runtime.fanGuard?.Beat(); }
                     catch (IOException) { runtime.warnings["fanguard"] = FanGuardKeeper.Warning; throw; }
