@@ -10,6 +10,12 @@ public sealed partial class ServiceRuntime
         {
             runtime.warnings["sensors"] = "Sensors are starting.";
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            // Its own timer, because the read it reports on blocks this loop (and the fan writes waiting on the same lock).
+            var stalls = (runtime.sensors as LhmSensorSource)?.Stalls;
+            using var stallTimer = stalls is null ? null : new Timer(_ =>
+            {
+                if (stalls.Check() is { } stuck) ControlSpawnLog.Warning("sensors", stuck);
+            }, null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
             do
             {
                 HardwareSnapshot next;

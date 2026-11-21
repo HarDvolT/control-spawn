@@ -50,12 +50,19 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
             return SensorProjection.WithMemoryTotal(readings);
         }
     }
+    /// <summary>Which hardware a read is on, so a hang can be named before the fan guard ends the service.</summary>
+    public SensorStallWatch Stalls { get; } = new();
     private void Visit(IHardware hardware, List<SensorReading> readings)
     {
         var type = hardware.HardwareType.ToString();
-        if (type is "GpuAmd" or "GpuNvidia" or "GpuIntel") BusTurns.Gpu.Read(hardware.Update);
-        else if (type == "Memory") ReadMemory(hardware);
-        else hardware.Update();
+        Stalls.Begin(type);
+        try
+        {
+            if (type is "GpuAmd" or "GpuNvidia" or "GpuIntel") BusTurns.Gpu.Read(hardware.Update);
+            else if (type == "Memory") ReadMemory(hardware);
+            else hardware.Update();
+        }
+        finally { if (Stalls.End() is { } slow) ControlSpawnLog.Warning("sensors", slow); }
         var category = hardware.HardwareType.ToString() switch
         {
             "Cpu" => SensorCategory.Cpu,
