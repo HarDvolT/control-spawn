@@ -79,8 +79,9 @@ if ($PSCmdlet.ShouldProcess($serviceName, 'Secure installation, record app hashe
     Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName" -Name DelayedAutoStart -Value 0
     & sc.exe description $serviceName 'Control Spawn: fans, lighting, lamps and router in the background'
     if ($LASTEXITCODE -ne 0) { throw "sc.exe description failed: $LASTEXITCODE" }
-    # Same recovery as setup. No run-command action: its quoted command line would go through sc.exe and lose its quotes.
-    & sc.exe failure $serviceName reset= 86400 actions= restart/5000/restart/15000/none/0
+    # Same recovery as setup: restart after 5 s, 15 s and 60 s. No run-command action: its quoted command line would go
+    # through sc.exe and lose its quotes.
+    & sc.exe failure $serviceName reset= 86400 actions= restart/5000/restart/15000/restart/60000
     if ($LASTEXITCODE -ne 0) { throw "sc.exe failure failed: $LASTEXITCODE" }
     & sc.exe failureflag $serviceName 1
     if ($LASTEXITCODE -ne 0) { throw "sc.exe failureflag failed: $LASTEXITCODE" }
