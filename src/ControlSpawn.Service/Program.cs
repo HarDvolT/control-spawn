@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ControlSpawn.Core;
+using ControlSpawn.Hardware;
 
 namespace ControlSpawn.Service;
 
@@ -9,6 +10,14 @@ public static class Program
 {
     public static async Task Main(string[] args)
     {
+        int gpuHost = Array.FindIndex(args, a => a.Equals(GpuSensorClient.HostArgument, StringComparison.OrdinalIgnoreCase));
+        if (gpuHost >= 0)
+        {
+            if (gpuHost + 1 < args.Length && int.TryParse(args[gpuHost + 1], out var parentId) && parentId > 0)
+                await GpuSensorHost.RunAsync(parentId);
+            else Environment.ExitCode = 2;
+            return;
+        }
         if (args.Contains("--migrate-secrets", StringComparer.OrdinalIgnoreCase))
         {
             using var logs = LoggerFactory.Create(logging => logging.AddProvider(new RollingLogProvider()));

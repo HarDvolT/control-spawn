@@ -6,6 +6,7 @@ namespace ControlSpawn.Hardware;
 public interface ISensorSource : IDisposable
 {
     IReadOnlyList<SensorReading> Read();
+    bool GpuSensorsMissing => false;
 }
 
 /// <summary>Opening LHM is explicit and occurs only on the first Read, never in a constructor.</summary>
@@ -16,12 +17,21 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     /// (the service's --no-gpu-sensors flag) to skip them, e.g. to check whether reads disturb the GPU LEDs.
     /// </summary>
     public static bool GpuSensorsEnabled => Environment.GetEnvironmentVariable("CONTROLSPAWN_NO_GPU_SENSORS") != "1";
+    private static readonly TimeSpan GpuReadTimeout = TimeSpan.FromMilliseconds(1500);
+    private readonly object readGate = new();
     private readonly object gate = new();
+    private readonly IGpuSensorClient? gpuClient;
     private Computer? computer;
     private readonly Dictionary<int, IControl> controls = new();
     private readonly Dictionary<IHardware, DateTime> dimmReads = new();
     private bool boardVerified;
     private bool disposed;
+    private volatile bool gpuSensorsMissing;
+    public bool GpuSensorsMissing => gpuSensorsMissing;
+
+    public LhmSensorSource() : this(GpuSensorsEnabled ? new GpuSensorClient() : null) { }
+    public LhmSensorSource(IGpuSensorClient? gpuClient) => this.gpuClient = gpuClient;
+
     /// <summary>
     /// Each DIMM temperature read holds the SMBus and the RAM lighting waits ~200 ms for it, which showed as a step in
     /// fast RAM effects (live, 2026-11-02). DIMM temperatures change slowly, so they are read this often at most.
@@ -30,12 +40,34 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     public IReadOnlyList<int> Headers { get { lock (gate) return controls.Keys.Order().ToArray(); } }
     public IReadOnlyList<SensorReading> Read()
     {
+        lock (readGate)
+        {
+            var readings = ReadLocal();
+            if (gpuClient is not null)
+            {
+                IReadOnlyList<SensorReading>? gpuReadings = null;
+                Stalls.Begin("Gpu", reportStuck: false);
+                try { BusTurns.Gpu.Read(() => gpuReadings = gpuClient.TryRead(GpuReadTimeout)); }
+                finally
+                {
+                    if (Stalls.End() is not null && gpuReadings is not null)
+                        ControlSpawnLog.Warning("sensors", "GPU sensor read was slow.");
+                }
+                gpuSensorsMissing = gpuReadings is null;
+                if (gpuReadings is not null) readings.AddRange(gpuReadings);
+            }
+            return SensorProjection.WithMemoryTotal(readings);
+        }
+    }
+
+    private List<SensorReading> ReadLocal()
+    {
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             if (computer is null)
             {
-                computer = new Computer { IsCpuEnabled = true, IsGpuEnabled = GpuSensorsEnabled, IsMemoryEnabled = true,
+                computer = new Computer { IsCpuEnabled = true, IsGpuEnabled = false, IsMemoryEnabled = true,
                     IsMotherboardEnabled = true, IsStorageEnabled = true, IsNetworkEnabled = true };
                 try { computer.Open(); }
                 catch
@@ -47,7 +79,7 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
             }
             var readings = new List<SensorReading>();
             foreach (var hardware in computer.Hardware) Visit(hardware, readings);
-            return SensorProjection.WithMemoryTotal(readings);
+            return readings;
         }
     }
     /// <summary>Which hardware a read is on, so a hang can be named before the fan guard ends the service.</summary>
@@ -58,15 +90,13 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
         Stalls.Begin(type);
         try
         {
-            if (type is "GpuAmd" or "GpuNvidia" or "GpuIntel") BusTurns.Gpu.Read(hardware.Update);
-            else if (type == "Memory") ReadMemory(hardware);
+            if (type == "Memory") ReadMemory(hardware);
             else hardware.Update();
         }
         finally { if (Stalls.End() is { } slow) ControlSpawnLog.Warning("sensors", slow); }
-        var category = hardware.HardwareType.ToString() switch
+        var category = type switch
         {
             "Cpu" => SensorCategory.Cpu,
-            "GpuAmd" or "GpuNvidia" or "GpuIntel" => SensorCategory.Gpu,
             "Memory" => SensorCategory.Memory,
             "Motherboard" or "SuperIO" => SensorCategory.Motherboard,
             "Storage" => SensorCategory.Storage,
@@ -76,13 +106,11 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
         foreach (var sensor in hardware.Sensors)
         {
             // Only a verified board's chip can be controlled; never expose GPU controls.
-            if (boardVerified && hardware.HardwareType.ToString() == "SuperIO" &&
+            if (boardVerified && type == "SuperIO" &&
                 hardware.Name.Contains("NCT6701D", StringComparison.OrdinalIgnoreCase) &&
                 sensor.SensorType == SensorType.Control && sensor.Control is not null && sensor.Index is >= 0 and < 7)
                 controls[sensor.Index + 1] = sensor.Control;
-            readings.Add(new(sensor.Identifier.ToString(), $"{hardware.Name}: {sensor.Name}", category,
-                sensor.SensorType.ToString(), Unit(sensor.SensorType.ToString()),
-                sensor.Value is float value && float.IsFinite(value) ? value : null));
+            readings.Add(SensorProjection.FromLhm(hardware, sensor, category));
         }
         foreach (var child in hardware.SubHardware) Visit(child, readings);
     }
@@ -96,12 +124,6 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
         dimmReads[hardware] = now;
         BusTurns.Smbus.Read(hardware.Update);
     }
-    private static string Unit(string kind) => kind switch
-    {
-        "Temperature" => "°C", "Load" or "Control" or "Level" => "%", "Clock" => "MHz",
-        "Power" => "W", "Fan" => "rpm", "Data" => "GiB", "SmallData" => "MiB",
-        "Throughput" => "B/s", "Voltage" => "V", _ => ""
-    };
     public void SetSoftware(int header, float percent)
     {
         lock (gate)
@@ -114,18 +136,48 @@ public sealed class LhmSensorSource : ISensorSource, IFanControlPort
     public void SetDefault(int header) { lock (gate) controls[header].SetDefault(); }
     public void Dispose()
     {
-        lock (gate)
+        lock (readGate)
         {
             if (disposed) return;
-            foreach (var control in controls.Values)
-                try { control.SetDefault(); } catch (Exception ex) { ControlSpawnLog.Failure("fans", ex); }
-            try { computer?.Close(); } finally { disposed = true; controls.Clear(); }
+            try
+            {
+                lock (gate)
+                {
+                    foreach (var control in controls.Values)
+                        try { control.SetDefault(); } catch (Exception ex) { ControlSpawnLog.Failure("fans", ex); }
+                    try { computer?.Close(); } finally { disposed = true; controls.Clear(); }
+                }
+            }
+            finally { gpuClient?.Dispose(); }
         }
     }
 }
 
 public static class SensorProjection
 {
+    public const string GpuReadError = "GPU sensors stopped answering";
+
+    public static HardwareSnapshot ReadSnapshot(ISensorSource source)
+    {
+        var timestamp = DateTimeOffset.UtcNow;
+        var readings = source.Read();
+        return source.GpuSensorsMissing ? new(timestamp, readings, false, GpuReadError) : new(timestamp, readings);
+    }
+
+    internal static SensorReading FromLhm(IHardware hardware, ISensor sensor, SensorCategory category)
+    {
+        var kind = sensor.SensorType.ToString();
+        return new(sensor.Identifier.ToString(), $"{hardware.Name}: {sensor.Name}", category, kind, Unit(kind),
+            sensor.Value is float value && float.IsFinite(value) ? value : null);
+    }
+
+    private static string Unit(string kind) => kind switch
+    {
+        "Temperature" => "°C", "Load" or "Control" or "Level" => "%", "Clock" => "MHz",
+        "Power" => "W", "Fan" => "rpm", "Data" => "GiB", "SmallData" => "MiB",
+        "Throughput" => "B/s", "Voltage" => "V", _ => ""
+    };
+
     public static IReadOnlyList<SensorReading> WithMemoryTotal(IReadOnlyList<SensorReading> readings)
     {
         // LHM 0.9.6 TotalMemory exposes used + available, rather than a total sensor.
@@ -158,7 +210,7 @@ public sealed class LhmHardwareMonitor(ISensorSource source) : IHardwareMonitor
             {
                 linked.Token.ThrowIfCancellationRequested();
                 HardwareSnapshot snapshot;
-                try { snapshot = new(DateTimeOffset.UtcNow, source.Read()); }
+                try { snapshot = SensorProjection.ReadSnapshot(source); }
                 catch (Exception ex) { snapshot = new(DateTimeOffset.UtcNow, Array.Empty<SensorReading>(), false, ex.Message); }
                 Snapshot?.Invoke(this, snapshot);
             } while (await timer.WaitForNextTickAsync(linked.Token).ConfigureAwait(false));

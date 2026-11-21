@@ -10,7 +10,7 @@ public sealed partial class ServiceRuntime
         {
             runtime.warnings["sensors"] = "Sensors are starting.";
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-            // Its own timer, because the read it reports on blocks this loop (and the fan writes waiting on the same lock).
+            // Its own timer, because a local hardware read can block this loop and the fan writes waiting on its lock.
             var stalls = (runtime.sensors as LhmSensorSource)?.Stalls;
             using var stallTimer = stalls is null ? null : new Timer(_ =>
             {
@@ -20,8 +20,11 @@ public sealed partial class ServiceRuntime
             {
                 HardwareSnapshot next;
                 var nextProcesses = runtime.mock ? null : runtime.processTelemetry.Sample();
-                try { next = new(DateTimeOffset.UtcNow, runtime.sensors.Read()); runtime.warnings.TryRemove("sensors", out _); }
+                try { next = SensorProjection.ReadSnapshot(runtime.sensors); runtime.warnings.TryRemove("sensors", out _); }
                 catch (Exception e) { next = new(DateTimeOffset.UtcNow, [], false); runtime.warnings["sensors"] = "Sensor read failed."; ControlSpawnLog.Failure("sensors", e); }
+                if (runtime.sensors.GpuSensorsMissing)
+                    runtime.warnings["gpu-sensors"] = "GPU sensors stopped answering, so fans run at full speed until they come back.";
+                else runtime.warnings.TryRemove("gpu-sensors", out _);
                 var value = Volatile.Read(ref runtime.settings);
                 lock (runtime.stateGate)
                 {

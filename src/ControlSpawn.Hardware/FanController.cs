@@ -74,8 +74,8 @@ public sealed class FanController : IFanController
                     double? temp = FanCurveEngine.SelectTemperature(snapshot, config.Source);
                     double percent = header == 7 || emergency || temp is null || !snapshot.Success
                         ? engine.ForceFull() : engine.Evaluate(temp.Value, config, elapsed);
-                    // Measuring holds one fan at a fixed duty; overheating still wins (emergency is checked above).
-                    if (!emergency && header != 7 && overrides.TryGetValue(header, out var held)) percent = held;
+                    // Measuring holds one fan at a fixed duty only while readings are healthy.
+                    if (snapshot.Success && !emergency && header != 7 && overrides.TryGetValue(header, out var held)) percent = held;
                     port.SetSoftware(header, (float)percent);
                 }
             }
