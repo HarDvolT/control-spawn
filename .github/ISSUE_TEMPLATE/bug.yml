@@ -6,7 +6,7 @@ body:
     id: version
     attributes:
       label: Control Spawn version
-      placeholder: "1.0.5"
+      placeholder: "1.0.6"
     validations:
       required: true
   - type: textarea
