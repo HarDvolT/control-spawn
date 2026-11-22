@@ -150,9 +150,9 @@ public class FanCurveEditor : FrameworkElement
             var text = Text(label, 9.5, Color.FromArgb(150, color.R, color.G, color.B), true);
             if (text.Width + 8 < rect.Width) dc.DrawText(text, new Point(rect.X + 6, Top + PlotHeight - text.Height - 4));
         }
-        Zone(40, 55, Color.FromRgb(54, 214, 255), "IDLE");
-        Zone(60, 80, Color.FromRgb(245, 165, 36), "GAMING");
-        Zone(90, TempMax, Color.FromRgb(255, 77, 79), "FULL SPEED");
+        Zone(40, 55, Color.FromRgb(54, 214, 255), "Idle");
+        Zone(60, 80, Color.FromRgb(245, 165, 36), "Gaming");
+        Zone(90, TempMax, Color.FromRgb(255, 77, 79), "Full speed");
 
         var grid = new Pen(ColorUtil.Brush(Color.FromArgb(14, 255, 255, 255)), 1);
         for (int i = 1; i < 4; i++) dc.DrawLine(grid, new Point(Left, Y(i * 25)), new Point(Left + PlotWidth, Y(i * 25)));

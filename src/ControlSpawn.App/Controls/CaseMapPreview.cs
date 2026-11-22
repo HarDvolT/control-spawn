@@ -195,8 +195,8 @@ public sealed class CaseMapPreview : FrameworkElement
             }
             var point = Pixel(CaseMap.LampPoint(map, devices));
             if (lamps is not { Count: > 0 }) dc.DrawEllipse(null, new Pen(Brush("#E4E4E7"), 1.5), point, 10, 10);
-            if (lamps is not { Count: > 0 }) Label(dc, "LAMP", new(point.X + 14, point.Y - 9), 10, Brush("#E4E4E7"));
-            Label(dc, MapEditing ? "DRAG TO ARRANGE" : LedEditing ? "PER-LED CANVAS" : "LIVE CASE MAP", new(18, h - 26), 10, Brush("#A1A1AA"));
+            if (lamps is not { Count: > 0 }) Label(dc, "Lamp", new(point.X + 14, point.Y - 9), 10, Brush("#E4E4E7"));
+            Label(dc, MapEditing ? "Drag to arrange" : LedEditing ? "Per-LED canvas" : "Live case map", new(18, h - 26), 10, Brush("#A1A1AA"));
         }
     }
     private static SolidColorBrush Brush(string hex) => new((Color)ColorConverter.ConvertFromString(hex));

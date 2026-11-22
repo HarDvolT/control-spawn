@@ -11,32 +11,34 @@ Owner: the lead (Claude). Agents implement this; they do not invent their own st
 4. **Progressive disclosure.** Simple by default (Whole case, Both lamps, Fan mode); detail one click deeper
    ("Customise", "Advanced"). Setup forms live in collapsed drawers.
 5. **Status before numbers.** Colour + shape say Cool / Ok / Warm / Hot before you read a digit.
-6. **Alive, never noisy.** Subtle motion everywhere (breathing glows, tweening numbers, flowing gradients); loud motion
-   only for alerts.
+6. **Alive, never noisy.** Live things move (tweening numbers, spinning fan rotors, animated LED previews). Chrome stays
+   still. Only a critical reading pulses.
 
 ## 2. Tokens
 Colour
-- Ground `#07080A` with a radial "light from above" `rgba(255,255,255,.06)`; faint 24 px dot grid at 3 % (HUD feel).
+- Ground `#07080A`, plain. No dot grid, no light washes.
 - Surfaces: Glass 1 `#111216` (cards), Glass 2 `#17181D` (raised), Glass 3 `#1E2026` (controls). 1 px hairline
-  `rgba(255,255,255,.07)`, inner top highlight `rgba(255,255,255,.05)`, outer shadow `0 20 40 rgba(0,0,0,.5)`.
+  `rgba(255,255,255,.07)`. Depth comes from surface steps and hairlines, not glows or inner highlights.
 - Text: Primary `#F4F5F7`, Secondary `#A3A6AE`, Tertiary `#7C808A` (all ≥ 4.5:1 on Glass 1).
 - **Accent (action / brand): Ember `#FF4D1A`** — primary buttons, selection, active toggles.
 - **Data (cool readouts): Ion `#36D6FF`** — charts, gauges in the Cool/Ok range, focus rings. Gives the futuristic
   two-tone: warm = you, cool = machine.
 - Status scale: Cool `#36D6FF` · Ok `#3DDC84` · Warm `#F5A524` · Hot `#FF4D4F` · Critical `#FF4D4F` + 1.2 s pulse.
-- Glow = the element's colour at 45 % with 14–24 px blur; only on live/active things.
+- No glows on chrome (toggles, gauges, sliders, swatches, logo). Light only appears where it is real light: LED strips,
+  the case twin and the lamp orbs.
 
 Type
-- UI: Inter. Numbers & readouts: Space Grotesk, tabular, tight tracking. Micro-labels: Inter 11/600 caps +0.12em.
+- UI: Segoe UI Variable Text. Numbers: Segoe UI Variable Display, tabular. Section labels: 12/500, sentence case.
+- Weights: 400 and 500; 600 only for primary buttons and small emphasis. No bold headings.
 - Ramp: Display 40 (hero numbers) · Title 22 · Heading 15/600 · Body 13 · Caption 11.
 
 Shape & space
-- Radius: cards 20, controls 12, chips 999. Spacing 4/8/12/16/24/32. 12-column grid, 16 px gutter, 24 px page padding.
+- Radius: cards 12–16, controls 8–10, tags 4–6. Nothing is a full pill except the toggle track. Spacing 4/8/12/16/24/32. 12-column grid, 16 px gutter, 24 px page padding.
 - Card heights: S 132 · M 208 · L 320 · XL 456 — rows always align.
 
 Motion
 - Ease-out `cubic-bezier(.22,1,.36,1)`; values tween 600–800 ms; entrance = fade + 12 px rise, 40 ms stagger;
-  hover = lift 2 px + hairline brightens; press = 0.97 scale. Reduce animations → no movement, keep colour.
+  hover = surface or hairline step, no lift; press = 0.97 scale. Entrance stagger covers at most six cards. Reduce animations → no movement, keep colour.
 
 ## 3. Signature components
 - **Halo gauge**: 270° arc, segmented ticks, value arc in status colour with glow, big Space Grotesk number in the middle,
@@ -68,3 +70,15 @@ The v2 Lighting page is simpler on the surface, but nothing from v1 is removed:
   dragging; Reset to default layout.
 - Sensor-driven lighting lives under the "Sensor" mode chip.
 Page agents must carry these over with the new components, not drop them.
+
+## 6. Unslop pass (2026-11)
+The app was cleaned up following [unslop](https://github.com/heydamir/unslop) by Damir Sokolovsky (CC BY 4.0).
+Direction:
+- **Product.** One Windows app that runs a gaming PC's fans and lights and the devices in its room.
+- **Character.** Exact, calm, a little warm.
+- **World.** The inside of the case at night: graphite, hairlines, and the real LED light.
+- **Moments.** The live LED strips, the case twin and the lamp orbs carry the colour. Status colours mean status.
+- **Signature.** The steady status dot.
+Rules that came out of it: sentence case everywhere (no tracked caps), one ember accent for action and selection,
+no hue gradients or glows on chrome, no greeting headlines, no arrows in link text, stat cards hold a reading and
+nothing else. Fan safety cards and warnings keep their status colours and stay on the Fans page.

@@ -132,7 +132,7 @@ public sealed class SensorBindingPanel : Grid
     private StackPanel BuildTargets()
     {
         var body = new StackPanel();
-        body.Children.Add(CardHeader("LIGHTS TO DRIVE", null));
+        body.Children.Add(CardHeader("Lights to drive", null));
         body.Children.Add(Styled(new TextBlock { Text = "Pick a device or part. Everything else keeps the normal effect.", TextWrapping = TextWrapping.Wrap, Margin = new(0, -4, 0, 12) }, "SmallMuted"));
         body.Children.Add(targetList);
         return body;
@@ -156,7 +156,7 @@ public sealed class SensorBindingPanel : Grid
     private StackPanel BuildSourceCard()
     {
         var body = new StackPanel();
-        body.Children.Add(CardHeader("SENSOR", null));
+        body.Children.Add(CardHeader("Sensor", null));
         body.Children.Add(sourceGrid);
         Styled(moreSources, "TextAction");
         moreSources.Click += (_, _) => { showAllSources = !showAllSources; LayoutSources(); };
@@ -168,7 +168,7 @@ public sealed class SensorBindingPanel : Grid
     {
         var body = new StackPanel();
         styles.HorizontalAlignment = HorizontalAlignment.Right;
-        body.Children.Add(CardHeader("LOOK", styles));
+        body.Children.Add(CardHeader("Look", styles));
         styles.SelectionChanged += (_, _) => { if (styles.SelectedIndex >= 0) styleHint.Text = StyleHints[styles.SelectedIndex]; DraftChanged(); };
         AutomationProperties.SetName(styles, "Sensor style");
         body.Children.Add(look);
@@ -180,7 +180,7 @@ public sealed class SensorBindingPanel : Grid
     private StackPanel BuildColourCard()
     {
         var body = new StackPanel();
-        body.Children.Add(CardHeader("COLOURS", null));
+        body.Children.Add(CardHeader("Colours", null));
         foreach (var (name, colors) in Presets)
         {
             var bar = new Border { Height = 8, CornerRadius = new(4), Margin = new(0, 0, 0, 7), Background = Gradient(Even(colors)) };
@@ -191,7 +191,7 @@ public sealed class SensorBindingPanel : Grid
             presetGrid.Children.Add(preset);
         }
         body.Children.Add(presetGrid);
-        body.Children.Add(Styled(new TextBlock { Text = "LOW TO HIGH", Margin = new(0, 10, 0, 8) }, "SectionLabel"));
+        body.Children.Add(Styled(new TextBlock { Text = "Low to high", Margin = new(0, 10, 0, 8) }, "SectionLabel"));
         body.Children.Add(stopRow);
         body.Children.Add(Styled(new TextBlock { Text = "Click a colour to change it.", Margin = new(0, 4, 0, 0) }, "SmallMuted"));
 
@@ -206,13 +206,13 @@ public sealed class SensorBindingPanel : Grid
     private StackPanel BuildRangeCard()
     {
         var body = new StackPanel();
-        body.Children.Add(CardHeader("RANGE", nowReading));
+        body.Children.Add(CardHeader("Range", nowReading));
         rangeTrack.RangeChanged += (a, b) => { if (suppress) return; suppress = true; low.Value = a; high.Value = b; suppress = false; DraftChanged(); };
         AutomationProperties.SetName(rangeTrack, "Sensor range");
         body.Children.Add(rangeTrack);
         var ends = new DockPanel { Margin = new(0, 12, 0, 0) };
-        var highBox = Labelled("HIGH", high); DockPanel.SetDock(highBox, Dock.Right); ends.Children.Add(highBox);
-        ends.Children.Add(Labelled("LOW", low));
+        var highBox = Labelled("High", high); DockPanel.SetDock(highBox, Dock.Right); ends.Children.Add(highBox);
+        ends.Children.Add(Labelled("Low", low));
         body.Children.Add(ends);
         low.ValueChanged += () => { if (!suppress) { rangeTrack.SetRange(low.Value, high.Value); DraftChanged(); } };
         high.ValueChanged += () => { if (!suppress) { rangeTrack.SetRange(low.Value, high.Value); DraftChanged(); } };
@@ -226,7 +226,7 @@ public sealed class SensorBindingPanel : Grid
     {
         var grid = new UniformGrid { Columns = 2 };
         var smooth = new StackPanel { Margin = new(0, 0, Gap, 0) };
-        smooth.Children.Add(ValueLabel("SMOOTHING", smoothingValue));
+        smooth.Children.Add(ValueLabel("Smoothing", smoothingValue));
         smoothing.ValueChanged += (_, _) => { smoothingValue.Text = smoothing.Value < 0.05 ? "Instant" : $"{smoothing.Value:0.0} s"; DraftChanged(); };
         AutomationProperties.SetName(smoothing, "Smoothing");
         smooth.Children.Add(smoothing);
@@ -234,7 +234,7 @@ public sealed class SensorBindingPanel : Grid
         grid.Children.Add(smooth);
 
         var warn = new StackPanel { Margin = new(Gap, 0, 0, 0) };
-        warn.Children.Add(Styled(new TextBlock { Text = "ALERT", Margin = new(0, 0, 0, 8) }, "SectionLabel"));
+        warn.Children.Add(Styled(new TextBlock { Text = "Alert", Margin = new(0, 0, 0, 8) }, "SectionLabel"));
         var row = new DockPanel(); row.Children.Add(alert); row.Children.Add(threshold);
         alert.Click += (_, _) => { threshold.IsEnabled = alert.IsChecked == true; DraftChanged(); };
         threshold.ValueChanged += () => { if (!suppress) DraftChanged(); };

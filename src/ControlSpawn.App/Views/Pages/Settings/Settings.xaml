@@ -3,7 +3,7 @@
     <StackPanel Margin="0,1,0,0">
       <DockPanel Margin="0,0,0,16"><c:StatusChip DockPanel.Dock="Right" Text="Changes save as you go" VerticalAlignment="Bottom"/>
         <StackPanel>
-          <TextBlock Text="S&#x200A;E&#x200A;T&#x200A;T&#x200A;I&#x200A;N&#x200A;G&#x200A;S" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
+          <TextBlock Text="Settings" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding SelectedSection}" Style="{StaticResource H1}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding SectionSubtitle}" Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" />
         </StackPanel>
@@ -52,14 +52,14 @@
         </StackPanel>
         <StackPanel Grid.Column="1">
           <c:GlassCard Visibility="{Binding IsGeneral, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16" Height="228" Padding="18,6,18,8"><StackPanel>
-            <TextBlock Text="D&#x200A;I&#x200A;S&#x200A;P&#x200A;L&#x200A;A&#x200A;Y" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+            <TextBlock Text="Display" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
             <DockPanel Height="69"><c:SegmentedControl DockPanel.Dock="Right" ItemsSource="{Binding TemperatureUnits}" SelectedItem="{Binding TemperatureUnit, Mode=TwoWay}" VerticalAlignment="Center" Width="96"/><StackPanel VerticalAlignment="Center"><TextBlock Text="Temperature unit" FontWeight="SemiBold" FontSize="14"/><TextBlock Text="Used everywhere, including widgets" Style="{StaticResource SmallMuted}" FontSize="13" Margin="0,2,0,0"/></StackPanel></DockPanel>
             <Border BorderBrush="#0FFFFFFF" BorderThickness="0,1,0,0"/>
             <DockPanel Height="63"><ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding AccentColors}" VerticalAlignment="Center"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><c:ColorSwatch ColorHex="{Binding}" SelectedHex="{Binding DataContext.AccentColor, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.SetAccentCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Width="30" Height="30" Margin="8,0,0,0"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><StackPanel VerticalAlignment="Center"><TextBlock Text="Accent colour" FontWeight="SemiBold" FontSize="14"/><TextBlock Text="Buttons and active states. Machine readings stay cyan." Style="{StaticResource SmallMuted}" FontSize="13" Margin="0,2,0,0"/></StackPanel></DockPanel>
             <Border BorderBrush="#0FFFFFFF" BorderThickness="0,1,0,0"/>
             <DockPanel Height="63"><c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding ReduceAnimations, Mode=TwoWay}" AutomationProperties.Name="Reduce motion"/><StackPanel VerticalAlignment="Center"><TextBlock Text="Reduce motion" FontWeight="SemiBold" FontSize="14"/><TextBlock Text="Turns off glows that pulse and cards that slide in" Style="{StaticResource SmallMuted}" FontSize="13" Margin="0,2,0,0"/></StackPanel></DockPanel>
           </StackPanel></c:GlassCard>
-          <c:GlassCard Visibility="{Binding IsGeneral, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16" Height="282" Padding="18,6,18,8"><StackPanel><TextBlock Text="N&#x200A;O&#x200A;T&#x200A;I&#x200A;F&#x200A;I&#x200A;C&#x200A;A&#x200A;T&#x200A;I&#x200A;O&#x200A;N&#x200A;S" Style="{StaticResource SectionLabel}" Margin="0"/>
+          <c:GlassCard Visibility="{Binding IsGeneral, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16" Height="282" Padding="18,6,18,8"><StackPanel><TextBlock Text="Notifications" Style="{StaticResource SectionLabel}" Margin="0"/>
             <DockPanel Height="63"><c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding NotifyRunningHot, Mode=TwoWay}"/><StackPanel VerticalAlignment="Center"><TextBlock Text="Running hot" FontWeight="SemiBold" FontSize="14"/><TextBlock Text="CPU or GPU passes the warning line" Style="{StaticResource SmallMuted}" FontSize="13" Margin="0,2,0,0"/></StackPanel></DockPanel>
             <Border BorderBrush="#0FFFFFFF" BorderThickness="0,1,0,0"/>
             <DockPanel Height="63"><c:ToggleSwitch DockPanel.Dock="Right" Width="46" Height="26" IsChecked="{Binding NotifyCookingFinished, Mode=TwoWay}"/><StackPanel VerticalAlignment="Center"><TextBlock Text="Air fryer finished" FontWeight="SemiBold" FontSize="14"/><TextBlock Text="And the halfway shake reminder" Style="{StaticResource SmallMuted}" FontSize="13" Margin="0,2,0,0"/></StackPanel></DockPanel>
@@ -71,7 +71,7 @@
           <Expander Header="Discovery and lighting notifications" Visibility="{Binding IsAccess, Converter={StaticResource BoolToVisibility}}" Foreground="#A3A6AE"><StackPanel><CheckBox Content="Notify me when new devices are found" IsChecked="{Binding NotifyNewDevices}"/><CheckBox Content="Flash lights when cooking finishes" IsChecked="{Binding CookingLightFlash}"/><c:EventOptionsPanel/></StackPanel></Expander>
           <Expander Header="Startup and background" Foreground="#A3A6AE" Visibility="{Binding IsAccess, Converter={StaticResource BoolToVisibility}}">          <c:GlassCard Margin="0,0,0,16" StaggerIndex="3">
             <StackPanel>
-              <TextBlock Text="STARTUP AND DISCOVERY" Style="{StaticResource H2}" Margin="0,4" />
+              <TextBlock Text="Startup and discovery" Style="{StaticResource H2}" Margin="0,4" />
               <CheckBox Content="Notify me when new devices are found" IsChecked="{Binding NotifyNewDevices}" Margin="0,6" />
               <CheckBox Content="Auto-join new RGB devices to sync" IsChecked="{Binding AutoJoinNewRgb}" Margin="0,6" />
               <CheckBox Content="Flash event lights when cooking finishes" IsChecked="{Binding CookingLightFlash}" Margin="0,6" />
@@ -121,10 +121,10 @@
           </c:GlassCard>
           <c:GlassCard Span="9" Visibility="{Binding IsSafety, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
             <StackPanel>
-              <TextBlock Text="FAN SAFETY" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
+              <TextBlock Text="Fan safety" Style="{StaticResource CardTitle}" TextWrapping="Wrap" Margin="0,0,0,12" />
               <TextBlock Text="Pump locked at 100%" Style="{StaticResource CardTitle}" TextWrapping="Wrap" />
               <TextBlock Text="BIOS hand-back stays armed." Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,12" />
-              <Button Content="Open fan controls →" Command="{Binding OpenPageCommand}" CommandParameter="Fans" Style="{StaticResource PillButton}" Margin="0,4,8,4" />
+              <Button Content="Open fan controls" Command="{Binding OpenPageCommand}" CommandParameter="Fans" Style="{StaticResource PillButton}" Margin="0,4,8,4" />
             </StackPanel>
           </c:GlassCard>
           <c:GlassCard Margin="0,0,0,16" StaggerIndex="0" Visibility="{Binding IsAbout, Converter={StaticResource BoolToVisibility}}">

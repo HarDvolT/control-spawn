@@ -96,6 +96,10 @@ public sealed class SpatialCommandTests
         runtime.TriggerLightingEvent(LightingEventKind.FanFailsafe);
         using var stop = new CancellationTokenSource(); var running = runtime.RunAsync(stop.Token);
         Assert.False(running.IsCompleted);
+        // The failsafe flash blinks bright/dim every 100 ms, so a slow runner can land its first frame in the dim half.
+        // Wait for a bright red frame instead of trusting the first one.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (!(rgb.Colors[0][0].R > 200 && rgb.Colors[0][0].B < 100) && DateTime.UtcNow < deadline) await Task.Delay(10);
         Assert.True(rgb.Colors[0][0].R > 200); Assert.True(rgb.Colors[0][0].B < 100);
         stop.Cancel(); await running;
     }

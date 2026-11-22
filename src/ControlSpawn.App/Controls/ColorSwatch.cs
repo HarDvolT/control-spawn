@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Media.Effects;
 using ControlSpawn.App.Common;
 
 namespace ControlSpawn.App.Controls;
@@ -27,7 +26,8 @@ public sealed class ColorSwatch : Button
         var color = ColorUtil.Parse(ColorHex, Colors.Transparent);
         bool selected = string.Equals(ColorHex, SelectedHex, StringComparison.OrdinalIgnoreCase);
         Background = new SolidColorBrush(color); BorderThickness = new Thickness(selected ? 2 : 0); BorderBrush = selected ? Brushes.WhiteSmoke : Brushes.Transparent;
-        Effect = selected ? new DropShadowEffect { Color = color, BlurRadius = 14, ShadowDepth = 0, Opacity = .85 } : null;
+        // The white ring marks the selection; a glow in the swatch's own colour only blurred it.
+        Effect = null;
         ToolTip = ColorHex; System.Windows.Automation.AutomationProperties.SetName(this, ColorHex);
     }
 }
