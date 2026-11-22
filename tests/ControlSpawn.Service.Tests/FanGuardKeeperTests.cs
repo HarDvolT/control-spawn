@@ -3,6 +3,9 @@ using Xunit;
 
 namespace ControlSpawn.Service.Tests;
 
+// These block thread-pool threads on purpose (a guard that is slow to start). Run them alone so they cannot
+// starve the timing-sensitive tests on a small CI runner.
+[Collection(nameof(ServiceLoopTests))]
 public sealed class FanGuardKeeperTests
 {
     private sealed class Guard : IFanGuard
