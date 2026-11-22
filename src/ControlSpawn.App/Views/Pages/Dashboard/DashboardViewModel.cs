@@ -85,7 +85,8 @@ public sealed class DashboardViewModel : PageViewModel
 
     public string MachineLine => string.Join(" · ", new[] { State?.System.BoardName, State?.System.CpuName, State?.System.GpuName }.Where(n => !string.IsNullOrWhiteSpace(n)).DefaultIfEmpty(Environment.MachineName)) + $" · {LampRows.Count} lamps" + (State?.Appliances?.Count > 0 ? " · air fryer" : "");
     public string FryerName => State?.Appliances?.FirstOrDefault()?.Name ?? "Air fryer";
-    public string GreetingLabel => $"{Greeting}, {Environment.UserName}".ToUpperInvariant();
+    // The eyebrow names the context (today), not a greeting in shouted caps.
+    public string GreetingLabel => DateTime.Now.ToString("dddd d MMMM", System.Globalization.CultureInfo.CurrentCulture);
     public string Headline => State is null ? "Waiting for your system" : State.Health.Warnings.Count > 0 ? "Your system needs attention" :
         State.System.CpuTemp is null && State.System.GpuTemp is null ? "Waiting for live readings" :
         State.System.CpuTemp >= 85 || State.System.GpuTemp >= 85 ? "Your system is running hot" : "Everything is running cool";

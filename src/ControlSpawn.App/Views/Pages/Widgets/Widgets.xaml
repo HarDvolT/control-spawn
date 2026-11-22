@@ -6,7 +6,7 @@
           <Border CornerRadius="22" Background="#111216" BorderBrush="#0FFFFFFF" BorderThickness="1" Padding="14,6"><StackPanel Orientation="Horizontal"><TextBlock Text="Show widgets" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/><c:ToggleSwitch IsChecked="{Binding ShowWidgets, Mode=TwoWay}" AutomationProperties.Name="Show widgets"/></StackPanel></Border>
         </StackPanel>
         <StackPanel>
-          <TextBlock Text="WIDGETS" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
+          <TextBlock Text="Widgets" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
           <TextBlock Text="Control Spawn on your desktop" Style="{StaticResource H1}" TextWrapping="Wrap" />
           <TextBlock Text="Live, glanceable, and always within reach." Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" />
         </StackPanel>
@@ -25,7 +25,7 @@
             <DockPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
               <v:ScreenMap DockPanel.Dock="Left" Width="210" Height="118" Margin="0,0,18,0"/>
               <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="PLACEMENT" Style="{StaticResource SectionLabel}"/>
+                <TextBlock Text="Placement" Style="{StaticResource SectionLabel}"/>
                 <TextBlock Text="Drag a widget on your desktop to move it. Right-click one to resize it, change its background, pin it on top or hide it." Style="{StaticResource SmallMuted}" TextWrapping="Wrap" Margin="0,6,0,12"/>
                 <Button Content="Line up on the right" Command="{Binding LineUpCommand}" HorizontalAlignment="Left" Padding="16,0" MinHeight="36"/>
               </StackPanel>
@@ -68,9 +68,9 @@
             <StackPanel>
               <TextBlock Text="Look" Style="{StaticResource CardTitle}"/>
               <TextBlock Text="For all widgets" Style="{StaticResource SmallMuted}" Margin="0,2,0,12"/>
-              <TextBlock Text="SIZE" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
+              <TextBlock Text="Size" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
               <c:SegmentedControl ItemsSource="{Binding Sizes}" SelectedItem="{Binding AllSize, Mode=TwoWay}" Background="Transparent" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource OutlinedSegmentItem}"/>
-              <TextBlock Text="BACKGROUND" Style="{StaticResource SectionLabel}" Margin="0,14,0,8"/>
+              <TextBlock Text="Background" Style="{StaticResource SectionLabel}" Margin="0,14,0,8"/>
               <c:SegmentedControl ItemsSource="{Binding Backgrounds}" SelectedItem="{Binding AllBackground, Mode=TwoWay}" Background="Transparent" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource OutlinedSegmentItem}"/>
               <DockPanel Margin="0,16,0,0"><c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding AllOnTop, Mode=TwoWay}" AutomationProperties.Name="Always on top"/><StackPanel><TextBlock Text="Always on top" FontWeight="SemiBold"/><TextBlock Text="Stay above other windows" Style="{StaticResource SmallMuted}"/></StackPanel></DockPanel>
               <DockPanel Margin="0,12,0,0"><c:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding AllClickThrough, Mode=TwoWay}" AutomationProperties.Name="Click through"/><StackPanel><TextBlock Text="Click through" FontWeight="SemiBold"/><TextBlock Text="Clicks pass to the desktop" Style="{StaticResource SmallMuted}"/></StackPanel></DockPanel>

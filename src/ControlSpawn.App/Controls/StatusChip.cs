@@ -12,7 +12,7 @@ public sealed class StatusChip : Border
     public static readonly DependencyProperty TextProperty = DependencyProperty.Register(nameof(Text), typeof(string), typeof(StatusChip), new PropertyMetadata("", Changed));
     public StatusLevel Level { get => (StatusLevel)GetValue(LevelProperty); set => SetValue(LevelProperty, value); }
     public string Text { get => (string)GetValue(TextProperty); set => SetValue(TextProperty, value); }
-    public StatusChip() { CornerRadius = new CornerRadius(16); Padding = new Thickness(12, 6, 12, 6); MinHeight = 30; Loaded += (_, _) => Update(); }
+    public StatusChip() { CornerRadius = new CornerRadius(8); Padding = new Thickness(10, 6, 12, 6); MinHeight = 30; Loaded += (_, _) => Update(); }
     private static void Changed(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((StatusChip)d).Update();
     private void Update()
     {
