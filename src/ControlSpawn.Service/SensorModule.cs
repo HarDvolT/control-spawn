@@ -10,17 +10,25 @@ public sealed partial class ServiceRuntime
         {
             runtime.warnings["sensors"] = "Sensors are starting.";
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            // Its own timer, because a local hardware read can block this loop and the fan writes waiting on its lock.
+            var stalls = (runtime.sensors as LhmSensorSource)?.Stalls;
+            using var stallTimer = stalls is null ? null : new Timer(_ =>
+            {
+                if (stalls.Check() is { } stuck) ControlSpawnLog.Warning("sensors", stuck);
+            }, null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
             do
             {
                 HardwareSnapshot next;
-                var nextProcesses = runtime.mock ? null : runtime.processTelemetry.Sample();
-                try { next = new(DateTimeOffset.UtcNow, runtime.sensors.Read()); runtime.warnings.TryRemove("sensors", out _); }
+                try { next = SensorProjection.ReadSnapshot(runtime.sensors); runtime.warnings.TryRemove("sensors", out _); }
                 catch (Exception e) { next = new(DateTimeOffset.UtcNow, [], false); runtime.warnings["sensors"] = "Sensor read failed."; ControlSpawnLog.Failure("sensors", e); }
+                if (runtime.sensors.GpuSensorsMissing)
+                    runtime.warnings["gpu-sensors"] = "GPU sensors stopped answering, so fans run at full speed until they come back.";
+                else runtime.warnings.TryRemove("gpu-sensors", out _);
                 var value = Volatile.Read(ref runtime.settings);
                 lock (runtime.stateGate)
                 {
                     runtime.snapshot = next;
-                    runtime.processLoads = nextProcesses;
+                    runtime.processLoads = runtime.processTelemetry?.Latest;
                     runtime.sensorCycle = runtime.clock.Elapsed;
                     runtime.inputs.Temperature = next.Temperature(SensorCategory.Cpu) ?? double.NaN;
                     var system = StateAssembler.Assemble(next, value, runtime.controls.Headers, [], null, null, new(runtime.mock, false, [], runtime.failsafe)).System;

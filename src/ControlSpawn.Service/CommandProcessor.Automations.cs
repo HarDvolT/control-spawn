@@ -16,10 +16,14 @@ public sealed partial class CommandProcessor
     private bool userChangedDuringAutomation, automationApplying;
     private volatile bool sessionLocked;
     private readonly SemaphoreSlim automationWake = new(0, 1);
+    private static readonly TimeSpan RunningProgramsMaxAge = TimeSpan.FromSeconds(10);
+    private readonly object runningProgramsGate = new();
+    private (long Timestamp, string[] Paths)? cachedRunningPrograms;
 
     public static readonly TimeSpan AutomationInterval = TimeSpan.FromSeconds(3);
     public Func<DateTime> Clock { get; set; } = () => DateTime.Now;
     public Func<IEnumerable<string>> RunningPrograms { get; set; } = ListPrograms;
+    internal TimeProvider ProgramCacheTime { get; init; } = TimeProvider.System;
 
     public AutomationState Automations
     {
@@ -41,7 +45,7 @@ public sealed partial class CommandProcessor
     public async Task EvaluateAutomationsAsync(CancellationToken token = default)
     {
         var current = Settings;
-        var decision = AutomationEngine.Evaluate(current.Automations, current.Scenes.Keys, Clock(), sessionLocked, RunningPrograms());
+        var decision = AutomationEngine.Evaluate(current.Automations, current.Scenes.Keys, Clock(), sessionLocked, CachedRunningPrograms());
         if (decision?.Scene == activeAutomation?.Scene && decision?.Rule == activeAutomation?.Rule) { activeAutomation = decision; return; }
         await gate.WaitAsync(token);
         try
@@ -119,6 +123,23 @@ public sealed partial class CommandProcessor
         Lamps = s.Lamps?.Select(l => saved.Lamps?.FirstOrDefault(o => o.Id == l.Id) is { } old
             ? l with { On = old.On, Brightness = old.Brightness, Color = old.Color, Follow = old.Follow, Kelvin = old.Kelvin } : l).ToArray()
     };
+
+    private IEnumerable<string> CachedRunningPrograms()
+    {
+        // The engine only enumerates when the game rule can win. Materialize the sweep once for later evaluations.
+        string[] paths;
+        lock (runningProgramsGate)
+        {
+            if (cachedRunningPrograms is { } cached && ProgramCacheTime.GetElapsedTime(cached.Timestamp) < RunningProgramsMaxAge)
+                paths = cached.Paths;
+            else
+            {
+                paths = RunningPrograms().ToArray();
+                cachedRunningPrograms = (ProgramCacheTime.GetTimestamp(), paths);
+            }
+        }
+        foreach (var path in paths) yield return path;
+    }
 
     private static IEnumerable<string> ListPrograms()
     {

@@ -57,6 +57,7 @@ public sealed class PipeClientVerifier(string? devApp = null) : IPipeClientVerif
             bool valid = MatchesInstallation(appDirectory, hashes);
             return new(valid && !process.HasExited, key);
         }
+        catch (ObjectDisposedException) { return new(false, key); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or ArgumentException or JsonException or OverflowException)
         { return new(false, key); }
     }
