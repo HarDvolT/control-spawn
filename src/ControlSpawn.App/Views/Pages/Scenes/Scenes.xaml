@@ -6,7 +6,7 @@
           <Button Content="+ New scene" Command="{Binding NewSceneCommand}" Style="{StaticResource PrimaryPillButton}" Padding="20,0" MinHeight="42" Margin="0,4,0,4" />
         </StackPanel>
         <StackPanel>
-          <TextBlock Text="SCENES" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
+          <TextBlock Text="Scenes" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
           <TextBlock Text="One tap sets everything" Style="{StaticResource H1}" TextWrapping="Wrap" />
           <TextBlock Text="A scene sets case lighting, fans and both lamps together" Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" />
         </StackPanel>

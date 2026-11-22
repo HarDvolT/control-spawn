@@ -10,6 +10,8 @@ namespace ControlSpawn.App.Controls;
 /// <summary>Shared, bindable metric primitives with the same status scale and motion preference.</summary>
 public abstract class MetricControl : FrameworkElement
 {
+    // Status shows in the value's colour; a coloured glow on every gauge made the chrome compete with the numbers.
+    // Only a critical reading still pulses, so it is the one thing that moves on a calm screen.
     public bool UseStatusGlow { get; set; } = true;
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(nameof(Value), typeof(double), typeof(MetricControl),
         new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender, Changed));
@@ -49,7 +51,7 @@ public abstract class MetricControl : FrameworkElement
         // A new effect every reading forced the glow to be rebuilt each second; it only changes with the status colour.
         if (level == glowLevel) return;
         glowLevel = level;
-        Effect = Thresholds.Glow(level);
+        Effect = null;
         BeginAnimation(OpacityProperty, null);
         if (level == StatusLevel.Critical && IsLoaded && !Motion.ReduceAnimations)
             BeginAnimation(OpacityProperty, Motion.Decorative(new DoubleAnimation(.65, 1, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever }, 20));
@@ -138,7 +140,7 @@ public sealed class HeatGrid : FrameworkElement
     private readonly Dictionary<int, SolidColorBrush> tileBrushes = new();
     public static readonly DependencyProperty ValuesProperty = DependencyProperty.Register(nameof(Values), typeof(IEnumerable), typeof(HeatGrid), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
     public IEnumerable? Values { get => (IEnumerable?)GetValue(ValuesProperty); set => SetValue(ValuesProperty, value); }
-    public HeatGrid() { MinHeight = 80; Effect = Thresholds.Glow(StatusLevel.Cool); }
+    public HeatGrid() { MinHeight = 80; }
     protected override void OnRender(DrawingContext dc)
     {
         var values = Values?.Cast<object?>().ToArray() ?? [];

@@ -10,7 +10,7 @@
           <TextBlock Text="{Binding AllFansSummary}" Style="{StaticResource SmallMuted}" TextAlignment="Right" MaxWidth="460" TextWrapping="Wrap" Margin="0,0,0,12" HorizontalAlignment="Right" />
         </StackPanel>
         <StackPanel>
-          <TextBlock Text="FANS" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
+          <TextBlock Text="Fans" Style="{StaticResource PageEyebrow}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding StatusLine}" Style="{StaticResource PageSubtitle}" TextWrapping="Wrap" />
         </StackPanel>

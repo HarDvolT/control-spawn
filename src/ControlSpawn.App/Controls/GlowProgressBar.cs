@@ -38,7 +38,7 @@ public class GlowProgressBar : FrameworkElement
 
     public static readonly DependencyProperty GlowProperty = DependencyProperty.Register(
         nameof(Glow), typeof(bool), typeof(GlowProgressBar),
-        new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender, OnColorChanged));
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender, OnColorChanged));
 
     private static readonly DependencyProperty DisplayValueProperty = DependencyProperty.Register(
         nameof(DisplayValue), typeof(double), typeof(GlowProgressBar),

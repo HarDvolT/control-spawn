@@ -195,7 +195,7 @@ public sealed class MainViewModel : ObservableObject
     public string ServiceDot { get => _serviceDot; private set => Set(ref _serviceDot, value); }
     public string ServiceStatusText { get => _serviceStatusText; private set => Set(ref _serviceStatusText, value); }
     public bool IsMock => _lastState?.Health.Mock ?? _client is MockControlSpawnClient;
-    public string ModeBadge => IsMock ? "MOCK" : "LIVE";
+    public string ModeBadge => IsMock ? "Mock" : "Live";
 
     public void Navigate(PageKey key)
     {

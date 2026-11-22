@@ -24,7 +24,7 @@ public class GlassCard : ContentControl
         nameof(StaggerIndex), typeof(int), typeof(GlassCard), new FrameworkPropertyMetadata(0));
 
     public static readonly DependencyProperty HoverLiftProperty = DependencyProperty.Register(
-        nameof(HoverLift), typeof(bool), typeof(GlassCard), new FrameworkPropertyMetadata(true));
+        nameof(HoverLift), typeof(bool), typeof(GlassCard), new FrameworkPropertyMetadata(false));
 
     static GlassCard()
     {
@@ -73,10 +73,11 @@ public class GlassCard : ContentControl
         }
 
         Opacity = 0;
-        var translate = new TranslateTransform(0, 12);
+        // One short fade and rise for the page, staggered over at most six cards; the rest arrive with the sixth.
+        var translate = new TranslateTransform(0, 8);
         RenderTransform = translate;
-        var delay = TimeSpan.FromMilliseconds(Math.Min(StaggerIndex, 12) * 40);
-        var duration = TimeSpan.FromMilliseconds(620);
+        var delay = TimeSpan.FromMilliseconds(Math.Min(StaggerIndex, 6) * 40);
+        var duration = TimeSpan.FromMilliseconds(400);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
 
         BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration)
@@ -84,7 +85,7 @@ public class GlassCard : ContentControl
             BeginTime = delay,
             EasingFunction = ease
         });
-        translate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(12, 0, duration)
+        translate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(8, 0, duration)
         {
             BeginTime = delay,
             EasingFunction = ease
