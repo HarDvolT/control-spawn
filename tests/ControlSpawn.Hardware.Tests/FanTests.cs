@@ -112,6 +112,74 @@ public sealed class FanTests
         controller.Dispose();
         Assert.Equal(port.Headers, port.Restored);
     }
+    [Fact]
+    public void TerminationRestoresEveryHeaderWhenTheFanLockIsFree()
+    {
+        var port = new FakeFanControlPort();
+        using var controller = new FanController(port);
+
+        controller.RestoreDefaultsOnTermination();
+
+        Assert.Equal(port.Headers, port.Restored);
+    }
+    [Fact]
+    public async Task TerminationReturnsWithoutRestoringWhenAFanWriteHoldsTheLock()
+    {
+        var port = new FakeFanControlPort();
+        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseWrite = new ManualResetEventSlim();
+        using var controller = new FanController(new BlockingFanPort(port, beforeWrite: () =>
+        {
+            writing.TrySetResult();
+            releaseWrite.Wait();
+        }));
+        var write = Task.Run(() => controller.Apply(Snapshot(), TimeSpan.FromSeconds(1)));
+        try
+        {
+            await writing.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.Run(controller.RestoreDefaultsOnTermination).WaitAsync(TimeSpan.FromMilliseconds(1500));
+            Assert.Empty(port.Restored);
+        }
+        finally
+        {
+            releaseWrite.Set();
+            await write;
+        }
+    }
+    [Fact]
+    public async Task ForcedExitRestoreReturnsEvenWhenThePortBlocksWithTheFanLockFree()
+    {
+        var port = new FakeFanControlPort();
+        var restoring = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseRestore = new ManualResetEventSlim();
+        using var controller = new FanController(new BlockingFanPort(port, beforeRestore: () =>
+        {
+            restoring.TrySetResult();
+            releaseRestore.Wait();
+        }));
+        var restore = Task.Run(controller.RestoreDefaultsForForcedExit);
+        try
+        {
+            await restoring.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await restore.WaitAsync(TimeSpan.FromMilliseconds(2500));
+            Assert.Empty(port.Restored);
+        }
+        finally { releaseRestore.Set(); }
+    }
+    private sealed class BlockingFanPort(FakeFanControlPort inner, Action? beforeWrite = null, Action? beforeRestore = null) : IFanControlPort
+    {
+        public IReadOnlyList<int> Headers => inner.Headers;
+        public void SetSoftware(int header, float percent)
+        {
+            beforeWrite?.Invoke();
+            inner.SetSoftware(header, percent);
+        }
+        public void SetDefault(int header)
+        {
+            beforeRestore?.Invoke();
+            inner.SetDefault(header);
+        }
+    }
     [Theory]
     [InlineData(45)] [InlineData(52)] [InlineData(55)]
     public void SilentIsBelowTheBiosIdleDutyAtIdleTemperatures(double cpu)

@@ -258,11 +258,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
     private async Task RunCoreAsync(CancellationToken cancellationToken)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stop.Token);
-        EventHandler exit = (_, _) => RestoreDefaults();
-        UnhandledExceptionEventHandler crash = (_, _) => RestoreDefaults();
         ConsoleCancelEventHandler cancel = (_, e) => { e.Cancel = true; RestoreDefaults(); linked.Cancel(); };
-        AppDomain.CurrentDomain.ProcessExit += exit;
-        AppDomain.CurrentDomain.UnhandledException += crash;
         Console.CancelKeyPress += cancel;
         List<IControlSpawnModule> modules = [new SensorModule(this), new FanModule(this), new RgbModule(this), new LampModule(this), new RouterModule(this),
             new HealthModule(this), new CaptureModule(this, true), new CaptureModule(this, false), new DiscoveryModule(this), new ApplianceModule(this)];
@@ -291,8 +287,6 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
             finally
             {
                 RestoreDefaults(); fanGuard?.Dispose(); fanGuard = null;
-                AppDomain.CurrentDomain.ProcessExit -= exit;
-                AppDomain.CurrentDomain.UnhandledException -= crash;
                 Console.CancelKeyPress -= cancel;
             }
         }
@@ -766,6 +760,7 @@ public sealed partial class ServiceRuntime : IServiceRuntime, IAsyncDisposable
         finally { Interlocked.Exchange(ref speedRunning, 0); }
     }
     public void RestoreDefaults() => fans.RestoreDefaults();
+    internal void RestoreDefaultsForForcedExit() => fans.RestoreDefaultsForForcedExit();
     public async ValueTask DisposeAsync()
     {
         if (disposed) return;

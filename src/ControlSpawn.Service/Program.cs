@@ -33,6 +33,8 @@ public static class Program
         var builder = Host.CreateDefaultBuilder([]);
         if (!console) builder.UseWindowsService();
         builder.ConfigureLogging(logging => { logging.ClearProviders(); logging.AddProvider(new RollingLogProvider(mock ? Path.Combine(AppContext.BaseDirectory, "mock-logs") : null)); });
+        // Keep the deadline active through host shutdown and runtime disposal, which can also wait on hardware.
+        using var watchdog = new ShutdownWatchdog();
         await using var runtime = new ServiceRuntime(mock, observe);
         builder.ConfigureServices(services =>
         {
@@ -44,10 +46,12 @@ public static class Program
             // (the live script, --mock) trusts the app built beside it.
             services.AddSingleton<IPipeClientVerifier>(new PipeClientVerifier(console ? PipeClientVerifier.DevAppBesideBuild(AppContext.BaseDirectory) : null));
             services.AddHostedService<ControlSpawnWorker>();
-            // A hardware call that never returns must not hold a stop forever; the fans are handed back before this.
+            // Allow up to 10 s for the host's cooperative shutdown before its stop token is canceled.
             services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(10));
         });
         using var host = builder.Build();
+        var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+        using var stopRegistration = lifetime.ApplicationStopping.Register(() => watchdog.Start(runtime.RestoreDefaultsForForcedExit));
         ConnectLibraryLogging(host.Services.GetRequiredService<ILoggerFactory>());
         if (console && !mock && !observe && !SecretMigration.Run(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), new SecretStore()))
             runtime.ReportSecretMigrationFailure();
@@ -56,7 +60,6 @@ public static class Program
         int exitIndex = Array.FindIndex(args, a => a.Equals("--exit-after", StringComparison.OrdinalIgnoreCase));
         if (exitIndex >= 0 && exitIndex + 1 < args.Length && int.TryParse(args[exitIndex + 1], out var seconds) && seconds > 0)
         {
-            var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
             _ = Task.Delay(TimeSpan.FromSeconds(seconds)).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
         }
         // --stop-file <path>: scripts ask for a clean stop (fans back to the BIOS) by creating this file.
@@ -64,7 +67,6 @@ public static class Program
         if (stopIndex >= 0 && stopIndex + 1 < args.Length)
         {
             var stopFile = Path.GetFullPath(args[stopIndex + 1]);
-            var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
             _ = Task.Run(async () =>
             {
                 while (!lifetime.ApplicationStopping.IsCancellationRequested)
