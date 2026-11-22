@@ -8,7 +8,7 @@
 [Setup]
 AppId={{C72C2E1F-2F54-4A63-BD51-93FE11BC64A2}
 AppName=Control Spawn
-AppVersion=1.0.5
+AppVersion=1.0.6
 AppPublisher=Control Spawn
 SetupIconFile=..\src\ControlSpawn.App\Assets\ControlSpawn.ico
 DefaultDirName={autopf}\Control Spawn
