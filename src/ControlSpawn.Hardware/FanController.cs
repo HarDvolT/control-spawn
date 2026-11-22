@@ -40,6 +40,7 @@ public sealed class FanController : IFanController
     private readonly Dictionary<int, FanSettings> settings = new();
     private readonly Dictionary<int, double> overrides = new();
     private bool disposed;
+    private volatile bool forcedExitRestoreStarted;
     public FanController(IFanControlPort port)
     {
         this.port = port;
@@ -74,8 +75,8 @@ public sealed class FanController : IFanController
                     double? temp = FanCurveEngine.SelectTemperature(snapshot, config.Source);
                     double percent = header == 7 || emergency || temp is null || !snapshot.Success
                         ? engine.ForceFull() : engine.Evaluate(temp.Value, config, elapsed);
-                    // Measuring holds one fan at a fixed duty; overheating still wins (emergency is checked above).
-                    if (!emergency && header != 7 && overrides.TryGetValue(header, out var held)) percent = held;
+                    // Measuring holds one fan at a fixed duty only while readings are healthy.
+                    if (snapshot.Success && !emergency && header != 7 && overrides.TryGetValue(header, out var held)) percent = held;
                     port.SetSoftware(header, (float)percent);
                 }
             }
@@ -101,15 +102,45 @@ public sealed class FanController : IFanController
     }
     public void RestoreDefaults()
     {
-        lock (gate)
+        lock (gate) RestoreHeaders(logFailures: true);
+    }
+    private void RestoreHeaders(bool logFailures)
+    {
+        // Attempt every control even when one fails. Cleanup must never hide the original exception.
+        foreach (int header in port.Headers.ToArray())
         {
-            // Attempt every control even when one fails. Cleanup must never hide the original exception.
-            foreach (int header in port.Headers.ToArray())
-                try { port.SetDefault(header); } catch (Exception ex) { ControlSpawnLog.Failure("fans", ex); }
+            try { port.SetDefault(header); }
+            catch (Exception ex) { if (logFailures) ControlSpawnLog.Failure("fans", ex); }
         }
     }
-    private void OnExit(object? sender, EventArgs e) => RestoreDefaults();
-    private void OnUnhandled(object sender, UnhandledExceptionEventArgs e) => RestoreDefaults();
+    private void OnExit(object? sender, EventArgs e) => RestoreDefaultsOnTermination();
+    private void OnUnhandled(object sender, UnhandledExceptionEventArgs e) => RestoreDefaultsOnTermination();
+
+    internal void RestoreDefaultsOnTermination()
+    {
+        // Environment.Exit raises ProcessExit. The watchdog has already made its final attempt.
+        if (!forcedExitRestoreStarted) RestoreBeforeExit(TimeSpan.FromMilliseconds(1500));
+    }
+
+    internal void RestoreDefaultsForForcedExit()
+    {
+        forcedExitRestoreStarted = true;
+        RestoreBeforeExit(TimeSpan.FromSeconds(2));
+    }
+
+    private void RestoreBeforeExit(TimeSpan budget)
+    {
+        // The port can hang in native code or on its own lock even after we get the fan lock.
+        var restore = new Thread(() =>
+        {
+            if (!Monitor.TryEnter(gate, 1000)) return;
+            try { if (!disposed) RestoreHeaders(logFailures: false); }
+            catch (Exception) { /* FanGuard handles any failure to read the headers. */ }
+            finally { Monitor.Exit(gate); }
+        }) { IsBackground = true, Name = "Control Spawn emergency fan restore" };
+        restore.Start();
+        restore.Join(budget);
+    }
     public void Dispose()
     {
         lock (gate)

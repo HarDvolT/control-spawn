@@ -257,7 +257,7 @@ public sealed class WidgetViewModel : ObservableObject
     public double ModemBarCount => ModemBars.Count(b => b.ColorHex != "#3A3A40");
     public string MiniModemVerdict => ModemVerdict + " \u00b7 " + (modemScore?.ToString() ?? Format.Dash);
     public string MiniModemPing => PingText + " ms";
-    public string MiniFanHeading => "FANS \u00b7 " + FanMode.ToUpperInvariant();
+    public string MiniFanHeading => "Fans \u00b7 " + FanMode;
     public string MiniPump => "pump " + (FanRows.FirstOrDefault(f => f.IsPump)?.RpmText ?? Format.Dash);
     public IReadOnlyList<FanRow> MiniFanRows => FanRows.Where(f => !f.IsPump).ToArray();
     public string CpuTempText => Format.Temp(_cpuTemp);

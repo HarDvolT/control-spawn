@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 using ControlSpawn.App.Common;
 
 namespace ControlSpawn.App.Controls;
@@ -93,14 +92,8 @@ public class RingGauge : FrameworkElement
 
     private static void OnColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is not RingGauge gauge) return;
-        gauge.Effect = new DropShadowEffect
-        {
-            Color = gauge.RingColor,
-            BlurRadius = 12,
-            ShadowDepth = 0,
-            Opacity = 0.5
-        };
+        // The arc's colour carries the status on its own; the old coloured glow is gone.
+        if (d is RingGauge gauge) gauge.Effect = null;
     }
 
     private void SetDisplay(double value, bool animate)

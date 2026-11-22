@@ -4,7 +4,7 @@
       <DockPanel Margin="0,0,0,16">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom"><c:StatusChip Text="{Binding CpuChip}" Level="Ok" Margin="0,0,8,0"/><c:StatusChip Text="{Binding GpuChip}" Level="Ok" Margin="0,0,8,0"/><c:StatusChip Text="{Binding HotspotChip}" Level="Ok"/></StackPanel>
         <StackPanel>
-          <TextBlock Text="MONITOR" Style="{StaticResource PageEyebrow}" />
+          <TextBlock Text="Monitor" Style="{StaticResource PageEyebrow}" />
           <TextBlock Text="{Binding Headline}" Style="{StaticResource H1}" />
           <TextBlock Text="Live readings · CPU, GPU, memory and more" Style="{StaticResource PageSubtitle}" />
         </StackPanel>
@@ -118,7 +118,7 @@
             <c:SignalBars Value="{Binding State.Router.Bars, TargetNullValue=NaN, FallbackValue=NaN}" Width="64" Height="40" Margin="0,0,0,12" HorizontalAlignment="Left"/><TextBlock Text="{Binding InternetScore}" Style="{StaticResource Number}" Foreground="{StaticResource StatusWarmBrush}" FontSize="22" />
             <TextBlock Text="{Binding State.Router.Network}" Style="{StaticResource SmallMuted}" Margin="0,8" />
             <TextBlock Text="{Binding State.Router.Sentence}" Style="{StaticResource SmallMuted}" TextWrapping="Wrap" />
-            <Button Content="Open →" Command="{Binding OpenPageCommand}" CommandParameter="Modem" Style="{StaticResource TextAction}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+            <Button Content="Open internet" Command="{Binding OpenPageCommand}" CommandParameter="Modem" Style="{StaticResource TextAction}" HorizontalAlignment="Left" Margin="0,12,0,0" />
           </StackPanel>
         </c:GlassCard>
         <c:GlassCard Span="6" Height="200">

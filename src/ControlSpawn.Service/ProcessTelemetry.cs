@@ -4,10 +4,24 @@ using ControlSpawn.Core.Ipc;
 namespace ControlSpawn.Service;
 
 /// <summary>Samples CPU time deltas, normalized to the whole machine. The first poll has no rate.</summary>
-internal sealed class ProcessTelemetry
+internal sealed class ProcessTelemetry(Action<bool> health, Func<IReadOnlyList<ProcessLoad>?>? sample = null)
+    : HostedModule("process-telemetry", health)
 {
     private readonly ProcessCpuRates rates = new();
-    public IReadOnlyList<ProcessLoad>? Sample()
+    private IReadOnlyList<ProcessLoad>? latest;
+    public IReadOnlyList<ProcessLoad>? Latest => Volatile.Read(ref latest);
+
+    protected override async Task ExecuteAsync(CancellationToken token)
+    {
+        var read = sample ?? Sample;
+        while (!token.IsCancellationRequested)
+        {
+            Volatile.Write(ref latest, read());
+            await Task.Delay(TimeSpan.FromSeconds(2), token);
+        }
+    }
+
+    private IReadOnlyList<ProcessLoad>? Sample()
     {
         long now = Stopwatch.GetTimestamp();
         var current = new List<ProcessObservation>();

@@ -217,6 +217,7 @@ public sealed class ServiceTests
         try { await runtime.RunAsync(stop.Token); } catch (OperationCanceledException) when (stop.IsCancellationRequested) { }
         var state = runtime.GetState(settings);
         Assert.True(state.Health.Mock); Assert.Equal(45, state.System.CpuTemp); Assert.Equal(2, state.Lighting.Devices.Count);
+        Assert.Null(state.System.TopProcesses);
         Assert.Equal("mock", state.Lamp!.Transport); Assert.True(state.Router!.Connected);
     }
 

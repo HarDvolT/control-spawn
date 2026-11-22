@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Diagnostics;
 using System.ServiceProcess;
 using ControlSpawn.Core;
 
@@ -39,9 +40,17 @@ internal sealed class ScmLifetime : ServiceBase, IHostLifetime
     protected override void OnStart(string[] args) => started.TrySetResult();
     protected override void OnStop()
     {
+        var elapsed = Stopwatch.StartNew();
+        var budget = TimeSpan.FromSeconds(25);
+        var interval = TimeSpan.FromSeconds(1);
         lifetime.StopApplication();
         // Keep SCM in stop-pending until the host has restored fans and drained workers.
-        while (!applicationStopped.Wait(TimeSpan.FromSeconds(1))) RequestAdditionalTime(5000);
+        while (budget - elapsed.Elapsed is { TotalMilliseconds: > 0 } remaining)
+        {
+            if (applicationStopped.Wait(remaining < interval ? remaining : interval)) return;
+            int millisecondsLeft = (int)(budget - elapsed.Elapsed).TotalMilliseconds;
+            if (millisecondsLeft > 0) RequestAdditionalTime(Math.Min(5000, millisecondsLeft));
+        }
     }
     // Windows doesn't put the service in stop-pending for a shutdown, so RequestAdditionalTime would throw and crash us here.
     protected override void OnShutdown()

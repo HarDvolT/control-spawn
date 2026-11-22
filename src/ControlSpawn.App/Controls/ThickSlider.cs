@@ -40,7 +40,7 @@ public class ThickSlider : FrameworkElement
 
     public static readonly DependencyProperty GlowProperty = DependencyProperty.Register(
         nameof(Glow), typeof(bool), typeof(ThickSlider),
-        new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender, OnAccentChanged));
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender, OnAccentChanged));
 
     public static readonly DependencyProperty StepProperty = DependencyProperty.Register(
         nameof(Step), typeof(double), typeof(ThickSlider),

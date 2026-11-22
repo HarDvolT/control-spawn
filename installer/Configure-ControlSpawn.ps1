@@ -135,7 +135,8 @@ function Register-ControlSpawnService {
     # Plain automatic: delayed start left fans and lighting untouched for over 2 minutes after every boot.
     Invoke-Sc @('config',$serviceName,'start=','auto','obj=','LocalSystem')
     Set-ItemProperty "$serviceRoot/$serviceName" -Name DelayedAutoStart -Value 0
-    Invoke-Sc @('failure',$serviceName,'reset=','86400','actions=','restart/5000/restart/15000/none/0')
+    # Restart after 5 s, 15 s and 60 s: the third failure is still worth a recovery attempt.
+    Invoke-Sc @('failure',$serviceName,'reset=','86400','actions=','restart/5000/restart/15000/restart/60000')
     Invoke-Sc @('failureflag',$serviceName,'1')
 }
 function Update-StartupShortcuts {

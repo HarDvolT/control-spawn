@@ -37,32 +37,32 @@ public sealed class CommandSearch
 
     public CommandSearch()
     {
-        _entries.Add(new SearchEntry("Find devices", "Discover new hardware", "COMMAND", SearchAction.FindDevices, "find", "discover detect lamps rgb fans network"));
-        _entries.Add(new SearchEntry("Import tokens", "Paste or drop extractor output", "COMMAND", SearchAction.ImportTokens, "import", "xiaomi token file json csv"));
+        _entries.Add(new SearchEntry("Find devices", "Discover new hardware", "Command", SearchAction.FindDevices, "find", "discover detect lamps rgb fans network"));
+        _entries.Add(new SearchEntry("Import tokens", "Paste or drop extractor output", "Command", SearchAction.ImportTokens, "import", "xiaomi token file json csv"));
         foreach (var page in Pages.All)
             _entries.Add(new SearchEntry(page.Title, page.Subtitle, page.Group, SearchAction.Navigate,
                 page.Key.ToString(), page.Group + " page open " + page.Title));
 
-        _entries.Add(new SearchEntry("Edit LEDs", "Paint individual device LEDs", "COMMAND", SearchAction.Navigate,
+        _entries.Add(new SearchEntry("Edit LEDs", "Paint individual device LEDs", "Command", SearchAction.Navigate,
             PageKey.Lighting.ToString(), "lighting rgb custom overlay brush editor"));
         foreach (var mode in new[] { FanMode.Silent, FanMode.Standard, FanMode.Turbo, FanMode.Full })
             _entries.Add(new SearchEntry($"Fan mode · {Common.Format.FanModeName(mode)}",
-                "Set every controllable fan", "COMMAND", SearchAction.FanMode, mode.ToString(),
+                "Set every controllable fan", "Command", SearchAction.FanMode, mode.ToString(),
                 "fans fan speed mode " + mode));
 
         foreach (var scene in SceneCatalog.All)
-            _entries.Add(new SearchEntry($"Scene · {scene.Name}", scene.Trigger, "COMMAND",
+            _entries.Add(new SearchEntry($"Scene · {scene.Name}", scene.Trigger, "Command",
                 SearchAction.Scene, scene.Name, "scenes scene apply lighting profile"));
 
-        _entries.Add(new SearchEntry("Lights off", "Turn every RGB device and the lamp off", "COMMAND",
+        _entries.Add(new SearchEntry("Lights off", "Turn every RGB device and the lamp off", "Command",
             SearchAction.LightsOff, "off", "lighting rgb lamp dark black out"));
-        _entries.Add(new SearchEntry("Show widgets", "Pin the desktop widgets", "COMMAND",
+        _entries.Add(new SearchEntry("Show widgets", "Pin the desktop widgets", "Command",
             SearchAction.ToggleWidgets, "show", "widgets desktop show hide tray"));
-        _entries.Add(new SearchEntry("Hide widgets", "Remove the desktop widgets", "COMMAND",
+        _entries.Add(new SearchEntry("Hide widgets", "Remove the desktop widgets", "Command",
             SearchAction.ToggleWidgets, "hide", "widgets desktop show hide tray"));
-        _entries.Add(new SearchEntry("Start speed test", "Measure ping, download and upload", "COMMAND",
+        _entries.Add(new SearchEntry("Start speed test", "Measure ping, download and upload", "Command",
             SearchAction.StartSpeedTest, "start", "modem router internet speed test cloudflare"));
-        _entries.Add(new SearchEntry("Measure fan speeds", "Learn the min and max RPM of each fan", "COMMAND",
+        _entries.Add(new SearchEntry("Measure fan speeds", "Learn the min and max RPM of each fan", "Command",
             SearchAction.MeasureFans, "measure", "fans rpm calibration measure"));
     }
 
@@ -97,7 +97,7 @@ public sealed class CommandSearch
                 if (keywords.Contains(token, StringComparison.Ordinal)) score += 10;
             }
             // Prefer exact command wording over the page that merely mentions it.
-            if (entry.Category == "COMMAND") score += 5;
+            if (entry.Category == "Command") score += 5;
             scored.Add((entry, score));
         }
 

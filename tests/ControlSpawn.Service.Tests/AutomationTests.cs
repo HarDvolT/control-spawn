@@ -18,6 +18,13 @@ public sealed class AutomationTests
     private static readonly string[] Scenes = ["Gaming", "Night", "Away"];
     private static readonly DateTime Noon = new(2026, 11, 2, 12, 0, 0), Midnight = new(2026, 11, 2, 0, 30, 0);
 
+    private sealed class ProgramTime : TimeProvider
+    {
+        public TimeSpan Elapsed { get; set; }
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => Elapsed.Ticks;
+    }
+
     [Theory]
     [InlineData(@"D:\SteamLibrary\steamapps\common\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe", "Cyberpunk2077")]
     [InlineData(@"C:\Program Files\Epic Games\Fortnite\FortniteGame\Binaries\Win64\FortniteClient-Win64-Shipping.exe", "FortniteClient-Win64-Shipping")]
@@ -54,22 +61,48 @@ public sealed class AutomationTests
     [Fact]
     public async Task AppliesTheSceneThenRestoresWhatTheUserHad()
     {
-        var processor = new CommandProcessor(new MemorySettingsStore(), new Runtime());
-        string[] programs = [];
-        processor.Clock = () => Noon; processor.RunningPrograms = () => programs;
+        var time = new ProgramTime();
+        var processor = new CommandProcessor(new MemorySettingsStore(), new Runtime()) { ProgramCacheTime = time, Clock = () => Noon };
+        string[] programs = [@"D:\steamapps\common\Game\game.exe"];
+        int sweeps = 0;
+        processor.RunningPrograms = () => { sweeps++; return programs; };
         Assert.True((await processor.HandleAsync(Request(1, Commands.SetLighting, new { effect = "Static", color = "#36D6FF", brightness = 1.0, speed = 1.0 }))).Ok);
         var mine = processor.Settings.Lighting;
 
-        programs = [@"D:\steamapps\common\Game\game.exe"];
         await processor.EvaluateAutomationsAsync();
         Assert.Equal(LightingEffect.Smart, processor.Settings.Lighting.Effect);
         Assert.Equal("game", processor.GetState().Automations!.Rule);
         Assert.Equal("game is running", processor.GetState().Automations!.Detail);
 
         programs = [];
+        time.Elapsed = TimeSpan.FromSeconds(9);
         await processor.EvaluateAutomationsAsync();
+        Assert.Equal("game", processor.Automations.Rule);
+        Assert.Equal(1, sweeps);
+
+        time.Elapsed = TimeSpan.FromSeconds(10);
+        await processor.EvaluateAutomationsAsync();
+        Assert.Equal(2, sweeps);
         Assert.Equal(mine, processor.Settings.Lighting);
         Assert.Null(processor.GetState().Automations!.Rule);
+    }
+
+    [Fact]
+    public async Task SkipsProgramSweepsForDisabledOrOverriddenGameRules()
+    {
+        var processor = new CommandProcessor(new MemorySettingsStore(), new Runtime())
+        {
+            Clock = () => Noon,
+            RunningPrograms = () => throw new InvalidOperationException("Program sweep was not needed.")
+        };
+        Assert.True((await processor.HandleAsync(Request(1, Commands.SetAutomations, new { gameEnabled = false }))).Ok);
+        await processor.EvaluateAutomationsAsync();
+        Assert.Null(processor.Automations.Rule);
+
+        Assert.True((await processor.HandleAsync(Request(2, Commands.SetAutomations, new { gameEnabled = true }))).Ok);
+        Assert.True((await processor.HandleAsync(Request(3, Commands.SetSessionLocked, new { locked = true }))).Ok);
+        await processor.EvaluateAutomationsAsync();
+        Assert.Equal("lock", processor.Automations.Rule);
     }
 
     [Fact]

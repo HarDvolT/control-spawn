@@ -33,7 +33,7 @@ public sealed class DevicesAndApplianceTests
         Assert.True((await client.SendAsync(Commands.DismissDevice, new { id = pending.Id })).Ok);
         await client.SendAsync(Commands.FindDevices);
         Assert.DoesNotContain(client.CurrentState.NewDevices!, d => d.Id == pending.Id);
-        Assert.Contains(Pages.All, p => p.Key == PageKey.Devices && p.Group == "GENERAL");
+        Assert.Contains(Pages.All, p => p.Key == PageKey.Devices && p.Group == "General");
     }
     [Fact]
     public async Task MockAndAppRequireConfirmationForStartAndWidgetOnlyCancels()

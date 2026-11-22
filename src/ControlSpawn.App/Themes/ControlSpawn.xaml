@@ -65,7 +65,7 @@
     <SolidColorBrush x:Key="DarkOverlayBrush" Color="#CC141416" />
 
     <LinearGradientBrush x:Key="PanelGradientBrush" StartPoint="0.5,0" EndPoint="0.5,1">
-        <GradientStop Color="#14151A" Offset="0" />
+        <GradientStop Color="#111216" Offset="0" />
         <GradientStop Color="#111216" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="WindowGlowBrush" StartPoint="0.5,0" EndPoint="0.5,1">
@@ -102,25 +102,25 @@
         <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="30" />
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
     </Style>
 
     <Style x:Key="H2" TargetType="{x:Type TextBlock}">
         <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="20" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
     </Style>
 
     <Style x:Key="CardTitle" TargetType="{x:Type TextBlock}">
         <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="15" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
     </Style>
 
     <Style x:Key="SectionLabel" TargetType="{x:Type TextBlock}">
-        <Setter Property="FontSize" Value="11" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
     </Style>
 
@@ -143,27 +143,27 @@
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
         <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="20" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
     </Style>
 
     <Style x:Key="NumberLarge" TargetType="{x:Type TextBlock}">
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
         <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="32" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
     </Style>
 
     <Style x:Key="NumberXl" TargetType="{x:Type TextBlock}">
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
         <Setter Property="FontFamily" Value="{StaticResource NumberFont}" />
         <Setter Property="FontSize" Value="44" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
     </Style>
 
     <Style x:Key="Badge" TargetType="{x:Type Border}">
         <Setter Property="Background" Value="{StaticResource PanelAltBrush}" />
-        <Setter Property="CornerRadius" Value="20" />
-        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="8,4" />
     </Style>
 
     <Style x:Key="Divider" TargetType="{x:Type Border}">
@@ -181,7 +181,7 @@
         <Setter Property="MinHeight" Value="40" />
         <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
@@ -217,20 +217,20 @@
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="PillButton" TargetType="{x:Type Button}" BasedOn="{StaticResource BaseButton}">
         <Setter Property="Background" Value="{StaticResource PanelBrushSolid}" />
-        <Setter Property="MinHeight" Value="44" />
-        <Setter Property="Padding" Value="18,0" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="16,0" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
                     <Border x:Name="Chrome" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="20" SnapsToDevicePixels="True">
+                            CornerRadius="10" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           Margin="{TemplateBinding Padding}" />
                     </Border>
@@ -254,7 +254,7 @@
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="14" />
     </Style>
 
@@ -272,7 +272,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
                     <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="14" SnapsToDevicePixels="True">
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           Margin="{TemplateBinding Padding}" />
                     </Border>
@@ -316,7 +316,7 @@
                     <Border x:Name="Chrome" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="22" SnapsToDevicePixels="True">
+                            CornerRadius="10" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -346,7 +346,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
                     <Border x:Name="Chrome" Background="{TemplateBinding Background}"
-                            CornerRadius="12" SnapsToDevicePixels="True">
+                            CornerRadius="8" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"
                                           Margin="{TemplateBinding Padding}" />
                     </Border>
@@ -392,11 +392,6 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter TargetName="Track" Property="Effect">
-                                <Setter.Value>
-                                    <DropShadowEffect Color="{DynamicResource AccentColor}" BlurRadius="14" ShadowDepth="0" Opacity="0.5" />
-                                </Setter.Value>
-                            </Setter>
                             <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
                             <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0" />
                         </Trigger>
@@ -434,12 +429,6 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter TargetName="Track" Property="Effect">
-                                <Setter.Value>
-                                    <DropShadowEffect Color="{DynamicResource AccentColor}" BlurRadius="14"
-                                                      ShadowDepth="0" Opacity="0.5" />
-                                </Setter.Value>
-                            </Setter>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
@@ -457,8 +446,8 @@
     <!-- Segmented control -->
     <Style x:Key="SegmentItemStyle" TargetType="{x:Type ListBoxItem}">
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="MinHeight" Value="34" />
@@ -468,7 +457,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ListBoxItem}">
-                    <Border x:Name="Pill" Background="Transparent" CornerRadius="18" Padding="14,0">
+                    <Border x:Name="Pill" Background="Transparent" CornerRadius="7" Padding="14,0">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -509,7 +498,7 @@
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="22" Padding="{TemplateBinding Padding}"
+                            CornerRadius="10" Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
                         <ItemsPresenter />
                     </Border>
@@ -529,7 +518,7 @@
                     <Border x:Name="Chrome" Background="{TemplateBinding Background}"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                             CornerRadius="{TemplateBinding CornerRadius}" SnapsToDevicePixels="True">
-                        <Grid><Border BorderThickness="1" CornerRadius="{TemplateBinding CornerRadius}" IsHitTestVisible="False"><Border.BorderBrush><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#0DFFFFFF" Offset="0"/><GradientStop Color="#00FFFFFF" Offset="0.12"/></LinearGradientBrush></Border.BorderBrush></Border><ContentPresenter Margin="{TemplateBinding Padding}"/></Grid>
+                        <ContentPresenter Margin="{TemplateBinding Padding}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -682,7 +671,7 @@
             <Grid>
                 <ToggleButton x:Name="Toggle" Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                     <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="Chrome" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}" BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}" BorderThickness="1" CornerRadius="12">
+                        <Border x:Name="Chrome" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}" BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}" BorderThickness="1" CornerRadius="10">
                             <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{StaticResource TextSecondaryBrush}" StrokeThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" />
                         </Border>
                         <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" /></Trigger></ControlTemplate.Triggers>
@@ -731,16 +720,16 @@
     </Style>
 
     <SolidColorBrush x:Key="DataBrush" Color="#36D6FF"/>
-    <LinearGradientBrush x:Key="NavActiveBrush" StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#2EFF4D1A" Offset="0"/><GradientStop Color="#0AFF4D1A" Offset="1"/></LinearGradientBrush>
+    <SolidColorBrush x:Key="NavActiveBrush" Color="#17181D"/>
     <Style x:Key="ShellNav" TargetType="Button" BasedOn="{StaticResource BaseButton}">
       <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-      <Setter Property="FontSize" Value="14"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="Padding" Value="12,0"/><Setter Property="Height" Value="40"/>
-      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Chrome" CornerRadius="12" Background="{TemplateBinding Background}"><Grid>
-        <Border x:Name="ActiveBar" CornerRadius="12" BorderThickness="2,0,0,0" BorderBrush="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+      <Setter Property="FontSize" Value="14"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="Padding" Value="12,0"/><Setter Property="Height" Value="36"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Chrome" CornerRadius="8" BorderThickness="1" BorderBrush="Transparent" Background="{TemplateBinding Background}"><Grid>
+        <Border x:Name="ActiveBar" Width="2" Height="16" CornerRadius="1" HorizontalAlignment="Left" Margin="-1,0,0,0" Background="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
         <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
       </Grid></Border><ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#0AFFFFFF"/></Trigger>
-        <DataTrigger Binding="{Binding IsCurrent}" Value="True"><Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource NavActiveBrush}"/><Setter TargetName="ActiveBar" Property="Visibility" Value="Visible"/></DataTrigger>
+        <DataTrigger Binding="{Binding IsCurrent}" Value="True"><Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/><Setter Property="FontWeight" Value="Medium"/><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource NavActiveBrush}"/><Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource BorderBrush}"/><Setter TargetName="ActiveBar" Property="Visibility" Value="Visible"/></DataTrigger>
       </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="TextAction" TargetType="Button" BasedOn="{StaticResource BaseButton}"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/><Setter Property="Padding" Value="0"/><Setter Property="MinHeight" Value="24"/><Setter Property="FontWeight" Value="Normal"/></Style>
