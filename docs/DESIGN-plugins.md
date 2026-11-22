@@ -46,7 +46,7 @@ If a later change needs to break one of these rules, it needs a new RFC and the 
 ```text
 ControlSpawn.Service.exe  (LocalSystem today, Core after the split)
  ├─ ControlSpawn.FanGuard.exe      fan watchdog, stdin only, unchanged
- ├─ GPU sensor host                child process (PR #49), unchanged
+ ├─ GPU sensor host                child process (since 1.0.5), unchanged
  └─ PluginModule
      ├─ com.controlspawn.yeelight  AppContainer, job object, private pipe
      ├─ com.controlspawn.mihome    AppContainer, job object, private pipe
@@ -305,7 +305,7 @@ Each spike ends with a short written result in `docs/`, run on the owner's PC wh
 
 ## 12. How it gets built
 
-Each step is its own PR, ships on its own, and changes nothing users see until step 5. Implementation PRs that touch `ServiceRuntime` or `Program.cs` wait until the open crash-fix PRs (#47, #49, #50) are merged, because those PRs change the same files.
+Each step is its own PR, ships on its own, and changes nothing users see until step 5. The crash-fix PRs that changed `ServiceRuntime`, `FanGuard.cs` and `Program.cs` (#47, #49, #50, #53, #54, #56) are merged, so implementation can start from 1.0.5.
 
 1. **Contracts.** `contracts/plugin-protocol@1.json`, `light@1`, `appliance@1`, `network@1`. Generated C# types. A test that the protocol has no fan or safety method (rule 1).
 2. **`PluginModule` with an in-memory fake plugin.** No processes yet. Lifecycle, limits, backoff, disable, safe mode. Tests for rules 5 and 6 with fakes.
